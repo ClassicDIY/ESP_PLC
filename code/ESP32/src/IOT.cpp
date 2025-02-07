@@ -123,6 +123,9 @@ namespace ESP_PLC
 				doc["uptime"] = formatDuration(millis() - _lastBootTimeStamp);
 				_iot.Publish("status", doc, true);
 			}
+			else{
+				_iot.IOTCB()->onMqttMessage(topic, doc);
+			}
 		}
 	}
 
@@ -372,7 +375,7 @@ namespace ESP_PLC
 		return s;
 	};
 
-	std::string IOT::getTankName()
+	std::string IOT::getSubtopicName()
 	{
 		std::string s(mqttSubtopicParam.value());
 		return s;

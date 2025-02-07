@@ -15,8 +15,6 @@ namespace ESP_PLC
 	int digitalOutputPins[DO_PINS] = {GPIO_NUM_26, GPIO_NUM_27, GPIO_NUM_32, GPIO_NUM_33};
 	int analogInputPins[AI_PINS] = {GPIO_NUM_34, GPIO_NUM_35, GPIO_NUM_36, GPIO_NUM_39};
 
-	uint32_t testData[4] = {1111, 2222, 3333, 4444};
-
 	iotwebconf::ParameterGroup Gpio_group = iotwebconf::ParameterGroup("gpio", "GPIOs");
 	iotwebconf::IntTParameter<int16_t> digitalInputsParam = iotwebconf::Builder<iotwebconf::IntTParameter<int16_t>>("digitalInputs").label("Digital Inputs").defaultValue(DI_PINS).min(0).max(DI_PINS).build();
 	iotwebconf::IntTParameter<int16_t> analogInputsParam = iotwebconf::Builder<iotwebconf::IntTParameter<int16_t>>("analogInputs").label("Analog Inputs").defaultValue(AI_PINS).min(0).max(AI_PINS).build();
@@ -36,9 +34,28 @@ namespace ESP_PLC
 		s += "GPIO:";
 		s += "<ul>";
 		s += htmlConfigEntry<int16_t>(digitalInputsParam.label, digitalInputsParam.value());
-		s += htmlConfigEntry<int16_t>(analogInputsParam.label, analogInputsParam.value());
-		s += "</ul>";
 
+		char buffer[STR_LEN];
+		s += "<li>Digital Input GPIOs: ";
+		for (int i = 0; i < digitalInputsParam.value(); i++)
+		{
+			sprintf(buffer, "GPIO%d ", digitalInputPins[i]);
+			s += buffer;
+		}
+		s += htmlConfigEntry<int16_t>(analogInputsParam.label, analogInputsParam.value());
+		s += "</li><li>Analog Input GPIOs: ";
+		for (int i = 0; i < analogInputsParam.value(); i++)
+		{
+			sprintf(buffer, "GPIO%d ", analogInputPins[i]);
+			s += buffer;
+		}
+		s += "</li><li>Digital Output GPIOs: ";
+		for (int i = 0; i < DO_PINS; i++)
+		{
+			sprintf(buffer, "GPIO%d ", digitalOutputPins[i]);
+			s += buffer;
+		}
+		s += "</li></ul>";
 		s += "Modbus:";
 		s += "<ul>";
 		s += htmlConfigEntry<int16_t>(modbusPort.label, modbusPort.value());
@@ -290,11 +307,15 @@ namespace ESP_PLC
 		doc.clear();
 		for (int i = 0; i < digitalInputsParam.value(); i++)
 		{
-			doc["GPIO " + String(digitalInputPins[i])] = digitalRead(digitalInputPins[i]) ? "High" : "Low";
+			doc["GPIO_" + String(digitalInputPins[i])] = digitalRead(digitalInputPins[i]) ? "High" : "Low";
 		}
 		for (int i = 0; i < analogInputsParam.value(); i++)
 		{
-			doc["GPIO " + String(analogInputPins[i])] = analogReadMilliVolts(analogInputPins[i]);
+			doc["GPIO_" + String(analogInputPins[i])] = analogReadMilliVolts(analogInputPins[i]);
+		}
+		for (int i = 0; i < DO_PINS; i++)
+		{
+			doc["GPIO_" + String(digitalOutputPins[i])] = digitalRead(digitalOutputPins[i]);
 		}
 		String s;
 		serializeJson(doc, s);
@@ -318,60 +339,61 @@ namespace ESP_PLC
 			char buffer[STR_LEN];
 			JsonDocument doc;
 			JsonObject device = doc["device"].to<JsonObject>();
-			device["name"] = _iot->getTankName();
+			device["name"] = _iot->getSubtopicName();
 			device["sw_version"] = CONFIG_VERSION;
 			device["manufacturer"] = "ClassicDIY";
 			sprintf(buffer, "ESP32-Bit (%X)", _iot->getUniqueId());
 			device["model"] = buffer;
 
 			JsonObject origin = doc["origin"].to<JsonObject>();
-			origin["name"] = "Tank";
+			origin["name"] = TAG;
 
 			JsonArray identifiers = device["identifiers"].to<JsonArray>();
 			sprintf(buffer, "%X", _iot->getUniqueId());
 			identifiers.add(buffer);
 
 			JsonObject components = doc["components"].to<JsonObject>();
-			JsonObject level = components["level"].to<JsonObject>();
-			level["platform"] = "sensor";
-			level["name"] = "level";
-			level["unit_of_measurement"] = "%";
-			level["value_template"] = "{{ value_json.level }}";
-			sprintf(buffer, "%X_level", _iot->getUniqueId());
-			level["unique_id"] = buffer;
-			level["icon"] = "mdi:hydraulic-oil-level";
 
-			// JsonObject pump1 = components["pump1"].to<JsonObject>();
-			// pump1["platform"] = "sensor";
-			// pump1["name"] = "pump1";
-			// pump1["value_template"] = "{{ value_json.pump1 }}";
-			// sprintf(buffer, "%X_pump1",  _iot->getUniqueId());
-			// pump1["unique_id"] = buffer;
-			// pump1["icon"] = "mdi:pump";
-
-			// JsonObject pump2 = components["pump2"].to<JsonObject>();
-			// pump2["platform"] = "sensor";
-			// pump2["name"] = "pump2";
-			// pump2["value_template"] = "{{ value_json.pump2 }}";
-			// sprintf(buffer, "%X_pump2",  _iot->getUniqueId());
-			// pump2["unique_id"] = buffer;
-			// pump2["icon"] = "mdi:pump";
-
-			// JsonObject pump3 = components["pump3"].to<JsonObject>();
-			// pump3["platform"] = "sensor";
-			// pump3["name"] = "pump3";
-			// pump3["value_template"] = "{{ value_json.pump3 }}";
-			// sprintf(buffer, "%X_pump3",  _iot->getUniqueId());
-			// pump3["unique_id"] = buffer;
-			// pump3["icon"] = "mdi:pump";
-
-			// JsonObject pump4 = components["pump4"].to<JsonObject>();
-			// pump4["platform"] = "sensor";
-			// pump4["name"] = "pump4";
-			// pump4["value_template"] = "{{ value_json.pump4 }}";
-			// sprintf(buffer, "%X_pump4",  _iot->getUniqueId());
-			// pump4["unique_id"] = buffer;
-			// pump4["icon"] = "mdi:pump";
+			for (int i = 0; i < digitalInputsParam.value(); i++)
+			{
+				sprintf(buffer, "GPIO_%d", digitalInputPins[i]);
+				JsonObject din = components[buffer].to<JsonObject>();
+				din["platform"] = "sensor";
+				sprintf(buffer, "GPIO %d", digitalInputPins[i]);
+				din["name"] = buffer;
+				sprintf(buffer, "%X_GPIO_%d", _iot->getUniqueId(), digitalInputPins[i]);
+				din["unique_id"] = buffer;
+				sprintf(buffer, "{{ value_json.GPIO_%d }}", digitalInputPins[i]);
+				din["value_template"] = buffer;
+				din["icon"] = "mdi:switch";
+			}
+			for (int i = 0; i < analogInputsParam.value(); i++)
+			{
+				sprintf(buffer, "GPIO_%d", analogInputPins[i]);
+				JsonObject ain = components[buffer].to<JsonObject>();
+				ain["platform"] = "sensor";
+				sprintf(buffer, "GPIO %d", analogInputPins[i]);
+				ain["name"] = buffer;
+				ain["unit_of_measurement"] = "mV";
+				sprintf(buffer, "%X_GPIO_%d", _iot->getUniqueId(), analogInputPins[i]);
+				ain["unique_id"] = buffer;
+				sprintf(buffer, "{{ value_json.GPIO_%d }}", analogInputPins[i]);
+				ain["value_template"] = buffer;
+				ain["icon"] = "mdi:lightning-bolt";
+			}
+			for (int i = 0; i < DO_PINS; i++)
+			{
+				sprintf(buffer, "GPIO_%d", digitalOutputPins[i]);
+				JsonObject dout = components[buffer].to<JsonObject>();
+				dout["platform"] = "sensor";
+				sprintf(buffer, "GPIO %d", digitalOutputPins[i]);
+				dout["name"] = buffer;
+				sprintf(buffer, "%X_GPIO_%d", _iot->getUniqueId(), digitalOutputPins[i]);
+				dout["unique_id"] = buffer;
+				sprintf(buffer, "{{ value_json.GPIO_%d }}", digitalOutputPins[i]);
+				dout["value_template"] = buffer;
+				dout["icon"] = "mdi:valve-open";
+			}
 
 			sprintf(buffer, "%s/stat/readings", _iot->getRootTopicPrefix().c_str());
 			doc["state_topic"] = buffer;
@@ -382,6 +404,25 @@ namespace ESP_PLC
 
 			_iot->PublishHADiscovery(doc);
 			_discoveryPublished = true;
+		}
+	}
+
+	void PLC::onMqttMessage(char *topic, JsonDocument &doc)
+	{
+		logd("onMqttMessage %s", topic);
+		if (doc.containsKey("command"))
+		{
+			if (strcmp(doc["command"], "Write Coil") == 0)
+			{
+				int coil = doc["coil"];
+				coil -= 1;
+				if (coil >= 0 && coil < DO_PINS)
+				{
+					int state = strcmp(doc["state"], "HIGH") == 0 ? HIGH : LOW;
+					digitalWrite(digitalOutputPins[coil], state);
+					logi("Write Coil %d %d", coil, state);
+				}
+			}
 		}
 	}
 }

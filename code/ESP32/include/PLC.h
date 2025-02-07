@@ -18,6 +18,7 @@ namespace ESP_PLC
 		iotwebconf::ParameterGroup* parameterGroup() ;
 		bool validate(iotwebconf::WebRequestWrapper* webRequestWrapper);
 		void onMqttConnect(bool sessionPresent);
+		void onMqttMessage(char* topic, JsonDocument& doc);
 		void onWiFiConnect();
 	
 	protected:
@@ -25,6 +26,7 @@ namespace ESP_PLC
 		bool ReadyToPublish() {
 			return (!_discoveryPublished);
 		}
+
 	private:
 		IOTServiceInterface* _iot;
 		boolean _discoveryPublished = false;
