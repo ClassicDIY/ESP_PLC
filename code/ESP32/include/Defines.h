@@ -14,7 +14,8 @@
 #define toShort(i, v) (v[i++]<<8) | v[i++]
 
 #define ADC_Resolution 4095.0
-#define SAMPLESIZE 10
+#define SAMPLESIZE 20
+#define MQTT_PUBLISH_RATE_LIMIT 500 // delay between MQTT publishes
 
 #define DI_PINS 12	// Number of digital input pins
 #define DO_PINS 4	// Number of digital output pins

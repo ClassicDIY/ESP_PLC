@@ -5,16 +5,10 @@
 
 #include "Log.h"
 #include "HelperFunctions.h"
-
 #include "PLC.h"
 
 namespace ESP_PLC
 {
-
-	int digitalInputPins[DI_PINS] = {GPIO_NUM_12, GPIO_NUM_13, GPIO_NUM_14, GPIO_NUM_15, GPIO_NUM_16, GPIO_NUM_17, GPIO_NUM_18, GPIO_NUM_19, GPIO_NUM_21, GPIO_NUM_22, GPIO_NUM_23, GPIO_NUM_25};
-	int digitalOutputPins[DO_PINS] = {GPIO_NUM_26, GPIO_NUM_27, GPIO_NUM_32, GPIO_NUM_33};
-	int analogInputPins[AI_PINS] = {GPIO_NUM_34, GPIO_NUM_35, GPIO_NUM_36, GPIO_NUM_39};
-
 	iotwebconf::ParameterGroup Gpio_group = iotwebconf::ParameterGroup("gpio", "GPIOs");
 	iotwebconf::IntTParameter<int16_t> digitalInputsParam = iotwebconf::Builder<iotwebconf::IntTParameter<int16_t>>("digitalInputs").label("Digital Inputs").defaultValue(DI_PINS).min(0).max(DI_PINS).build();
 	iotwebconf::IntTParameter<int16_t> analogInputsParam = iotwebconf::Builder<iotwebconf::IntTParameter<int16_t>>("analogInputs").label("Analog Inputs").defaultValue(AI_PINS).min(0).max(AI_PINS).build();
@@ -25,7 +19,6 @@ namespace ESP_PLC
 
 	PLC::PLC() : MBserver()
 	{
-		GPIO_NUM_0;
 	}
 
 	String PLC::getSettingsHTML()
@@ -39,21 +32,21 @@ namespace ESP_PLC
 		s += "<li>Digital Input GPIOs: ";
 		for (int i = 0; i < digitalInputsParam.value(); i++)
 		{
-			sprintf(buffer, "GPIO%d ", digitalInputPins[i]);
-			s += buffer;
+			s += _DigitalSensors[i].Pin().c_str();
+			s += " ";
 		}
 		s += htmlConfigEntry<int16_t>(analogInputsParam.label, analogInputsParam.value());
 		s += "</li><li>Analog Input GPIOs: ";
 		for (int i = 0; i < analogInputsParam.value(); i++)
 		{
-			sprintf(buffer, "GPIO%d ", analogInputPins[i]);
-			s += buffer;
+			s += _AnalogSensors[i].Pin().c_str();
+			s += " ";
 		}
 		s += "</li><li>Digital Output GPIOs: ";
 		for (int i = 0; i < DO_PINS; i++)
 		{
-			sprintf(buffer, "GPIO%d ", digitalOutputPins[i]);
-			s += buffer;
+			s += _Coils[i].Pin().c_str();
+			s += " ";
 		}
 		s += "</li></ul>";
 		s += "Modbus:";
@@ -86,19 +79,6 @@ namespace ESP_PLC
 		Modbus_group.addItem(&modbusPort);
 		Modbus_group.addItem(&modbusID);
 		Gpio_group.addItem(&Modbus_group);
-
-		for (int i = 0; i < DI_PINS; i++)
-		{
-			pinMode(digitalInputPins[i], INPUT_PULLUP);
-		}
-		for (int i = 0; i < DO_PINS; i++)
-		{
-			pinMode(digitalOutputPins[i], OUTPUT);
-		}
-		for (int i = 0; i < AI_PINS; i++)
-		{
-			pinMode(analogInputPins[i], ANALOG);
-		}
 	}
 
 	void PLC::onWiFiConnect()
@@ -107,10 +87,7 @@ namespace ESP_PLC
 		{
 			MBserver.start(modbusPort.value(), 5, 0); // listen for modbus requests
 		}
-		for (int i = 0; i < DO_PINS; i++)
-		{
-			_digitalOutputCoils.set(i, digitalRead(_digitalOutputCoils[i]));
-		}
+
 		// READ_INPUT_REGISTER
 		auto modbusFC04 = [this](ModbusMessage request) -> ModbusMessage
 		{
@@ -130,10 +107,9 @@ namespace ESP_PLC
 				response.add(request.getServerID(), request.getFunctionCode(), (uint8_t)(words * 2));
 				for (int i = addr; i < (addr + words); i++)
 				{
-					response.add((uint16_t)analogReadMilliVolts(analogInputPins[i]));
+					response.add((uint16_t)_AnalogSensors[i].Level());
 				}
 			}
-
 			return response;
 		};
 
@@ -153,7 +129,7 @@ namespace ESP_PLC
 			}
 			for (int i = 0; i < DO_PINS; i++)
 			{
-				_digitalOutputCoils.set(i, digitalRead(digitalOutputPins[i]));
+				_digitalOutputCoils.set(i, _Coils[i].Level());
 			}
 			vector<uint8_t> coilset = _digitalOutputCoils.slice(start, numCoils);
 			response.add(request.getServerID(), request.getFunctionCode(), (uint8_t)coilset.size(), coilset);
@@ -176,7 +152,7 @@ namespace ESP_PLC
 			}
 			for (int i = 0; i < DI_PINS; i++)
 			{
-				_digitalInputDiscretes.set(i, digitalRead(digitalInputPins[i]));
+				_digitalInputDiscretes.set(i, _DigitalSensors[i].Level());
 			}
 			vector<uint8_t> coilset = _digitalInputDiscretes.slice(start, numDiscretes);
 			response.add(request.getServerID(), request.getFunctionCode(), (uint8_t)coilset.size(), coilset);
@@ -201,7 +177,7 @@ namespace ESP_PLC
 					// Yes. We can set the coil
 					if (_digitalOutputCoils.set(start, state))
 					{
-						digitalWrite(digitalOutputPins[start], state == 0xFF00 ? true : false);
+						_Coils[start].Set(state == 0xFF00 ? HIGH : LOW);
 						// All fine, coil was set.
 						response = ECHO_RESPONSE;
 					}
@@ -251,7 +227,7 @@ namespace ESP_PLC
 					{
 						for (int i = 0; i < DO_PINS; i++)
 						{
-							digitalWrite(digitalOutputPins[i], _digitalOutputCoils[i]);
+							_Coils[i].Set(_digitalOutputCoils[i]);
 						}
 						// All fine, return shortened echo response, like the standard says
 						response.add(request.getServerID(), request.getFunctionCode(), start, numCoils);
@@ -282,40 +258,21 @@ namespace ESP_PLC
 		MBserver.registerWorker(modbusID.value(), WRITE_MULT_COILS, modbusFC0F);
 	}
 
-	uint16_t PLC::AddReading(uint16_t val)
-	{
-		uint16_t currentAvg = 0;
-		if (_numberOfSummations > 0)
-		{
-			currentAvg = _rollingSum / _numberOfSummations;
-		}
-		if (_numberOfSummations < SAMPLESIZE)
-		{
-			_numberOfSummations++;
-		}
-		else
-		{
-			_rollingSum -= currentAvg;
-		}
-		_rollingSum += val;
-		return _rollingSum / _numberOfSummations;
-	}
-
 	void PLC::Process()
 	{
 		JsonDocument doc;
 		doc.clear();
 		for (int i = 0; i < digitalInputsParam.value(); i++)
 		{
-			doc["GPIO_" + String(digitalInputPins[i])] = digitalRead(digitalInputPins[i]) ? "High" : "Low";
+			doc[_DigitalSensors[i].Pin()] = _DigitalSensors[i].Level() ? "High" : "Low";
 		}
 		for (int i = 0; i < analogInputsParam.value(); i++)
 		{
-			doc["GPIO_" + String(analogInputPins[i])] = analogReadMilliVolts(analogInputPins[i]);
+			doc[_AnalogSensors[i].Pin()] = _AnalogSensors[i].Level();
 		}
 		for (int i = 0; i < DO_PINS; i++)
 		{
-			doc["GPIO_" + String(digitalOutputPins[i])] = digitalRead(digitalOutputPins[i]);
+			doc[_Coils[i].Pin()] = _Coils[i].Level() ? "On" : "Off";
 		}
 		String s;
 		serializeJson(doc, s);
@@ -323,10 +280,14 @@ namespace ESP_PLC
 		{
 			return;
 		}
-		_iot->Online();
-		if (_iot->Publish("readings", s.c_str(), false))
+		if (_lastPublishTimeStamp < millis()) // limit publish rate
 		{
-			_lastMessagePublished = s;
+			_iot->Online();
+			if (_iot->Publish("readings", s.c_str(), false))
+			{
+				_lastMessagePublished = s;
+				_lastPublishTimeStamp = millis() + MQTT_PUBLISH_RATE_LIMIT;
+			}
 		}
 		return;
 	}
@@ -356,41 +317,35 @@ namespace ESP_PLC
 
 			for (int i = 0; i < digitalInputsParam.value(); i++)
 			{
-				sprintf(buffer, "GPIO_%d", digitalInputPins[i]);
-				JsonObject din = components[buffer].to<JsonObject>();
+				JsonObject din = components[_DigitalSensors[i].Pin()].to<JsonObject>();
 				din["platform"] = "sensor";
-				sprintf(buffer, "GPIO %d", digitalInputPins[i]);
-				din["name"] = buffer;
-				sprintf(buffer, "%X_GPIO_%d", _iot->getUniqueId(), digitalInputPins[i]);
+				din["name"] = _DigitalSensors[i].Pin().c_str();
+				sprintf(buffer, "%X_%s", _iot->getUniqueId(), _DigitalSensors[i].Pin().c_str());
 				din["unique_id"] = buffer;
-				sprintf(buffer, "{{ value_json.GPIO_%d }}", digitalInputPins[i]);
+				sprintf(buffer, "{{ value_json.%s }}", _DigitalSensors[i].Pin().c_str());
 				din["value_template"] = buffer;
 				din["icon"] = "mdi:switch";
 			}
 			for (int i = 0; i < analogInputsParam.value(); i++)
 			{
-				sprintf(buffer, "GPIO_%d", analogInputPins[i]);
-				JsonObject ain = components[buffer].to<JsonObject>();
+				JsonObject ain = components[_AnalogSensors[i].Pin()].to<JsonObject>();
 				ain["platform"] = "sensor";
-				sprintf(buffer, "GPIO %d", analogInputPins[i]);
-				ain["name"] = buffer;
-				ain["unit_of_measurement"] = "mV";
-				sprintf(buffer, "%X_GPIO_%d", _iot->getUniqueId(), analogInputPins[i]);
+				ain["name"] = _AnalogSensors[i].Pin().c_str();
+				ain["unit_of_measurement"] = "%";
+				sprintf(buffer, "%X_%s", _iot->getUniqueId(), _AnalogSensors[i].Pin().c_str());
 				ain["unique_id"] = buffer;
-				sprintf(buffer, "{{ value_json.GPIO_%d }}", analogInputPins[i]);
+				sprintf(buffer, "{{ value_json.%s }}", _AnalogSensors[i].Pin().c_str());
 				ain["value_template"] = buffer;
 				ain["icon"] = "mdi:lightning-bolt";
 			}
 			for (int i = 0; i < DO_PINS; i++)
 			{
-				sprintf(buffer, "GPIO_%d", digitalOutputPins[i]);
-				JsonObject dout = components[buffer].to<JsonObject>();
+				JsonObject dout = components[_Coils[i].Pin()].to<JsonObject>();
 				dout["platform"] = "sensor";
-				sprintf(buffer, "GPIO %d", digitalOutputPins[i]);
-				dout["name"] = buffer;
-				sprintf(buffer, "%X_GPIO_%d", _iot->getUniqueId(), digitalOutputPins[i]);
+				dout["name"] = _Coils[i].Pin().c_str();
+				sprintf(buffer, "%X_%s", _iot->getUniqueId(), _Coils[i].Pin().c_str());
 				dout["unique_id"] = buffer;
-				sprintf(buffer, "{{ value_json.GPIO_%d }}", digitalOutputPins[i]);
+				sprintf(buffer, "{{ value_json.%s }}", _Coils[i].Pin().c_str());
 				dout["value_template"] = buffer;
 				dout["icon"] = "mdi:valve-open";
 			}
@@ -419,7 +374,7 @@ namespace ESP_PLC
 				if (coil >= 0 && coil < DO_PINS)
 				{
 					int state = strcmp(doc["state"], "HIGH") == 0 ? HIGH : LOW;
-					digitalWrite(digitalOutputPins[coil], state);
+					_Coils[coil].Set(state);
 					logi("Write Coil %d %d", coil, state);
 				}
 			}
