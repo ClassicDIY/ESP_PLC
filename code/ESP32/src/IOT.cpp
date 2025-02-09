@@ -41,7 +41,7 @@ namespace ESP_PLC
 		logw("Disconnected from MQTT. Reason: %d", (int8_t)reason);
 		if (WiFi.isConnected())
 		{
-			xTimerStart(mqttReconnectTimer, 0);
+			xTimerStart(mqttReconnectTimer, 5000);
 		}
 	}
 
@@ -52,18 +52,7 @@ namespace ESP_PLC
 			if (MQTT_group.isActive() && strlen(mqttServerParam.value()) > 0) // mqtt configured
 			{
 				logd("Connecting to MQTT...");
-				int len = strlen(_iotWebConf.getThingName());
-				strncpy(_rootTopicPrefix, _iotWebConf.getThingName(), len);
-				if (_rootTopicPrefix[len - 1] != '/')
-				{
-					strcat(_rootTopicPrefix, "/");
-				}
-				strcat(_rootTopicPrefix, mqttSubtopicParam.value());
-
-				sprintf(_willTopic, "%s/tele/LWT", _rootTopicPrefix);
-				_mqttClient.setWill(_willTopic, 0, true, "Offline");
 				_mqttClient.connect();
-				logd("rootTopicPrefix: %s", _rootTopicPrefix);
 			}
 		}
 	}
@@ -123,7 +112,8 @@ namespace ESP_PLC
 				doc["uptime"] = formatDuration(millis() - _lastBootTimeStamp);
 				_iot.Publish("status", doc, true);
 			}
-			else{
+			else
+			{
 				_iot.IOTCB()->onMqttMessage(topic, doc);
 			}
 		}
@@ -134,6 +124,21 @@ namespace ESP_PLC
 		_pWebServer = pWebServer;
 	}
 
+	void IRAM_ATTR resetModule()
+	{
+		logd("resetModule");
+		String s = "<!DOCTYPE html><html lang=\"en\"><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, user-scalable=no\"/>";
+		s += "<title>ESP32 Reboot</title>";
+		s += "</head><body>";
+		s += "<h1>Rebooting ESP32</h1>";
+		s += "<p><a href='/'>Return to home page after reboot has completed.</a></p>";
+		s += "</body></html>\n";
+		_pWebServer->send(200, "text/html", s);
+    	logd("Rebooting ESP32...");
+		delay(1000); // Allow time for the response to be sent
+		ESP.restart();
+	}
+	
 	void getSettingsHTML()
 	{
 		if (_iotWebConf.handleCaptivePortal()) // -- Let IotWebConf test and handle captive portal requests.
@@ -161,6 +166,7 @@ namespace ESP_PLC
 		s += "</ul>";
 		s += "<p>Go to <a href='config'>configure page</a> to change values.</p>";
 		// s += "<p><a href='/'>Return to home page.</a></p>";
+		s += "<p><a href='reboot'>Reboot ESP32</a></p>";
 		s += "</body></html>\n";
 		_pWebServer->send(200, "text/html", s);
 	}
@@ -246,6 +252,18 @@ namespace ESP_PLC
 					_mqttClient.setServer(mqttServerParam.value(), mqttPortParam.value());
 				}
 				_mqttClient.setCredentials(mqttUserNameParam.value(), mqttUserPasswordParam.value());
+				int len = strlen(_iotWebConf.getThingName());
+				strncpy(_rootTopicPrefix, _iotWebConf.getThingName(), len);
+				if (_rootTopicPrefix[len - 1] != '/')
+				{
+					strcat(_rootTopicPrefix, "/");
+				}
+				strcat(_rootTopicPrefix, mqttSubtopicParam.value());
+				logd("rootTopicPrefix: %s", _rootTopicPrefix);
+				sprintf(_willTopic, "%s/tele/LWT", _rootTopicPrefix);
+				logd("_willTopic: %s", _willTopic);
+				_mqttClient.setWill(_willTopic, 0, true, "Offline");
+				
 			}
 		}
 		// generate unique id from mac address NIC segment
@@ -258,6 +276,8 @@ namespace ESP_PLC
 		_pWebServer->on("/", getSettingsHTML);
 		_pWebServer->on("/config", []()
 						{ _iotWebConf.handleConfig(); });
+		_pWebServer->on("/reboot", []()
+						{ resetModule(); });
 		_pWebServer->onNotFound([]()
 								{ _iotWebConf.handleNotFound(); });
 	}

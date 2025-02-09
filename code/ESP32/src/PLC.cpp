@@ -54,7 +54,6 @@ namespace ESP_PLC
 		s += htmlConfigEntry<int16_t>(modbusPort.label, modbusPort.value());
 		s += htmlConfigEntry<int16_t>(modbusID.label, modbusID.value());
 		s += "</ul>";
-
 		return s;
 	}
 
