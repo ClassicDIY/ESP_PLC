@@ -7,7 +7,7 @@
 #include <ThreadController.h>
 #include <Thread.h>
 #include "ModbusServerTCPasync.h"
-#include "Log.h"
+#include "WebLog.h"
 #include "IOT.h"
 #include "PLC.h"
 
@@ -16,11 +16,12 @@
 
 using namespace ESP_PLC;
 
+WebSocketsServer webSocket = WebSocketsServer(WSOCKET_PORT);
 WebServer _webServer(80);
 IOT _iot = IOT(&_webServer);
 ThreadController _controller = ThreadController();
 Thread *_workerThreadWaterLevelMonitor = new Thread();
-PLC* _plc = new PLC();
+PLC* _plc = new PLC(&webSocket);
 
 hw_timer_t *_watchdogTimer = NULL;
 

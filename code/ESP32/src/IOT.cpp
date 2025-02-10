@@ -1,14 +1,14 @@
-#include "IOT.h"
+
 #include <sys/time.h>
 #include <EEPROM.h>
 #include "time.h"
-#include "Log.h"
+#include "WebLog.h"
 #include "HelperFunctions.h"
-#include "IotWebConfOptionalGroup.h"
-#include <IotWebConfTParameter.h>
+#include "IOT.h"
 
 namespace ESP_PLC
 {
+
 	AsyncMqttClient _mqttClient;
 	TimerHandle_t mqttReconnectTimer;
 	DNSServer _dnsServer;
@@ -146,14 +146,20 @@ namespace ESP_PLC
 			logd("Captive portal"); // -- Captive portal request were already served.
 			return;
 		}
+		
 		logd("handleSettings");
+		String ip = WiFi.localIP().toString();
+		String pitem = optionalGroupHtmlFormatProvider.getConfigVer();
+		pitem.replace("{v}", CONFIG_VERSION);
 		String s = "<!DOCTYPE html><html lang=\"en\"><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, user-scalable=no\"/>";
 		s += "<title>";
 		s += _iotWebConf.getThingName();
 		s += "</title></head><body>";
 		s += "<h2>";
 		s += _iotWebConf.getThingName();
-		s += " Settings</h2><hr><p>";
+		s += " Settings</h2>";
+		s += pitem;
+		s += "<hr><p>";
 		s += _iot.IOTCB()->getSettingsHTML();
 		s += "</p>";
 		s += "MQTT:";
@@ -164,10 +170,12 @@ namespace ESP_PLC
 		s += htmlConfigEntry<const char *>(mqttUserPasswordParam.label, strlen(mqttUserPasswordParam.value()) > 0 ? "********" : "");
 		s += htmlConfigEntry<char *>(mqttSubtopicParam.label, mqttSubtopicParam.value());
 		s += "</ul>";
-		s += "<p>Go to <a href='config'>configure page</a> to change values.</p>";
-		// s += "<p><a href='/'>Return to home page.</a></p>";
+		s += "<div style='padding-top:25px;'>";
+		s += "<p><a href='config' target='_blank'>Configuration</a></p>";
+		s += "<p><a href='http://" + ip + ":7667' target='_blank'>Web Log</a></p>";
+		s += "<p><a href='firmware'>Firmware update</a></p>";
 		s += "<p><a href='reboot'>Reboot ESP32</a></p>";
-		s += "</body></html>\n";
+		s += "</div></body></html>\n";
 		_pWebServer->send(200, "text/html", s);
 	}
 
@@ -274,12 +282,10 @@ namespace ESP_PLC
 		_uniqueId += chipid[5];
 		// Set up required URL handlers on the web server.
 		_pWebServer->on("/", getSettingsHTML);
-		_pWebServer->on("/config", []()
-						{ _iotWebConf.handleConfig(); });
-		_pWebServer->on("/reboot", []()
-						{ resetModule(); });
-		_pWebServer->onNotFound([]()
-								{ _iotWebConf.handleNotFound(); });
+		_pWebServer->on("/config", []()	{ _iotWebConf.handleConfig(); });
+		_pWebServer->on("/reboot", []()	{ resetModule(); });
+		_pWebServer->onNotFound([]() { _iotWebConf.handleNotFound(); });
+
 	}
 
 	boolean IOT::Run()

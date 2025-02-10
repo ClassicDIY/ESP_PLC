@@ -3,12 +3,20 @@
 #include "IotWebConfOptionalGroup.h"
 #include <IotWebConfTParameter.h>
 
-#include "Log.h"
+#include "WebLog.h"
 #include "HelperFunctions.h"
 #include "PLC.h"
 
+#include <WebSocketsServer.h>
+#include <ESPAsyncWebServer.h>
+#include <AsyncTCP.h>
+
+#include "html.h"
+
 namespace ESP_PLC
 {
+	AsyncWebServer asyncServer(ASYNC_WEBSERVER_PORT);
+
 	iotwebconf::ParameterGroup Gpio_group = iotwebconf::ParameterGroup("gpio", "GPIOs");
 	iotwebconf::IntTParameter<int16_t> digitalInputsParam = iotwebconf::Builder<iotwebconf::IntTParameter<int16_t>>("digitalInputs").label("Digital Inputs").defaultValue(DI_PINS).min(0).max(DI_PINS).build();
 	iotwebconf::IntTParameter<int16_t> analogInputsParam = iotwebconf::Builder<iotwebconf::IntTParameter<int16_t>>("analogInputs").label("Analog Inputs").defaultValue(AI_PINS).min(0).max(AI_PINS).build();
@@ -17,8 +25,9 @@ namespace ESP_PLC
 	iotwebconf::IntTParameter<int16_t> modbusPort = iotwebconf::Builder<iotwebconf::IntTParameter<int16_t>>("modbusPort").label("Modbus Port").defaultValue(502).build();
 	iotwebconf::IntTParameter<int16_t> modbusID = iotwebconf::Builder<iotwebconf::IntTParameter<int16_t>>("modbusID").label("Modbus ID").defaultValue(1).min(0).max(247).build();
 
-	PLC::PLC() : MBserver()
+	PLC::PLC(WebSocketsServer* webSocket) : MBserver()
 	{
+		_pWebSocket = webSocket;
 	}
 
 	String PLC::getSettingsHTML()
@@ -78,6 +87,19 @@ namespace ESP_PLC
 		Modbus_group.addItem(&modbusPort);
 		Modbus_group.addItem(&modbusID);
 		Gpio_group.addItem(&Modbus_group);
+	}
+		
+	// WebSocket event handler
+	void onWebSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length)
+	{
+		if (type == WStype_DISCONNECTED)
+		{
+			Serial.printf("[%u] Disconnected!\n", num);
+		}
+		else if (type == WStype_CONNECTED)
+		{
+			Serial.printf("[%u] Connected!\n", num);
+		}
 	}
 
 	void PLC::onWiFiConnect()
@@ -255,6 +277,13 @@ namespace ESP_PLC
 		MBserver.registerWorker(modbusID.value(), READ_DISCR_INPUT, modbusFC02);
 		MBserver.registerWorker(modbusID.value(), WRITE_COIL, modbusFC05);
 		MBserver.registerWorker(modbusID.value(), WRITE_MULT_COILS, modbusFC0F);
+
+		asyncServer.begin();
+		_pWebSocket->begin();
+		_pWebSocket->onEvent(onWebSocketEvent);
+		asyncServer.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+			request->send(200, "text/html", web_serial_html);
+		});
 	}
 
 	void PLC::Process()
@@ -288,6 +317,7 @@ namespace ESP_PLC
 				_lastPublishTimeStamp = millis() + MQTT_PUBLISH_RATE_LIMIT;
 			}
 		}
+		_pWebSocket->loop();
 		return;
 	}
 

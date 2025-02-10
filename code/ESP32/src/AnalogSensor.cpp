@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#include "Log.h"
+#include "WebLog.h"
 #include "Defines.h"
 #include "AnalogSensor.h"
 

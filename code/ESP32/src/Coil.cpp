@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#include "Log.h"
+#include "WebLog.h"
 #include "Coil.h"
 
 namespace ESP_PLC

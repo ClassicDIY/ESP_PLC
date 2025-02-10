@@ -17,6 +17,9 @@
 #define SAMPLESIZE 20
 #define MQTT_PUBLISH_RATE_LIMIT 500 // delay between MQTT publishes
 
+#define ASYNC_WEBSERVER_PORT 7667
+#define WSOCKET_PORT 7668
+
 #define DI_PINS 12	// Number of digital input pins
 #define DO_PINS 4	// Number of digital output pins
 #define AI_PINS 4	// Number of analog input pins
