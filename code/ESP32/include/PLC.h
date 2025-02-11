@@ -14,7 +14,10 @@ namespace ESP_PLC
 	{
 	
 	public:
-		PLC(WebSocketsServer* webSocket);
+		PLC(WebSocketsServer* webSocket) : MBserver()
+		{
+			_pWebSocket = webSocket;
+		}
 		void setup(IOTServiceInterface* pcb);
 		void Process();
 		//IOTCallbackInterface 

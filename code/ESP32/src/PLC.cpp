@@ -25,10 +25,7 @@ namespace ESP_PLC
 	iotwebconf::IntTParameter<int16_t> modbusPort = iotwebconf::Builder<iotwebconf::IntTParameter<int16_t>>("modbusPort").label("Modbus Port").defaultValue(502).build();
 	iotwebconf::IntTParameter<int16_t> modbusID = iotwebconf::Builder<iotwebconf::IntTParameter<int16_t>>("modbusID").label("Modbus ID").defaultValue(1).min(0).max(247).build();
 
-	PLC::PLC(WebSocketsServer* webSocket) : MBserver()
-	{
-		_pWebSocket = webSocket;
-	}
+
 
 	String PLC::getSettingsHTML()
 	{
@@ -281,8 +278,16 @@ namespace ESP_PLC
 		asyncServer.begin();
 		_pWebSocket->begin();
 		_pWebSocket->onEvent(onWebSocketEvent);
-		asyncServer.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+		asyncServer.on("/log", HTTP_GET, [](AsyncWebServerRequest *request){
 			request->send(200, "text/html", web_serial_html);
+		});
+
+		asyncServer.on("/", HTTP_GET, [this](AsyncWebServerRequest *request) {
+			String page = home_html;
+			page.replace("{n}", _iot->getThingName().c_str());
+			page.replace("{v}", CONFIG_VERSION);
+			page.replace("{p}", String(IOTCONFIG_PORT));
+			request->send(200, "text/html", page);
 		});
 	}
 

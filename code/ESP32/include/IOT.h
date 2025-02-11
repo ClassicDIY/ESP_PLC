@@ -8,7 +8,8 @@ extern "C"
 #include "freertos/FreeRTOS.h"
 #include "freertos/timers.h"
 }
-
+#include <sstream> 
+#include <string>
 #include <AsyncMqttClient.h>
 #include <IotWebConf.h>
 #include <IotWebConfUsing.h>
@@ -25,7 +26,7 @@ namespace ESP_PLC
 class IOT : public IOTServiceInterface
 {
 public:
-    IOT(WebServer* pWebServer);
+    IOT();
     void Init(IOTCallbackInterface* iotCB);
 
     boolean Run();
@@ -41,11 +42,22 @@ public:
     void Online();
     IOTCallbackInterface* IOTCB() { return _iotCB;}
 private:
+
     bool _clientsConfigured = false;
     IOTCallbackInterface* _iotCB;
     u_int _uniqueId = 0; // unique id from mac address NIC segment
     bool _publishedOnline = false;
 };
+
+const char reboot_html[] PROGMEM = R"rawliteral(
+    <!DOCTYPE html><html lang=\"en\"><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, user-scalable=no\"/>
+    <title>ESP32 Reboot</title>
+    </head><body>
+    <h1>Rebooting ESP32</h1>
+    <p><a href='/' onclick="javascript:event.target.port=80>Return to home page after reboot has completed.</a></p>
+    </body></html>
+    )rawliteral";
+
 } // namespace ESP_PLC
 
 extern ESP_PLC::IOT _iot;

@@ -12,9 +12,9 @@ namespace ESP_PLC
 	AsyncMqttClient _mqttClient;
 	TimerHandle_t mqttReconnectTimer;
 	DNSServer _dnsServer;
-	WebServer *_pWebServer;
 	HTTPUpdateServer _httpUpdater;
-	IotWebConf _iotWebConf(TAG, &_dnsServer, _pWebServer, DEFAULT_AP_PASSWORD, CONFIG_VERSION);
+	WebServer webServer(IOTCONFIG_PORT);
+	IotWebConf _iotWebConf(TAG, &_dnsServer, &webServer, DEFAULT_AP_PASSWORD, CONFIG_VERSION);
 	unsigned long _lastBootTimeStamp = millis();
 	char _willTopic[STR_LEN];
 	char _rootTopicPrefix[64];
@@ -119,64 +119,51 @@ namespace ESP_PLC
 		}
 	}
 
-	IOT::IOT(WebServer *pWebServer)
-	{
-		_pWebServer = pWebServer;
-	}
-
 	void IRAM_ATTR resetModule()
 	{
 		logd("resetModule");
-		String s = "<!DOCTYPE html><html lang=\"en\"><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, user-scalable=no\"/>";
-		s += "<title>ESP32 Reboot</title>";
-		s += "</head><body>";
-		s += "<h1>Rebooting ESP32</h1>";
-		s += "<p><a href='/'>Return to home page after reboot has completed.</a></p>";
-		s += "</body></html>\n";
-		_pWebServer->send(200, "text/html", s);
+		webServer.send(200, "text/html", reboot_html);
     	logd("Rebooting ESP32...");
 		delay(1000); // Allow time for the response to be sent
 		ESP.restart();
 	}
 	
-	void getSettingsHTML()
+	void sendSettingsHTML()
 	{
 		if (_iotWebConf.handleCaptivePortal()) // -- Let IotWebConf test and handle captive portal requests.
 		{
 			logd("Captive portal"); // -- Captive portal request were already served.
 			return;
 		}
-		
 		logd("handleSettings");
-		String ip = WiFi.localIP().toString();
-		String pitem = optionalGroupHtmlFormatProvider.getConfigVer();
-		pitem.replace("{v}", CONFIG_VERSION);
-		String s = "<!DOCTYPE html><html lang=\"en\"><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, user-scalable=no\"/>";
-		s += "<title>";
-		s += _iotWebConf.getThingName();
-		s += "</title></head><body>";
-		s += "<h2>";
-		s += _iotWebConf.getThingName();
-		s += " Settings</h2>";
-		s += pitem;
-		s += "<hr><p>";
-		s += _iot.IOTCB()->getSettingsHTML();
-		s += "</p>";
-		s += "MQTT:";
-		s += "<ul>";
-		s += htmlConfigEntry<char *>(mqttServerParam.label, mqttServerParam.value());
-		s += htmlConfigEntry<int16_t>(mqttPortParam.label, mqttPortParam.value());
-		s += htmlConfigEntry<char *>(mqttUserNameParam.label, mqttUserNameParam.value());
-		s += htmlConfigEntry<const char *>(mqttUserPasswordParam.label, strlen(mqttUserPasswordParam.value()) > 0 ? "********" : "");
-		s += htmlConfigEntry<char *>(mqttSubtopicParam.label, mqttSubtopicParam.value());
-		s += "</ul>";
-		s += "<div style='padding-top:25px;'>";
-		s += "<p><a href='config' target='_blank'>Configuration</a></p>";
-		s += "<p><a href='http://" + ip + ":7667' target='_blank'>Web Log</a></p>";
-		s += "<p><a href='firmware'>Firmware update</a></p>";
-		s += "<p><a href='reboot'>Reboot ESP32</a></p>";
-		s += "</div></body></html>\n";
-		_pWebServer->send(200, "text/html", s);
+		std::stringstream ss;
+		ss << "<!DOCTYPE html><html lang=\"en\"><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, user-scalable=no\"/><title>";
+		ss << _iotWebConf.getThingName();
+		ss << "</title></head><body><h2>";
+		ss << _iotWebConf.getThingName();
+		ss << " Settings</h2>";
+		ss << "<div style='font-size: .6em;'>Firmware config version ";
+		ss << CONFIG_VERSION;
+		ss << "</div><hr><p>";
+		ss << _iot.IOTCB()->getSettingsHTML().c_str();
+		ss << "</p> MQTT: <ul>";
+		ss << htmlConfigEntry<char *>(mqttServerParam.label, mqttServerParam.value()).c_str();
+		ss << htmlConfigEntry<int16_t>(mqttPortParam.label, mqttPortParam.value()).c_str();
+		ss << htmlConfigEntry<char *>(mqttUserNameParam.label, mqttUserNameParam.value()).c_str();
+		ss << htmlConfigEntry<const char *>(mqttUserPasswordParam.label, strlen(mqttUserPasswordParam.value()) > 0 ? "********" : "");
+		ss << htmlConfigEntry<char *>(mqttSubtopicParam.label, mqttSubtopicParam.value()).c_str();
+		ss << "</ul> <div style='padding-top:25px;'> <p><a href='/' onclick='javascript:event.target.port=";
+		ss << ASYNC_WEBSERVER_PORT;
+		ss << "'>Return to home page.</a></p>";
+		ss << "<p><a href='config' target='_blank'>Configuration</a><div> Log in with 'admin', AP password (default is 12345678)</div></p>";
+		ss << "<p><a href='/log'  onclick='javascript:event.target.port=";
+		ss << ASYNC_WEBSERVER_PORT;
+		ss << "' target='_blank'>Web Log</a></p>";
+		ss << "<p><a href='firmware'>Firmware update</a></p>";
+		ss << "<p><a href='reboot'>Reboot ESP32</a></p>";
+		ss << "</div></body></html>\n";
+		std::string html = ss.str();
+		webServer.send(200, "text/html", html.c_str());
 	}
 
 	void configSaved()
@@ -189,6 +176,11 @@ namespace ESP_PLC
 		if (_iot.IOTCB()->validate(webRequestWrapper) == false)
 			return false;
 		return true;
+	}
+
+	IOT::IOT()
+	{
+
 	}
 
 	void IOT::Init(IOTCallbackInterface *iotCB)
@@ -213,7 +205,7 @@ namespace ESP_PLC
 		_iotWebConf.setFormValidator(&formValidator);
 		_iotWebConf.setupUpdateServer(
 			[](const char *updatePath)
-			{ _httpUpdater.setup(_pWebServer, updatePath); },
+			{ _httpUpdater.setup(&webServer, updatePath); },
 			[](const char *userName, char *password)
 			{ _httpUpdater.updateCredentials(userName, password); });
 
@@ -281,10 +273,10 @@ namespace ESP_PLC
 		_uniqueId += chipid[4] << 8;
 		_uniqueId += chipid[5];
 		// Set up required URL handlers on the web server.
-		_pWebServer->on("/", getSettingsHTML);
-		_pWebServer->on("/config", []()	{ _iotWebConf.handleConfig(); });
-		_pWebServer->on("/reboot", []()	{ resetModule(); });
-		_pWebServer->onNotFound([]() { _iotWebConf.handleNotFound(); });
+		webServer.on("/settings", sendSettingsHTML);
+		webServer.on("/config", []()	{ _iotWebConf.handleConfig(); });
+		webServer.on("/reboot", []()	{ resetModule(); });
+		webServer.onNotFound([]() { _iotWebConf.handleNotFound(); });
 
 	}
 

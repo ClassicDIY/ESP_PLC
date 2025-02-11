@@ -17,8 +17,8 @@
 using namespace ESP_PLC;
 
 WebSocketsServer webSocket = WebSocketsServer(WSOCKET_PORT);
-WebServer _webServer(80);
-IOT _iot = IOT(&_webServer);
+
+IOT _iot = IOT();
 ThreadController _controller = ThreadController();
 Thread *_workerThreadWaterLevelMonitor = new Thread();
 PLC* _plc = new PLC(&webSocket);
