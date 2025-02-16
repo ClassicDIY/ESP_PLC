@@ -8,38 +8,45 @@ const char home_html[] PROGMEM = R"rawliteral(
 	<title>{n}</title>
 
 	<script>
-		var ws;
-	
+
 		function initWebSocket() {
-		  ws = new WebSocket('ws://' + window.location.hostname + ':{hp}/');
-		  ws.onmessage = function(event) {
-		  	const gpioValues = JSON.parse(event.data);
-			for (const [key, value] of Object.entries(gpioValues)) {
-				// console.log(`Pin: ${key}, State: ${value}`);
-				const el = document.getElementById(`${key}`);
-				if (el) {
-					const isNumeric = !isNaN(`${value}`);
-					if (isNumeric) {
-						el.innerText = `${key}: ${value}`;
-						el.style.backgroundColor = 'yellow';
-					} else {
-						if (`${value}` === `High` || `${value}` === `On`) {
-							el.style.backgroundColor = 'green';
+		  const socket = new WebSocket('ws://' + window.location.hostname + ':{hp}');
+		  socket.onmessage = function(event) {
+				const gpioValues = JSON.parse(event.data);
+				for (const [key, value] of Object.entries(gpioValues)) {
+					// console.log(`Pin: ${key}, State: ${value}`);
+					const el = document.getElementById(`${key}`);
+					if (el) {
+						const isNumeric = !isNaN(`${value}`);
+						if (isNumeric) {
+							el.innerText = `${key}: ${value}`;
+							el.style.backgroundColor = 'yellow';
 						} else {
-							el.style.backgroundColor = 'red';
+							if (`${value}` === `High` || `${value}` === `On`) {
+								el.style.backgroundColor = 'green';
+							} else {
+								el.style.backgroundColor = 'red';
+							}
 						}
 					}
 				}
-			}
-		  };
+			};
+
+			socket.onerror = function(error) {
+      			console.error('WebSocket error:', error);
+    		};
+
+			window.addEventListener('beforeunload', function() {
+				if (socket) {
+					socket.close();
+				}
+			});
 		}
-		
+
 		window.onload = function() {
 		  initWebSocket();
 		}
-		socket.onerror = function(error) {
-      		console.error('WebSocket error:', error);
-    	};
+
 	</script>
 	</head>
 	

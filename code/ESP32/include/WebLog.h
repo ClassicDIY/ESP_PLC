@@ -14,15 +14,23 @@ const char web_serial_html[] PROGMEM = R"rawliteral(
 	<head>
 	  <title>ESP32 Serial Log</title>
 	  <script>
-		var ws;
 	
 		function initWebSocket() {
-		  ws = new WebSocket('ws://' + window.location.hostname + ':7668/');
-		  ws.onmessage = function(event) {
-			document.getElementById('log').innerText += event.data;
-		  };
+			const socket = new WebSocket('ws://' + window.location.hostname + ':7668');
+			socket.onmessage = function(event) {
+				document.getElementById('log').innerText += event.data;
+			};
+
+			socket.onerror = function(error) {
+				console.error('WebSocket error:', error);
+			};
+
+			window.addEventListener('beforeunload', function() {
+				if (socket) {
+					socket.close();
+				}
+			});
 		}
-		
 		window.onload = function() {
 		  initWebSocket();
 		}
