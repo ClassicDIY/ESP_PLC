@@ -2,20 +2,20 @@
 #include "ModbusServerTCPasync.h"
 #include "IotWebConfOptionalGroup.h"
 #include <IotWebConfTParameter.h>
-
+#include "Log.h"
 #include "WebLog.h"
 #include "HelperFunctions.h"
 #include "PLC.h"
-
 #include <WebSocketsServer.h>
 #include <ESPAsyncWebServer.h>
 #include <AsyncTCP.h>
-
 #include "html.h"
 
 namespace ESP_PLC
 {
+	WebLog _webLog = WebLog();
 	AsyncWebServer asyncServer(ASYNC_WEBSERVER_PORT);
+	WebSocketsServer _webSocket = WebSocketsServer(WSOCKET_HOME_PORT);
 
 	iotwebconf::ParameterGroup Gpio_group = iotwebconf::ParameterGroup("gpio", "GPIOs");
 	iotwebconf::IntTParameter<int16_t> digitalInputsParam = iotwebconf::Builder<iotwebconf::IntTParameter<int16_t>>("digitalInputs").label("Digital Inputs").defaultValue(DI_PINS).min(0).max(DI_PINS).build();
@@ -24,8 +24,6 @@ namespace ESP_PLC
 	iotwebconf::ParameterGroup Modbus_group = iotwebconf::ParameterGroup("modbus", "Modbus");
 	iotwebconf::IntTParameter<int16_t> modbusPort = iotwebconf::Builder<iotwebconf::IntTParameter<int16_t>>("modbusPort").label("Modbus Port").defaultValue(502).build();
 	iotwebconf::IntTParameter<int16_t> modbusID = iotwebconf::Builder<iotwebconf::IntTParameter<int16_t>>("modbusID").label("Modbus ID").defaultValue(1).min(0).max(247).build();
-
-
 
 	String PLC::getSettingsHTML()
 	{
@@ -86,19 +84,6 @@ namespace ESP_PLC
 		Gpio_group.addItem(&Modbus_group);
 	}
 		
-	// WebSocket event handler
-	void onWebSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length)
-	{
-		if (type == WStype_DISCONNECTED)
-		{
-			Serial.printf("[%u] Disconnected!\n", num);
-		}
-		else if (type == WStype_CONNECTED)
-		{
-			Serial.printf("[%u] Connected!\n", num);
-		}
-	}
-
 	void PLC::onWiFiConnect()
 	{
 		if (!MBserver.isRunning())
@@ -276,17 +261,55 @@ namespace ESP_PLC
 		MBserver.registerWorker(modbusID.value(), WRITE_MULT_COILS, modbusFC0F);
 
 		asyncServer.begin();
-		_pWebSocket->begin();
-		_pWebSocket->onEvent(onWebSocketEvent);
-		asyncServer.on("/log", HTTP_GET, [](AsyncWebServerRequest *request){
-			request->send(200, "text/html", web_serial_html);
-		});
+		_webLog.begin(&asyncServer);
+		_webSocket.begin();
+		_webSocket.onEvent([](uint8_t num, WStype_t type, uint8_t *payload, size_t length)
+						   { 
+			if (type == WStype_DISCONNECTED)
+			{
+				logi("[%u] Home Page Disconnected!\n", num);
+			}
+			else if (type == WStype_CONNECTED)
+			{
+				logi("[%u] Home Page Connected!\n", num);
+			} });
 
 		asyncServer.on("/", HTTP_GET, [this](AsyncWebServerRequest *request) {
 			String page = home_html;
 			page.replace("{n}", _iot->getThingName().c_str());
 			page.replace("{v}", CONFIG_VERSION);
-			page.replace("{p}", String(IOTCONFIG_PORT));
+			page.replace("{hp}", String(WSOCKET_HOME_PORT));
+			page.replace("{cp}", String(IOTCONFIG_PORT));
+			String s;
+			for (int i = 0; i < digitalInputsParam.value(); i++)
+			{
+				s += "<div class='box' id=";
+				s += _DigitalSensors[i].Pin().c_str();
+				s += "> ";
+				s += _DigitalSensors[i].Pin().c_str();
+				s += "</div>";
+			}
+			page.replace("{digitalInputs}", s);
+			s.clear();
+			for (int i = 0; i < analogInputsParam.value(); i++)
+			{
+				s += "<div class='box' id=";
+				s += _AnalogSensors[i].Pin().c_str();
+				s += "> ";
+				s += _AnalogSensors[i].Pin().c_str();
+				s += "</div>";
+			}
+			page.replace("{analogInputs}", s);
+			s.clear();
+			for (int i = 0; i < DO_PINS; i++)
+			{
+				s += "<div class='box' id=";
+				s += _Coils[i].Pin().c_str();
+				s += "> ";
+				s += _Coils[i].Pin().c_str();
+				s += "</div>";
+			}
+			page.replace("{digitalOutputs}", s);
 			request->send(200, "text/html", page);
 		});
 	}
@@ -321,8 +344,10 @@ namespace ESP_PLC
 				_lastMessagePublished = s;
 				_lastPublishTimeStamp = millis() + MQTT_PUBLISH_RATE_LIMIT;
 			}
+			_webSocket.broadcastTXT(s);
 		}
-		_pWebSocket->loop();
+		_webLog.process();
+		_webSocket.loop();
 		return;
 	}
 
@@ -407,9 +432,19 @@ namespace ESP_PLC
 				coil -= 1;
 				if (coil >= 0 && coil < DO_PINS)
 				{
-					int state = strcmp(doc["state"], "HIGH") == 0 ? HIGH : LOW;
-					_Coils[coil].Set(state);
-					logi("Write Coil %d %d", coil, state);
+    				String input = doc["state"];
+					input.toLowerCase();
+					if (input == "on" || input == "high" || input == "1") {
+						_Coils[coil].Set(HIGH);
+						logi("Write Coil %d HIGH", coil);
+					}
+					else if (input == "off" || input == "low" || input == "0") {
+						_Coils[coil].Set(LOW);
+						logi("Write Coil %d LOW", coil);
+					}
+					else {
+						logw("Write Coil %d invalid state", coil);
+					}
 				}
 			}
 		}

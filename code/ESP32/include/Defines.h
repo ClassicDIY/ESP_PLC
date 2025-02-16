@@ -19,7 +19,8 @@
 
 #define ASYNC_WEBSERVER_PORT 80
 #define IOTCONFIG_PORT 7667
-#define WSOCKET_PORT 7668
+#define WSOCKET_LOG_PORT 7668
+#define WSOCKET_HOME_PORT 7669
 
 #define DI_PINS 12	// Number of digital input pins
 #define DO_PINS 4	// Number of digital output pins

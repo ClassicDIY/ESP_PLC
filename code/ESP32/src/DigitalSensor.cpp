@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#include "WebLog.h"
+#include "Log.h"
 #include "DigitalSensor.h"
 
 namespace ESP_PLC

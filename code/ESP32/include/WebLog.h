@@ -5,62 +5,43 @@
 #include <time.h>
 #include "defines.h"
 #include <WebSocketsServer.h>
+#include <ESPAsyncWebServer.h>
 
+// Store HTML content with JavaScript to receive serial log data via WebSocket
+const char web_serial_html[] PROGMEM = R"rawliteral(
+	<!DOCTYPE html>
+	<html>
+	<head>
+	  <title>ESP32 Serial Log</title>
+	  <script>
+		var ws;
+	
+		function initWebSocket() {
+		  ws = new WebSocket('ws://' + window.location.hostname + ':7668/');
+		  ws.onmessage = function(event) {
+			document.getElementById('log').innerText += event.data;
+		  };
+		}
+		
+		window.onload = function() {
+		  initWebSocket();
+		}
+	  </script>
+	</head>
+	<body>
+	  <h1>ESP32 Serial Log</h1>
+	  <pre>Connecting to WebSocket...</pre><br>
+	  <div id="log"></div>
+	</body>
+	</html>
+	)rawliteral";
 
-extern WebSocketsServer webSocket;
-
-void inline printHexString(char* ptr, int len)
+class WebLog
 {
-#if APP_LOG_LEVEL >= ARDUHAL_LOG_LEVEL_DEBUG
-	esp_log_level_set(TAG, ESP_LOG_DEBUG);
-	esp_log_buffer_hex_internal(TAG, ptr, len, ESP_LOG_DEBUG);
-#endif
-}
+public:
+	WebLog() {};
+	void begin(AsyncWebServer *pwebServer);
+	void process();
 
-int weblog(const char *format, ...);
-
-#if APP_LOG_LEVEL >= ARDUHAL_LOG_LEVEL_VERBOSE
-#define logv(format, ...) weblog(ARDUHAL_LOG_FORMAT(V, format), ##__VA_ARGS__)
-#else
-#define logv(format, ...)
-#endif
-
-#if APP_LOG_LEVEL >= ARDUHAL_LOG_LEVEL_DEBUG
-#define logd(format, ...) weblog(ARDUHAL_LOG_FORMAT(D, format), ##__VA_ARGS__)
-#else
-#define logd(format, ...)
-#endif
-
-#if APP_LOG_LEVEL >= ARDUHAL_LOG_LEVEL_INFO
-#define logi(format, ...) weblog(ARDUHAL_LOG_FORMAT(I, format), ##__VA_ARGS__)
-#else
-#define logi(format, ...)
-#endif
-
-#if APP_LOG_LEVEL >= ARDUHAL_LOG_LEVEL_WARN
-#define logw(format, ...) weblog(ARDUHAL_LOG_FORMAT(W, format), ##__VA_ARGS__)
-#else
-#define logw(format, ...)
-#endif
-
-#if APP_LOG_LEVEL >= ARDUHAL_LOG_LEVEL_ERROR
-#define loge(format, ...) weblog(ARDUHAL_LOG_FORMAT(E, format), ##__VA_ARGS__)
-#else
-#define loge(format, ...)
-#endif
-
-void inline printLocalTime()
-{
-#if APP_LOG_LEVEL >= ARDUHAL_LOG_LEVEL_DEBUG
-	struct tm timeinfo;
-	if (!getLocalTime(&timeinfo))
-	{
-		logi("Failed to obtain time");
-		return;
-	}
-	char buf[64];
-	buf[0] = 0;
-	strftime(buf, 64, "%A, %B %d %Y %H:%M:%S", &timeinfo);
-	logi("Date Time: %s", buf);
-#endif
-}
+private:
+};

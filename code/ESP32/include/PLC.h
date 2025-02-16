@@ -14,10 +14,7 @@ namespace ESP_PLC
 	{
 	
 	public:
-		PLC(WebSocketsServer* webSocket) : MBserver()
-		{
-			_pWebSocket = webSocket;
-		}
+		PLC() : MBserver(){}
 		void setup(IOTServiceInterface* pcb);
 		void Process();
 		//IOTCallbackInterface 
@@ -38,7 +35,6 @@ namespace ESP_PLC
 		IOTServiceInterface* _iot;
 		boolean _discoveryPublished = false;
 		ModbusServerTCPasync MBserver;
-		WebSocketsServer* _pWebSocket;
 		String _lastMessagePublished;
 		unsigned long _lastPublishTimeStamp = 0;
 

@@ -2,7 +2,7 @@
 #include <sys/time.h>
 #include <EEPROM.h>
 #include "time.h"
-#include "WebLog.h"
+#include "Log.h"
 #include "HelperFunctions.h"
 #include "IOT.h"
 
@@ -93,7 +93,6 @@ namespace ESP_PLC
 	void onMqttMessage(char *topic, char *payload, AsyncMqttClientMessageProperties properties, size_t len, size_t index, size_t total)
 	{
 		logd("MQTT Message arrived [%s]  qos: %d len: %d index: %d total: %d", topic, properties.qos, len, index, total);
-		printHexString(payload, len);
 		JsonDocument doc;
 		DeserializationError err = deserializeJson(doc, payload);
 		if (err) // not json!
@@ -150,12 +149,12 @@ namespace ESP_PLC
 		ss << htmlConfigEntry<char *>(mqttServerParam.label, mqttServerParam.value()).c_str();
 		ss << htmlConfigEntry<int16_t>(mqttPortParam.label, mqttPortParam.value()).c_str();
 		ss << htmlConfigEntry<char *>(mqttUserNameParam.label, mqttUserNameParam.value()).c_str();
-		ss << htmlConfigEntry<const char *>(mqttUserPasswordParam.label, strlen(mqttUserPasswordParam.value()) > 0 ? "********" : "");
+		ss << htmlConfigEntry<const char *>(mqttUserPasswordParam.label, strlen(mqttUserPasswordParam.value()) > 0 ? "********" : "").c_str();
 		ss << htmlConfigEntry<char *>(mqttSubtopicParam.label, mqttSubtopicParam.value()).c_str();
 		ss << "</ul> <div style='padding-top:25px;'> <p><a href='/' onclick='javascript:event.target.port=";
 		ss << ASYNC_WEBSERVER_PORT;
 		ss << "'>Return to home page.</a></p>";
-		ss << "<p><a href='config' target='_blank'>Configuration</a><div> Log in with 'admin', AP password (default is 12345678)</div></p>";
+		ss << "<p><a href='config' >Configuration</a><div style='font-size: .6em;'> *Log in with 'admin', AP password (default is 12345678)</div></p>";
 		ss << "<p><a href='/log'  onclick='javascript:event.target.port=";
 		ss << ASYNC_WEBSERVER_PORT;
 		ss << "' target='_blank'>Web Log</a></p>";
@@ -277,7 +276,15 @@ namespace ESP_PLC
 		webServer.on("/config", []()	{ _iotWebConf.handleConfig(); });
 		webServer.on("/reboot", []()	{ resetModule(); });
 		webServer.onNotFound([]() { _iotWebConf.handleNotFound(); });
-
+		webServer.on("/", []()	{ 
+			String page = redirect_html;
+			String url = "http://";
+			url += WiFi.localIP().toString();
+			url += ":";
+			url += ASYNC_WEBSERVER_PORT;
+			page.replace("{h}", url.c_str());
+			webServer.send(200, "text/html", page.c_str());
+		 });
 	}
 
 	boolean IOT::Run()

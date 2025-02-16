@@ -7,21 +7,18 @@
 #include <ThreadController.h>
 #include <Thread.h>
 #include "ModbusServerTCPasync.h"
-#include "WebLog.h"
+#include "Log.h"
 #include "IOT.h"
 #include "PLC.h"
-
 
 #define WATCHDOG_TIMER 600000 // time in ms to trigger the watchdog
 
 using namespace ESP_PLC;
 
-WebSocketsServer webSocket = WebSocketsServer(WSOCKET_PORT);
-
 IOT _iot = IOT();
 ThreadController _controller = ThreadController();
 Thread *_workerThreadWaterLevelMonitor = new Thread();
-PLC* _plc = new PLC(&webSocket);
+PLC* _plc = new PLC();
 
 hw_timer_t *_watchdogTimer = NULL;
 
