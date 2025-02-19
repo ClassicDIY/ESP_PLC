@@ -15,7 +15,7 @@ namespace ESP_PLC
 	unsigned long _lastBootTimeStamp = millis();
 	char _willTopic[STR_LEN];
 	char _rootTopicPrefix[64];
-	iotwebconf::OptionalParameterGroup MQTT_group = iotwebconf::OptionalParameterGroup("MQTT", "MQTT", false);
+	iotwebconf::OptionalParameterGroup mqttGroup = iotwebconf::OptionalParameterGroup("MQTT", "MQTT", false);
 	iotwebconf::TextTParameter<IOTWEBCONF_WORD_LEN> mqttServerParam = iotwebconf::Builder<iotwebconf::TextTParameter<IOTWEBCONF_WORD_LEN>>("mqttServer").label("MQTT server").defaultValue("").build();
 	iotwebconf::IntTParameter<int16_t> mqttPortParam = iotwebconf::Builder<iotwebconf::IntTParameter<int16_t>>("mqttPort").label("MQTT port").defaultValue(1883).build();
 	iotwebconf::TextTParameter<IOTWEBCONF_WORD_LEN> mqttUserNameParam = iotwebconf::Builder<iotwebconf::TextTParameter<IOTWEBCONF_WORD_LEN>>("mqttUserName").label("MQTT user").defaultValue("").build();
@@ -30,13 +30,13 @@ namespace ESP_PLC
 		_iotWebConf.setStatusPin(WIFI_STATUS_PIN);
 
 		// setup EEPROM parameters
-		MQTT_group.addItem(&mqttServerParam);
-		MQTT_group.addItem(&mqttPortParam);
-		MQTT_group.addItem(&mqttUserNameParam);
-		MQTT_group.addItem(&mqttUserPasswordParam);
-		MQTT_group.addItem(&mqttSubtopicParam);
+		mqttGroup.addItem(&mqttServerParam);
+		mqttGroup.addItem(&mqttPortParam);
+		mqttGroup.addItem(&mqttUserNameParam);
+		mqttGroup.addItem(&mqttUserPasswordParam);
+		mqttGroup.addItem(&mqttSubtopicParam);
 		_iotWebConf.setHtmlFormatProvider(&optionalGroupHtmlFormatProvider);
-		_iotWebConf.addSystemParameter(&MQTT_group);
+		_iotWebConf.addSystemParameter(&mqttGroup);
 		_iotWebConf.addParameterGroup(_iotCB->parameterGroup());
 		_iotWebConf.getApTimeoutParameter()->visible = true;
 
@@ -68,7 +68,7 @@ namespace ESP_PLC
 		mqttReconnectTimer = xTimerCreate("mqttTimer", pdMS_TO_TICKS(5000), pdFALSE, (void *)0, reinterpret_cast<TimerCallbackFunction_t>(+[] (TimerHandle_t) {
 			if (WiFi.isConnected())
 			{
-				if (MQTT_group.isActive() && strlen(mqttServerParam.value()) > 0) // mqtt configured
+				if (mqttGroup.isActive() && strlen(mqttServerParam.value()) > 0) // mqtt configured
 				{
 					logd("Connecting to MQTT...");
 					_mqttClient.connect();
