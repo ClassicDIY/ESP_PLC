@@ -263,7 +263,7 @@ namespace ESP_PLC
 		asyncServer.begin();
 		_webLog.begin(&asyncServer);
 		_webSocket.begin();
-		_webSocket.onEvent([](uint8_t num, WStype_t type, uint8_t *payload, size_t length)
+		_webSocket.onEvent([this](uint8_t num, WStype_t type, uint8_t *payload, size_t length)
 						   { 
 			if (type == WStype_DISCONNECTED)
 			{
@@ -272,6 +272,7 @@ namespace ESP_PLC
 			else if (type == WStype_CONNECTED)
 			{
 				logi("[%u] Home Page Connected!\n", num);
+				_lastMessagePublished.clear(); //force a broadcast
 			} });
 
 		asyncServer.on("/", HTTP_GET, [this](AsyncWebServerRequest *request) {

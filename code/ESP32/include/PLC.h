@@ -14,7 +14,7 @@ namespace ESP_PLC
 	{
 	
 	public:
-		PLC() : MBserver(){}
+		PLC() : MBserver(){};
 		void setup(IOTServiceInterface* pcb);
 		void Process();
 		//IOTCallbackInterface 
