@@ -3,6 +3,8 @@
 
 #define TAG "ESP_PLC"
 
+#define WATCHDOG_TIMER 600000 // time in ms to trigger the watchdog
+
 #define STR_LEN 255  // general string buffer size
 #define CONFIG_LEN 32 // configuration string buffer size
 #define NUMBER_CONFIG_LEN 6
@@ -17,8 +19,8 @@
 #define SAMPLESIZE 20
 #define MQTT_PUBLISH_RATE_LIMIT 500 // delay between MQTT publishes
 
-#define ASYNC_WEBSERVER_PORT 80
-#define IOTCONFIG_PORT 7667
+#define ASYNC_WEBSERVER_PORT 7667
+#define IOTCONFIG_PORT 80
 #define WSOCKET_LOG_PORT 7668
 #define WSOCKET_HOME_PORT 7669
 

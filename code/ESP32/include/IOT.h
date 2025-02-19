@@ -1,13 +1,8 @@
 #pragma once
 
-#include "WiFi.h"
 #include "ArduinoJson.h"
 #include <EEPROM.h>
-extern "C"
-{
-#include "freertos/FreeRTOS.h"
-#include "freertos/timers.h"
-}
+#include "time.h"
 #include <sstream>
 #include <string>
 #include <AsyncMqttClient.h>
@@ -25,7 +20,7 @@ namespace ESP_PLC
     class IOT : public IOTServiceInterface
     {
     public:
-        IOT();
+        IOT() {};
         void Init(IOTCallbackInterface *iotCB);
 
         boolean Run();
@@ -46,6 +41,7 @@ namespace ESP_PLC
         IOTCallbackInterface *_iotCB;
         u_int _uniqueId = 0; // unique id from mac address NIC segment
         bool _publishedOnline = false;
+        hw_timer_t *_watchdogTimer = NULL;
     };
 
     const char reboot_html[] PROGMEM = R"rawliteral(
@@ -53,7 +49,7 @@ namespace ESP_PLC
     <title>ESP32 Reboot</title>
     </head><body>
     <h1>Rebooting ESP32</h1>
-    <p><a href='/' onclick="javascript:event.target.port=80>Return to home page after reboot has completed.</a></p>
+	<p><a href='settings'>Return to  Settings after reboot has completed.</a></p>
     </body></html>
     )rawliteral";
 
@@ -62,11 +58,9 @@ namespace ESP_PLC
             <title>Redirecting...</title>
         </head>
         <body>
-            <p><a href='/' onclick="javascript:event.target.port=80>Return to home page after reboot has completed.</a></p>
+            <p><a href='/' onclick="javascript:event.target.port={hp}>Return to home page after reboot has completed.</a></p>
         </body>
         </html>
         )rawliteral";
 
 } // namespace ESP_PLC
-
-extern ESP_PLC::IOT _iot;
