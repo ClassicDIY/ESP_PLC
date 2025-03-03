@@ -3,19 +3,25 @@
 
 static AsyncWebSocket _webSocket("/ws_log");
 
+#define BUFFER_SIZE 255
 int weblog_log_printfv(const char *format, va_list arg)
 {
-    static char loc_buf[255];
+    static char loc_buf[BUFFER_SIZE];
     uint32_t len;
     va_list copy;
     va_copy(copy, arg);
     len = vsnprintf(NULL, 0, format, copy);
     va_end(copy);
-    if (len >= sizeof(loc_buf))
+    if (len >= (BUFFER_SIZE - 1))
     {
-        return 0;
+        len = BUFFER_SIZE - 5;
+        vsnprintf(loc_buf, len, format, arg);
+        strcat(loc_buf, "...\n");
     }
-    vsnprintf(loc_buf, len + 1, format, arg);
+    else 
+    {
+        vsnprintf(loc_buf, len + 1, format, arg);
+    }
     if (_webSocket.count() > 0)  {
         _webSocket.textAll(loc_buf);
     }

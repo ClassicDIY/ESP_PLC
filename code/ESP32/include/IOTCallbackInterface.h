@@ -11,5 +11,7 @@ public:
     virtual void addNetworkSettings(String& page);
     virtual void addNetworkConfigs(String& page);
     virtual void onSubmitForm(AsyncWebServerRequest *request);
+    virtual void onSaveSetting(JsonDocument& doc);
+    virtual void onLoadSetting(JsonDocument& doc);
     
 };

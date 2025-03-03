@@ -28,7 +28,9 @@ namespace ESP_PLC
 		void addNetworkSettings(String& page);
 		void addNetworkConfigs(String& page);
 		void onSubmitForm(AsyncWebServerRequest *request);
-	
+	    void onSaveSetting(JsonDocument& doc);
+    	void onLoadSetting(JsonDocument& doc);
+		
 	protected:
 		boolean PublishDiscoverySub(const char *component, const char *entityName, const char *jsonElement, const char *device_class, const char *unit_of_meas, const char *icon = "");
 		bool ReadyToPublish() {

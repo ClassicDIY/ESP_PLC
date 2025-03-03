@@ -479,37 +479,42 @@ namespace ESP_PLC
 		else
 		{
 			logd("JSON loaded from EEPROM: %d", jsonString.length());
-			_AP_SSID = doc["AP_SSID"].isNull() ? TAG : doc["AP_SSID"].as<String>();
-			_AP_Password = doc["AP_Pw"].isNull() ? DEFAULT_AP_PASSWORD : doc["AP_Pw"].as<String>();
-			_SSID = doc["SSID"].isNull() ? "" : doc["SSID"].as<String>();
-			_WiFi_Password = doc["WiFi_Pw"].isNull() ? "" : doc["WiFi_Pw"].as<String>();
-			_useMQTT = doc["useMQTT"].isNull() ? false : doc["useMQTT"].as<bool>();
-			_mqttServer = doc["mqttServer"].isNull() ? "" : doc["mqttServer"].as<String>();
-			_mqttPort = doc["mqttPort"].isNull() ? 1883 : doc["mqttPort"].as<uint16_t>();
-			_mqttUserName = doc["mqttUser"].isNull() ? "" : doc["mqttUser"].as<String>();
-			_mqttUserPassword = doc["mqttPw"].isNull() ? "" : doc["mqttPw"].as<String>();
-			_useModbus = doc["useModbus"].isNull() ? false : doc["useModbus"].as<bool>();
-			_modbusPort = doc["modbusPort"].isNull() ? 502 : doc["modbusPort"].as<uint16_t>();
-			_modbusID = doc["modbusID"].isNull() ? 1 : doc["modbusID"].as<uint16_t>();
+			logd("json: %s",jsonString.c_str());
+			JsonObject iot = doc["iot"].as<JsonObject>();
+			_AP_SSID = iot["AP_SSID"].isNull() ? TAG : iot["AP_SSID"].as<String>();
+			_AP_Password = iot["AP_Pw"].isNull() ? DEFAULT_AP_PASSWORD : iot["AP_Pw"].as<String>();
+			_SSID = iot["SSID"].isNull() ? "" : iot["SSID"].as<String>();
+			_WiFi_Password = iot["WiFi_Pw"].isNull() ? "" : iot["WiFi_Pw"].as<String>();
+			_useMQTT = iot["useMQTT"].isNull() ? false : iot["useMQTT"].as<bool>();
+			_mqttServer = iot["mqttServer"].isNull() ? "" : iot["mqttServer"].as<String>();
+			_mqttPort = iot["mqttPort"].isNull() ? 1883 : iot["mqttPort"].as<uint16_t>();
+			_mqttUserName = iot["mqttUser"].isNull() ? "" : iot["mqttUser"].as<String>();
+			_mqttUserPassword = iot["mqttPw"].isNull() ? "" : iot["mqttPw"].as<String>();
+			_useModbus = iot["useModbus"].isNull() ? false : iot["useModbus"].as<bool>();
+			_modbusPort = iot["modbusPort"].isNull() ? 502 : iot["modbusPort"].as<uint16_t>();
+			_modbusID = iot["modbusID"].isNull() ? 1 : iot["modbusID"].as<uint16_t>();
+			_iotCB->onLoadSetting(doc);
 		}
 	}
 
 	void IOT::saveSettings()
 	{
 		JsonDocument doc;
-		doc["version"] = CONFIG_VERSION;
-		doc["AP_SSID"] = _AP_SSID;
-		doc["AP_Pw"] = _AP_Password;
-		doc["SSID"] = _SSID;
-		doc["WiFi_Pw"] = _WiFi_Password;
-		doc["useMQTT"] = _useMQTT;
-		doc["mqttServer"] = _mqttServer;
-		doc["mqttPort"] = _mqttPort;
-		doc["mqttUser"] = _mqttUserName;
-		doc["mqttPw"] = _mqttUserPassword;
-		doc["useModbus"] = _useModbus;
-		doc["modbusPort"] = _modbusPort;
-		doc["modbusID"] = _modbusID;
+		JsonObject iot = doc["iot"].to<JsonObject>();
+		iot["version"] = CONFIG_VERSION;
+		iot["AP_SSID"] = _AP_SSID;
+		iot["AP_Pw"] = _AP_Password;
+		iot["SSID"] = _SSID;
+		iot["WiFi_Pw"] = _WiFi_Password;
+		iot["useMQTT"] = _useMQTT;
+		iot["mqttServer"] = _mqttServer;
+		iot["mqttPort"] = _mqttPort;
+		iot["mqttUser"] = _mqttUserName;
+		iot["mqttPw"] = _mqttUserPassword;
+		iot["useModbus"] = _useModbus;
+		iot["modbusPort"] = _modbusPort;
+		iot["modbusID"] = _modbusID;
+		_iotCB->onSaveSetting(doc);
 		String jsonString;
 		serializeJson(doc, jsonString);
 		logd("Required EEPROM size: %d", jsonString.length());

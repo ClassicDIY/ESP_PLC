@@ -36,6 +36,19 @@ namespace ESP_PLC
 		}
 	}
 
+	void PLC::onSaveSetting(JsonDocument& doc)
+	{
+		JsonObject plc = doc["plc"].to<JsonObject>();
+		plc["digitalInputs"] = _digitalInputs;
+		plc["analogInputs"] = _analogInputs;
+	}
+	void PLC::onLoadSetting(JsonDocument& doc)
+	{
+		JsonObject plc = doc["plc"].as<JsonObject>();
+		_digitalInputs = plc["digitalInputs"].isNull() ? DI_PINS : plc["digitalInputs"].as<uint16_t>();
+		_analogInputs = plc["analogInputs"].isNull() ? AI_PINS : plc["analogInputs"].as<uint16_t>();
+	}
+
 	void PLC::setup()
 	{
 		logd("setup");

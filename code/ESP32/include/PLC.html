@@ -49,39 +49,65 @@ const char home_html[] PROGMEM = R"rawliteral(
 	</head>
 	
     <style>
+	    .container {
+            display: flex;
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+        }
+        .form-group {
+            margin-bottom: 10px;
+            display: flex;
+            flex-direction: column;
+            height: 100%; 
+            width:300px;
+        }
+
+        .fs {
+            display: inline-block;
+            border-radius:0.3rem;
+            margin: 0px;
+            width:100%; 
+        }
+        .fld {
+            color: #000080;
+            clear: both;
+            display: flex;
+            text-align: left; /* Align text and inputs properly */
+        }
         .box {
-            width: 100px;
+            width: 120px;
             height: 25px;
             margin: 5px;
-            // display: inline-block;
 			background-color:grey;
 			display: inline-flex; /* Changed to inline-flex to allow the use of Flexbox */
 			align-items: center;  /* Vertically center the content */
 			justify-content: center; /* Horizontally center the content */
 			border: 1px solid #000; /* Added a border for better visibility */
         }
+		body{text-align: center;font-family:verdana;} 
     </style>
 	<body>
 	<h2>{n}</h2>
 	<div style='font-size: .6em;'>Firmware config version '{v}'</div>
 	<hr>
 	
+	<div class="container">
+    <div class="form-group">
     <div id="boxes-container">
-		Digital Inputs:
+		<fieldset class="fs"><legend>Digital Inputs</legend>
 		{digitalInputs}
-		<hr>
-		Analog Inputs:
+		</fieldset>
+		<fieldset class="fs"><legend>Analog Inputs</legend>
 		{analogInputs}
-		<hr>
-		Digital Outputs:
+		</fieldset>
+		<fieldset class="fs"><legend>Digital Outputs</legend>
 		{digitalOutputs}
-		<hr>
+		</fieldset>
     </div>
-	<p>
-	<div style='padding-top:25px;'>
+	<div>
 	<p><a href='settings' onclick="javascript:event.target.port={cp}" >View Current Settings</a></p>
-	
-	</div></body></html>
+	</div></div></div></body></html>
 	)rawliteral";
 
 	const char app_settings_fields[] PROGMEM = R"rawliteral(
@@ -96,8 +122,8 @@ const char home_html[] PROGMEM = R"rawliteral(
 	const char app_config_fields[] PROGMEM = R"rawliteral(
 
 	<fieldset id="app" class="fs"><legend>Application</legend>
-		<p><div class="fld"><label for="digitalInputs">Digital Inputs</label><input type="number" id="digitalInputs" name="digitalInputs" value="{digitalInputs}"></div></p>
-		<p><div class="fld"><label for="analogInputs">Analog Inputs</label><input type="number" id="analogInputs" name="analogInputs" value="{analogInputs}" step="1"></div></p>
+		<p><div class="fld"><label for="digitalInputs">Digital Inputs</label><input type="number" id="digitalInputs" name="digitalInputs" value="{digitalInputs}" step="1" min="0" max="12" ></div></p>
+		<p><div class="fld"><label for="analogInputs">Analog Inputs</label><input type="number" id="analogInputs" name="analogInputs" value="{analogInputs}" step="1" min="0" max="4"></div></p>
 	</fieldset>
 
 	)rawliteral";
