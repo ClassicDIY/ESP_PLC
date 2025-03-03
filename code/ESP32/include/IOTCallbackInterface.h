@@ -1,16 +1,15 @@
 #pragma once
 #include "Arduino.h"
 #include "ArduinoJson.h"
-#include <IotWebConf.h>
-#include <IotWebConfTParameter.h>
 
 class IOTCallbackInterface
 {
 public:
-    virtual String getSettingsHTML() = 0;
-    virtual iotwebconf::ParameterGroup* parameterGroup() = 0;
-    virtual bool validate(iotwebconf::WebRequestWrapper* webRequestWrapper) = 0;
     virtual void onMqttConnect(bool sessionPresent) = 0;
     virtual void onMqttMessage(char* topic, JsonDocument& doc) = 0;
     virtual void onWiFiConnect() = 0;
+    virtual void addNetworkSettings(String& page);
+    virtual void addNetworkConfigs(String& page);
+    virtual void onSubmitForm(AsyncWebServerRequest *request);
+    
 };

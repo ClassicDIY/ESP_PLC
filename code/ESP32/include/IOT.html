@@ -1,0 +1,215 @@
+const char redirect_html[] PROGMEM = R"rawliteral(
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>{n}</title>
+        <script>
+            window.onload = function() {
+                window.location.href = "http://{ip}/";
+            };
+        </script>
+    </head>
+    <body>
+        <h1>Redirecting to Home Page...</h1>
+    </body>
+    </html>
+)rawliteral";
+
+const char reboot_html[] PROGMEM = R"rawliteral(
+    <!DOCTYPE html><html lang=\"en\"><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, user-scalable=no\"/>
+    <title>ESP32 Reboot</title>
+    </head><body>
+    <h1>Rebooting ESP32</h1>
+    <p><a href='settings'>Return to  Settings after reboot has completed.</a></p>
+    </body></html>
+)rawliteral";
+
+const char update_html[] PROGMEM = R"rawliteral(
+    <!DOCTYPE html><html lang=\"en\"><head><meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <title>Firmware Update</title>
+    </head><body>
+    <h1>HydroFloat Firmware Update</h1>
+    <h1>ESP32 OTA Update</h1>
+    <form method='POST' action='/doupdate' enctype='multipart/form-data'>
+    <input type='file' name='firmware'>
+    </form>
+    </body></html>
+)rawliteral";
+
+// const char network_settings_top[] PROGMEM = R"rawliteral(
+//     <!DOCTYPE html><html lang=\"en\"><head><meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+//     <title>{n}</title>
+
+//     <style>
+//     .c{text-align: center;} 
+//     .center-flex {
+//         display: grid;
+//         place-items: center;
+//         height: 100%; 
+//     }
+
+//     .fld
+//     {
+//         margin-left: 20px;
+//         color: #000080;
+//         background-color: #FFD700;
+//         clear: both;
+//         text-align: center;
+//         font-size:larger;
+//         background: transparent;
+//         display: inline-block;
+//     }
+//     body{text-align: center;font-family:verdana;} 
+//     fieldset{border-radius:0.3rem;margin: 0px;width:50%; align: center;}
+//     </style>
+
+//     </head><body>
+//         <div>
+//             <h2>{n}</h2>
+//             <div style='font-size: .6em;'>Firmware config version '{v}'</div>
+//             <hr>
+//         </div>
+//     <div class="center-flex">
+// )rawliteral";
+
+
+
+const char network_config_top[] PROGMEM = R"rawliteral(
+    <!DOCTYPE html><html lang=\"en\"><head><meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <title>{n}</title>
+    <script>
+        function mqttFieldset(checkbox) {
+            const fieldset = document.getElementById("mqtt");
+            fieldset.disabled = !checkbox.checked;
+        }
+        function modbusFieldset(checkbox) {
+            const fieldset = document.getElementById("modbus");
+            fieldset.disabled = !checkbox.checked;
+        }
+    </script>
+    <style>
+        .de{background-color:#ffaaaa;} 
+        .em{font-size:0.8em;color:#bb0000;padding-bottom:0px;} 
+        .c{text-align: center;} 
+
+        .container {
+            display: flex;
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+        }
+        .form-group {
+            margin-bottom: 10px;
+            display: flex;
+            flex-direction: column;
+            height: 100%; 
+            width:300px;
+        }
+
+        .fs {
+            display: inline-block;
+            border-radius:0.3rem;
+            margin: 0px;
+            width:100%; 
+        }
+        .fld {
+            color: #000080;
+            clear: both;
+            display: flex;
+            text-align: left; /* Align text and inputs properly */
+        }
+
+        .fld label {
+            width: 250px; /* Adjust width for consistent alignment */
+            text-align: right; /* Aligns label text */
+            margin-right: 10px; /* Add space between label and input */
+        }
+
+        .fld input[type="text"],
+        .fld input[type="number"] {
+            flex: 1;
+            width: auto; /* Adjust widths as necessary */
+        }
+
+        body{text-align: center;font-family:verdana;} 
+        button{border:0;border-radius:0.3rem;background-color:#16A1E7;color:#fff;line-height:2.4rem;font-size:1.2rem;width:50%;align: center;} 
+
+        .hide{display: none;}
+    </style>
+
+    </head><body>
+        <div>
+            <h2>{n}</h2>
+            <div style='font-size: .6em;'>Firmware config version '{v}'</div>
+            <hr>
+        </div>
+    <div class="container">
+    <div class="form-group">
+)rawliteral";
+
+const char network_config_fields[] PROGMEM = R"rawliteral(
+    <form action='/submit' method='post'>
+    <fieldset id="network" class="fs"><legend>Network</legend>
+    <p><div class="fld"><label for="AP_SSID">AP SSID/Device Name</label><input type="text" id="AP_SSID" name="AP_SSID" value="{AP_SSID}" required maxlength="32"></div></p>
+    <p><div class="fld"><label for="AP_Pw">AP/admin Password</label><input type="text" id="AP_Pw" name="AP_Pw" value="{AP_Pw}" minlength="8" required maxlength="32"></div></p>
+    <p><div class="fld"><label for="SSID">WiFi SSID</label><input type="text" id="SSID" name="SSID" value="{SSID}" maxlength="32"></div></p>
+    <p><div class="fld"><label for="WiFi_Pw">WiFi password</label><input type="text" id="WiFi_Pw" name="WiFi_Pw" value="{WiFi_Pw}"></div></p>
+    </fieldset>
+    <fieldset id="mqtt" class="fs"><legend><label><input type="checkbox" id="mqttCheckbox" name="mqttCheckbox"  onclick="mqttFieldset(this)" checked>MQTT</label></legend>
+    <p><div class="fld"><label for="mqttServer">MQTT Server</label><input type="text" id="mqttServer" name="mqttServer" value="{mqttServer}"></div></p>
+    <p><div class="fld"><label for="mqttPort">MQTT port</label><input type="number" id="mqttPort" name="mqttPort" value="{mqttPort}" step="1"></div></p>
+    <p><div class="fld"><label for="mqttUser">MQTT user</label><input type="text" id="mqttUser" name="mqttUser" value="{mqttUser}" maxlength="32"></div></p>
+    <p><div class="fld"><label for="mqttPw">MQTT password</label><input type="text" id="mqttPw" name="mqttPw" value="{mqttPw}"></div></p>
+    </fieldset>
+    <fieldset id="modbus" class="fs"><legend><label><input type="checkbox" id="modbusCheckbox" name="modbusCheckbox" onclick="modbusFieldset(this)" checked>Modbus</label></legend>
+    <p><div class="fld"><label for="modbusPort">Modbus port</label><input type="number" id="modbusPort" name="modbusPort" value="{modbusPort}" step="1"></div></p>
+    <p><div class="fld"><label for="modbusID">Modbus ID</label><input type="number" id="modbusID" name="modbusID" value="{modbusID}" step="1"></div></p>
+    </fieldset>
+)rawliteral";
+
+const char network_config_apply_button[] PROGMEM = R"rawliteral(
+    <button type="submit" style="margin-top: 10px;">Apply</button>
+    </form>
+)rawliteral";
+
+const char network_settings_fields[] PROGMEM = R"rawliteral(
+    
+<fieldset id="network" class="fs"><legend>Network</legend>
+    <p><div class="fld">AP SSID/Device Name: {AP_SSID}</div></p>
+    <p><div class="fld">AP/admin Password: {AP_Pw}</div></p>
+    <p><div class="fld">WiFi SSID: {SSID}</div></p>
+    <p><div class="fld">WiFi Password: {WiFi_Pw}</div></p>
+</fieldset>
+<fieldset id="mqtt" class="fs"><legend>MQTT</legend>
+    <p><div class="fld">MQTT server: {mqttServer}</div></p>
+    <p><div class="fld">MQTT port: {mqttPort}</div></p>
+    <p><div class="fld">MQTT user: {mqttUser}</div></p>
+    <p><div class="fld">MQTT password: {mqttPw}</div></p>
+</fieldset>
+<fieldset id="Modbus" class="fs"><legend>Modbus</legend>
+    <p><div class="fld">Modbus Port: {modbusPort}</div></p>
+    <p><div class="fld">Modbus ID: {modbusID}</div></p>
+</fieldset>
+)rawliteral";
+
+const char network_settings_links[] PROGMEM = R"rawliteral(
+    <p><a href='/log' target='_blank'>Web Log</a></p>
+    <p><a href="/network_config">Configuration</a></p>
+    <p><a href='/'>Return to home page.</a></p>
+
+</div>
+</div>
+</body></html>
+)rawliteral";
+
+const char network_config_links[] PROGMEM = R"rawliteral(
+        <p><a href='update'>Firmware update</a></p>
+        <p><a href='/'>Return to home page.</a></p>
+        <p><a href='settings'>Return to Settings</a></p>
+        <p><a href='reboot'>Reboot ESP32</a></p>
+    </div>
+    </body></html>
+)rawliteral";
+

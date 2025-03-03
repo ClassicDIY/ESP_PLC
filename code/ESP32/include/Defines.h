@@ -3,26 +3,23 @@
 
 #define TAG "ESP_PLC"
 
-#define WATCHDOG_TIMER 600000 // time in ms to trigger the watchdog
+#define WATCHDOG_TIMEOUT 10 // time in seconds to trigger the watchdog reset
 
-#define STR_LEN 255  // general string buffer size
-#define CONFIG_LEN 32 // configuration string buffer size
-#define NUMBER_CONFIG_LEN 6
-#define LEVEL_CONFIG_LEN 2
-#define AP_TIMEOUT 30000
+#define STR_LEN 64
+#define EEPROM_SIZE 512
+#define AP_BLINK_RATE 600
+#define NC_BLINK_RATE 100
+#define AP_TIMEOUT 1000
+// #define AP_TIMEOUT 30000
+#define WIFI_CONNECTION_TIMEOUT 30000
 #define DEFAULT_AP_PASSWORD "12345678"
-
-#define CheckBit(var,pos) ((var) & (1<<(pos))) ? true : false
-#define toShort(i, v) (v[i++]<<8) | v[i++]
 
 #define ADC_Resolution 4095.0
 #define SAMPLESIZE 20
 #define MQTT_PUBLISH_RATE_LIMIT 500 // delay between MQTT publishes
 
-#define ASYNC_WEBSERVER_PORT 7667
-#define IOTCONFIG_PORT 80
-#define WSOCKET_LOG_PORT 7668
-#define WSOCKET_HOME_PORT 7669
+#define ASYNC_WEBSERVER_PORT 80
+#define DNS_PORT 53
 
 #define DI_PINS 12	// Number of digital input pins
 #define DO_PINS 4	// Number of digital output pins

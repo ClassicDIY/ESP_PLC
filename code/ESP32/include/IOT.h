@@ -1,17 +1,19 @@
 #pragma once
-
+#include <Arduino.h>
 #include "ArduinoJson.h"
 #include <EEPROM.h>
+#include <AsyncTCP.h>
+#include <WiFi.h>
+#include <DNSServer.h>
+#include <ESPAsyncWebServer.h>
+#include <ModbusServerTCPasync.h>
 #include "time.h"
 #include <sstream>
 #include <string>
 #include <AsyncMqttClient.h>
-#include <IotWebConf.h>
-#include <IotWebConfUsing.h>
-#include <IotWebConfESP32HTTPUpdateServer.h>
-#include <IotWebConfOptionalGroup.h>
-#include <IotWebConfTParameter.h>
 #include "Defines.h"
+#include "Enumerations.h"
+#include "OTA.h"
 #include "IOTServiceInterface.h"
 #include "IOTCallbackInterface.h"
 
@@ -21,46 +23,63 @@ namespace ESP_PLC
     {
     public:
         IOT() {};
-        void Init(IOTCallbackInterface *iotCB);
+        void Init(IOTCallbackInterface *iotCB, AsyncWebServer *pwebServer);
 
-        boolean Run();
+        void Run();
         boolean Publish(const char *subtopic, const char *value, boolean retained = false);
         boolean Publish(const char *subtopic, JsonDocument &payload, boolean retained = false);
         boolean Publish(const char *subtopic, float value, boolean retained = false);
         boolean PublishMessage(const char *topic, JsonDocument &payload, boolean retained);
         boolean PublishHADiscovery(JsonDocument &payload);
         std::string getRootTopicPrefix();
-        std::string getSubtopicName();
         u_int getUniqueId() { return _uniqueId; };
         std::string getThingName();
         void Online();
         IOTCallbackInterface *IOTCB() { return _iotCB; }
+        void registerMBWorkers(FunctionCode fc, MBSworker worker);
 
     private:
+        OTA _OTA = OTA();
+        AsyncWebServer *_pwebServer;
+        NetworkState _networkState = Boot;
+        WiFiStatus _WiFiStatus;
+        bool _blinkStateOn = false;
+        String _AP_SSID = TAG;
+        String _AP_Password = DEFAULT_AP_PASSWORD;
+        String _SSID;
+        String _WiFi_Password;
+        bool _useMQTT = false;
+        String _mqttServer;
+        int16_t _mqttPort = 1883;
+        String _mqttUserName;
+        String _mqttUserPassword;
+        bool _useModbus = false;
+        int16_t _modbusPort = 502;
+        int16_t _modbusID = 1;
         bool _clientsConfigured = false;
         IOTCallbackInterface *_iotCB;
         u_int _uniqueId = 0; // unique id from mac address NIC segment
         bool _publishedOnline = false;
-        hw_timer_t *_watchdogTimer = NULL;
+        unsigned long _lastBlinkTime = 0;
+        unsigned long _lastBootTimeStamp = millis();
+        unsigned long _waitInAPTimeStamp = millis();
+        unsigned long _wifiConnectionStart = 0;
+        char _willTopic[STR_LEN];
+        char _rootTopicPrefix[STR_LEN];
+        void saveSettings();
+        void loadSettings();
+        void SendNetworkSettings(AsyncWebServerRequest *request);
+        void ConnectToMQTTServer();
+        void setState(NetworkState newState);
+        static void mqttReconnectTimerCF(TimerHandle_t xTimer)
+        {
+            // Retrieve the instance of the class (stored as the timer's ID)
+            IOT *instance = static_cast<IOT *>(pvTimerGetTimerID(xTimer));
+            if (instance != nullptr)
+            {
+                instance->ConnectToMQTTServer();
+            }
+        }
     };
-
-    const char reboot_html[] PROGMEM = R"rawliteral(
-    <!DOCTYPE html><html lang=\"en\"><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, user-scalable=no\"/>
-    <title>ESP32 Reboot</title>
-    </head><body>
-    <h1>Rebooting ESP32</h1>
-	<p><a href='settings'>Return to  Settings after reboot has completed.</a></p>
-    </body></html>
-    )rawliteral";
-
-    const char redirect_html[] PROGMEM = R"rawliteral(
-        <!DOCTYPE html><html lang=\"en\"><head><meta http-equiv="refresh" content="5;url={h}">
-            <title>Redirecting...</title>
-        </head>
-        <body>
-            <p><a href='/' onclick="javascript:event.target.port={hp}>Return to home page after reboot has completed.</a></p>
-        </body>
-        </html>
-        )rawliteral";
 
 } // namespace ESP_PLC

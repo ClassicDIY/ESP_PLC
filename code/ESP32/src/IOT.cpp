@@ -1,88 +1,66 @@
 
 #include <sys/time.h>
+#include <thread>
+#include <chrono>
+#include <ESPmDNS.h>
 #include "Log.h"
-#include "HelperFunctions.h"
+#include "WebLog.h"
 #include "IOT.h"
+#include "IOT.html"
+#include "HelperFunctions.h"
 
 namespace ESP_PLC
 {
 	AsyncMqttClient _mqttClient;
 	TimerHandle_t mqttReconnectTimer;
-	DNSServer _dnsServer;
-	HTTPUpdateServer _httpUpdater;
-	WebServer webServer(IOTCONFIG_PORT);
-	IotWebConf _iotWebConf(TAG, &_dnsServer, &webServer, DEFAULT_AP_PASSWORD, CONFIG_VERSION);
-	unsigned long _lastBootTimeStamp = millis();
-	char _willTopic[STR_LEN];
-	char _rootTopicPrefix[64];
-	iotwebconf::OptionalParameterGroup mqttGroup = iotwebconf::OptionalParameterGroup("MQTT", "MQTT", false);
-	iotwebconf::TextTParameter<IOTWEBCONF_WORD_LEN> mqttServerParam = iotwebconf::Builder<iotwebconf::TextTParameter<IOTWEBCONF_WORD_LEN>>("mqttServer").label("MQTT server").defaultValue("").build();
-	iotwebconf::IntTParameter<int16_t> mqttPortParam = iotwebconf::Builder<iotwebconf::IntTParameter<int16_t>>("mqttPort").label("MQTT port").defaultValue(1883).build();
-	iotwebconf::TextTParameter<IOTWEBCONF_WORD_LEN> mqttUserNameParam = iotwebconf::Builder<iotwebconf::TextTParameter<IOTWEBCONF_WORD_LEN>>("mqttUserName").label("MQTT user").defaultValue("").build();
-	iotwebconf::PasswordTParameter<IOTWEBCONF_WORD_LEN> mqttUserPasswordParam = iotwebconf::Builder<iotwebconf::PasswordTParameter<IOTWEBCONF_WORD_LEN>>("mqttUserPassword").label("MQTT password").defaultValue("").build();
-	iotwebconf::TextTParameter<IOTWEBCONF_WORD_LEN> mqttSubtopicParam = iotwebconf::Builder<iotwebconf::TextTParameter<IOTWEBCONF_WORD_LEN>>("subtopic").label("MQTT Subtopic").defaultValue("PLC1").build();
-	iotwebconf::OptionalGroupHtmlFormatProvider optionalGroupHtmlFormatProvider;
+	static DNSServer _dnsServer;
+	static AsyncWebSocket _webSocket("/ws_iot");
+	static WebLog _webLog;
+	static ModbusServerTCPasync _MBserver;
 
-	void IOT::Init(IOTCallbackInterface *iotCB)
+	void IOT::Init(IOTCallbackInterface *iotCB, AsyncWebServer *pwebServer)
 	{
 		_iotCB = iotCB;
+		_pwebServer = pwebServer;
 		pinMode(FACTORY_RESET_PIN, INPUT_PULLUP);
-		_iotWebConf.setStatusPin(WIFI_STATUS_PIN);
-
-		// setup EEPROM parameters
-		mqttGroup.addItem(&mqttServerParam);
-		mqttGroup.addItem(&mqttPortParam);
-		mqttGroup.addItem(&mqttUserNameParam);
-		mqttGroup.addItem(&mqttUserPasswordParam);
-		mqttGroup.addItem(&mqttSubtopicParam);
-		_iotWebConf.setHtmlFormatProvider(&optionalGroupHtmlFormatProvider);
-		_iotWebConf.addSystemParameter(&mqttGroup);
-		_iotWebConf.addParameterGroup(_iotCB->parameterGroup());
-		_iotWebConf.getApTimeoutParameter()->visible = true;
-
-		// setup callbacks for IotWebConf
-		_iotWebConf.setConfigSavedCallback([this]() { 
-			logi("Configuration was updated."); 
-		});
-		_iotWebConf.setFormValidator([this](iotwebconf::WebRequestWrapper *webRequestWrapper) {
-			return IOTCB()->validate(webRequestWrapper);
-		});
-		_iotWebConf.setupUpdateServer(
-			[](const char *updatePath)
-			{ _httpUpdater.setup(&webServer, updatePath); },
-			[](const char *userName, char *password)
-			{ _httpUpdater.updateCredentials(userName, password); });
-
+		pinMode(WIFI_STATUS_PIN, OUTPUT);
+		EEPROM.begin(EEPROM_SIZE);
 		if (digitalRead(FACTORY_RESET_PIN) == LOW)
 		{
-			EEPROM.begin(IOTWEBCONF_CONFIG_START + IOTWEBCONF_CONFIG_VERSION_LENGTH);
-			for (byte t = 0; t < IOTWEBCONF_CONFIG_VERSION_LENGTH; t++)
-			{
-				EEPROM.write(IOTWEBCONF_CONFIG_START + t, 0);
-			}
+			logi("Factory Reset");
+			EEPROM.write(0, 0);
 			EEPROM.commit();
-			EEPROM.end();
-			_iotWebConf.resetWifiAuthInfo();
-			logw("Factory Reset!");
 		}
-		mqttReconnectTimer = xTimerCreate("mqttTimer", pdMS_TO_TICKS(5000), pdFALSE, (void *)0, reinterpret_cast<TimerCallbackFunction_t>(+[] (TimerHandle_t) {
-			if (WiFi.isConnected())
-			{
-				if (mqttGroup.isActive() && strlen(mqttServerParam.value()) > 0) // mqtt configured
-				{
-					logd("Connecting to MQTT...");
-					_mqttClient.connect();
-				}
-			}
-		}));
-		WiFi.onEvent([this](WiFiEvent_t event, WiFiEventInfo_t info) {
-			logd("[WiFi-event] event: %d", event);
+		else
+		{
+			logi("Loading configuration from EEPROM");
+			loadSettings();
+		}
+		mqttReconnectTimer = xTimerCreate("mqttTimer", pdMS_TO_TICKS(5000), pdFALSE, this, mqttReconnectTimerCF);
+		
+		WiFi.onEvent([this](WiFiEvent_t event, WiFiEventInfo_t info)
+					 {
 			String s;
 			JsonDocument doc;
+
 			switch (event)
 			{
-			case SYSTEM_EVENT_STA_GOT_IP:
-				// logd("WiFi connected, IP address: %s", WiFi.localIP().toString().c_str());
+			case ARDUINO_EVENT_WIFI_AP_STADISCONNECTED:
+				logd("AP_STADISCONNECTED");
+				_WiFiStatus = NotConnected;
+				_webSocket.closeAll();
+				_webLog.end();
+				_dnsServer.stop();
+			break;
+			case ARDUINO_EVENT_WIFI_AP_STAIPASSIGNED:
+				logd("AP_STAIPASSIGNED");
+				_WiFiStatus = APMode;
+				_pwebServer->begin();
+				_webLog.begin(_pwebServer);
+				_OTA.begin(_pwebServer);
+			break;
+			case ARDUINO_EVENT_WIFI_STA_GOT_IP:
+				logd("STA_GOT_IP");
 				doc["IP"] = WiFi.localIP().toString().c_str();
 				doc["ApPassword"] = DEFAULT_AP_PASSWORD;
 				serializeJson(doc, s);
@@ -90,187 +68,264 @@ namespace ESP_PLC
 				Serial.printf(s.c_str()); // send json to flash tool
 				configTime(0, 0, NTP_SERVER);
 				printLocalTime();
+				_WiFiStatus = WiFiMode;
+				_pwebServer->begin();
+				_webLog.begin(_pwebServer);
+				_OTA.begin(_pwebServer);
+				MDNS.begin(_AP_SSID.c_str());
+				MDNS.addService("http", "tcp", ASYNC_WEBSERVER_PORT);
+				logd("Active mDNS services: %d", MDNS.queryService("http", "tcp"));
 				xTimerStart(mqttReconnectTimer, 0);
+				if (!_MBserver.isRunning())
+				{
+					_MBserver.start(_modbusPort, 5, 0); // listen for modbus requests
+				}
 				this->IOTCB()->onWiFiConnect();
 				break;
-			case SYSTEM_EVENT_STA_DISCONNECTED:
-				logw("WiFi lost connection");
+			case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
+				logw("STA_DISCONNECTED");
+				_WiFiStatus = NotConnected;
 				xTimerStop(mqttReconnectTimer, 0); // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
+				_webSocket.closeAll();
+				_webLog.end();
+				_dnsServer.stop();
+				MDNS.end();
 				break;
 			default:
+				logd("[WiFi-event] event: %d", event);
 				break;
-			}
-		});
-		boolean validConfig = _iotWebConf.init();
-		if (!validConfig)
+			} });
+
+		if (_useMQTT && _mqttServer.length() > 0) // setup MQTT?
 		{
-			logw("!invalid configuration!");
-			_iotWebConf.resetWifiAuthInfo();
-			_iotWebConf.getRootParameterGroup()->applyDefaultValue();
-		}
-		else
-		{
-			logi("wait in AP mode for %d seconds", _iotWebConf.getApTimeoutMs() / 1000);
-			if (mqttServerParam.value()[0] != '\0') // skip if factory reset
-			{
-				logd("Valid configuration!");
-				_clientsConfigured = true;
-				// setup MQTT
-				_mqttClient.onConnect( [this](bool sessionPresent)	{ 
-					logi("Connected to MQTT. Session present: %d", sessionPresent);
-					char buf[64];
-					sprintf(buf, "%s/cmnd/#", _rootTopicPrefix);
-					_mqttClient.subscribe(buf, 0);
-					IOTCB()->onMqttConnect(sessionPresent);
-					_mqttClient.publish(_willTopic, 0, true, "Offline"); // toggle online in run loop
-				});
-				_mqttClient.onDisconnect([this](AsyncMqttClientDisconnectReason reason)	{ 
-					logw("Disconnected from MQTT. Reason: %d", (int8_t)reason);
-					if (WiFi.isConnected())
-					{
-						xTimerStart(mqttReconnectTimer, 5000);
-					}
-				});
-				_mqttClient.onMessage([this](char *topic, char *payload, AsyncMqttClientMessageProperties properties, size_t len, size_t index, size_t total)	{ 
-					logd("MQTT Message arrived [%s]  qos: %d len: %d index: %d total: %d", topic, properties.qos, len, index, total);
-					JsonDocument doc;
-					DeserializationError err = deserializeJson(doc, payload);
-					if (err) // not json!
-					{
-						logd("MQTT payload {%s} is not valid JSON!", payload);
-					}
-					else
-					{
-						if (doc.containsKey("status"))
-						{
-							doc.clear();
-							doc["name"] = mqttSubtopicParam.value();
-							doc["sw_version"] = CONFIG_VERSION;
-							doc["IP"] = WiFi.localIP().toString().c_str();
-							doc["SSID"] = WiFi.SSID();
-							doc["uptime"] = formatDuration(millis() - _lastBootTimeStamp);
-							Publish("status", doc, true);
-						}
-						else
-						{
-							IOTCB()->onMqttMessage(topic, doc);
-						}
-					}
-				});
-				_mqttClient.onPublish([this](uint16_t packetId)	{ logd("Publish acknowledged.  packetId: %d", packetId); });
-				IPAddress ip;
-				if (ip.fromString(mqttServerParam.value()))
+			_mqttClient.onConnect([this](bool sessionPresent)
+								  {
+									  logi("Connected to MQTT. Session present: %d", sessionPresent);
+									  char buf[64];
+									  sprintf(buf, "%s/cmnd/#", _rootTopicPrefix);
+									  _mqttClient.subscribe(buf, 0);
+									  IOTCB()->onMqttConnect(sessionPresent);
+									  _mqttClient.publish(_willTopic, 0, true, "Offline"); // toggle online in run loop
+								  });
+			_mqttClient.onDisconnect([this](AsyncMqttClientDisconnectReason reason)
+									 { 
+				logw("Disconnected from MQTT. Reason: %d", (int8_t)reason);
+				if (WiFi.isConnected())
 				{
-					_mqttClient.setServer(ip, mqttPortParam.value());
+					xTimerStart(mqttReconnectTimer, 5000);
+				} });
+			_mqttClient.onMessage([this](char *topic, char *payload, AsyncMqttClientMessageProperties properties, size_t len, size_t index, size_t total)
+								  { 
+				logd("MQTT Message arrived [%s]  qos: %d len: %d index: %d total: %d", topic, properties.qos, len, index, total);
+				JsonDocument doc;
+				DeserializationError err = deserializeJson(doc, payload);
+				if (err) // not json!
+				{
+					logd("MQTT payload {%s} is not valid JSON!", payload);
 				}
 				else
 				{
-					_mqttClient.setServer(mqttServerParam.value(), mqttPortParam.value());
-				}
-				_mqttClient.setCredentials(mqttUserNameParam.value(), mqttUserPasswordParam.value());
-				int len = strlen(_iotWebConf.getThingName());
-				strncpy(_rootTopicPrefix, _iotWebConf.getThingName(), len);
-				if (_rootTopicPrefix[len - 1] != '/')
-				{
-					strcat(_rootTopicPrefix, "/");
-				}
-				strcat(_rootTopicPrefix, mqttSubtopicParam.value());
-				logd("rootTopicPrefix: %s", _rootTopicPrefix);
-				sprintf(_willTopic, "%s/tele/LWT", _rootTopicPrefix);
-				logd("_willTopic: %s", _willTopic);
-				_mqttClient.setWill(_willTopic, 0, true, "Offline");
+					if (doc.containsKey("status"))
+					{
+						doc.clear();
+						doc["sw_version"] = CONFIG_VERSION;
+						doc["IP"] = WiFi.localIP().toString().c_str();
+						doc["SSID"] = WiFi.SSID();
+						doc["uptime"] = formatDuration(millis() - _lastBootTimeStamp);
+						Publish("status", doc, true);
+					}
+					else
+					{
+						IOTCB()->onMqttMessage(topic, doc);
+					}
+				} });
+			_mqttClient.onPublish([this](uint16_t packetId)
+								  { logd("Publish acknowledged.  packetId: %d", packetId); });
+			IPAddress ip;
+			if (ip.fromString(_mqttServer))
+			{
+				_mqttClient.setServer(ip, _mqttPort);
 			}
+			else
+			{
+				_mqttClient.setServer(_mqttServer.c_str(), _mqttPort);
+			}
+			_mqttClient.setCredentials(_mqttUserName.c_str(), _mqttUserPassword.c_str());
+			int len = strlen(_AP_SSID.c_str());
+			strncpy(_rootTopicPrefix, _AP_SSID.c_str(), len);
+			logd("rootTopicPrefix: %s", _rootTopicPrefix);
+			sprintf(_willTopic, "%s/tele/LWT", _rootTopicPrefix);
+			logd("_willTopic: %s", _willTopic);
+			_mqttClient.setWill(_willTopic, 0, true, "Offline");
 		}
+
 		// generate unique id from mac address NIC segment
 		uint8_t chipid[6];
 		esp_efuse_mac_get_default(chipid);
 		_uniqueId = chipid[3] << 16;
 		_uniqueId += chipid[4] << 8;
 		_uniqueId += chipid[5];
-		// Set up required URL handlers on the web server.
-		webServer.on("/settings", [this]() { 
-			if (_iotWebConf.handleCaptivePortal()) // -- Let IotWebConf test and handle captive portal requests.
-			{
-				logd("Captive portal"); // -- Captive portal request were already served.
-				return;
-			}
-			logd("handleSettings");
-			std::stringstream ss;
-			ss << "<!DOCTYPE html><html lang=\"en\"><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, user-scalable=no\"/><title>";
-			ss << _iotWebConf.getThingName();
-			ss << "</title></head><body><h2>";
-			ss << _iotWebConf.getThingName();
-			ss << " Settings</h2>";
-			ss << "<div style='font-size: .6em;'>Firmware config version ";
-			ss << CONFIG_VERSION;
-			ss << "</div><hr><p>";
-			ss << IOTCB()->getSettingsHTML().c_str();
-			ss << "</p> MQTT: <ul>";
-			ss << htmlConfigEntry<char *>(mqttServerParam.label, mqttServerParam.value()).c_str();
-			ss << htmlConfigEntry<int16_t>(mqttPortParam.label, mqttPortParam.value()).c_str();
-			ss << htmlConfigEntry<char *>(mqttUserNameParam.label, mqttUserNameParam.value()).c_str();
-			ss << htmlConfigEntry<const char *>(mqttUserPasswordParam.label, strlen(mqttUserPasswordParam.value()) > 0 ? "********" : "").c_str();
-			ss << htmlConfigEntry<char *>(mqttSubtopicParam.label, mqttSubtopicParam.value()).c_str();
-			ss << "</ul> <div style='padding-top:25px;'> <p><a href='/' onclick='javascript:event.target.port=";
-			ss << ASYNC_WEBSERVER_PORT;
-			ss << "'>Return to home page.</a></p>";
-			ss << "<p><a href='/config' >Configuration</a><div style='font-size: .6em;'> *Log in with 'admin', AP password (default is 12345678)</div></p>";
-			ss << "<p><a href='/log'  onclick='javascript:event.target.port=";
-			ss << ASYNC_WEBSERVER_PORT;
-			ss << "' target='_blank'>Web Log</a></p>";
-			ss << "<p><a href='firmware'>Firmware update</a></p>";
-			ss << "<p><a href='reboot'>Reboot ESP32</a></p>";
-			ss << "</div></body></html>\n";
-			std::string html = ss.str();
-			webServer.send(200, "text/html", html.c_str());
-		});
-		webServer.on("/config", []()	{ _iotWebConf.handleConfig(); });
-		webServer.on("/reboot", [this]()	{ 
+		_lastBootTimeStamp = millis();
+
+		_pwebServer->addHandler(&_webSocket).addMiddleware([this](AsyncWebServerRequest *request, ArMiddlewareNext next)
+														   {
+			// ws.count() is the current count of WS clients: this one is trying to upgrade its HTTP connection
+			if (_webSocket.count() > 1) {
+			  // if we have 2 clients or more, prevent the next one to connect
+			  request->send(503, "text/plain", "Server is busy");
+			} else {
+			  // process next middleware and at the end the handler
+			  next();
+			} });
+		_webSocket.onEvent([this](AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len)
+						   {
+			(void)len;
+			if (type == WS_EVT_CONNECT) {
+				client->setCloseClientOnQueueFull(false);
+			} else if (type == WS_EVT_DISCONNECT) {
+				// logi("Home Page Disconnected!");
+			} else if (type == WS_EVT_ERROR) {
+				loge("ws error");
+			} });
+
+		_pwebServer->on("/reboot", [this](AsyncWebServerRequest *request)
+						{ 
 			logd("resetModule");
 			String page = reboot_html;
-			webServer.send(200, "text/html", page.c_str());
+			request->send(200, "text/html", page.c_str());
 			delay(3000);
-			esp_restart(); 
-		 });
-		webServer.onNotFound([]() { _iotWebConf.handleNotFound(); });
-		webServer.on("/", []()	{ 
-			if (_iotWebConf.getState() == iotwebconf::NetworkState::NotConfigured)
-			{
-				_iotWebConf.handleConfig();
-				return;
+			esp_restart(); });
+
+		_pwebServer->onNotFound([this](AsyncWebServerRequest *request)
+								{
+				logd("Redirecting from: %s", request->url().c_str());
+				String page = redirect_html;
+				page.replace("{n}", _SSID);
+				IPAddress IP = WiFi.softAPIP();
+				String home = IP.toString();
+				home += "/settings";
+				page.replace("{ip}", home.c_str()); // go directly to settings
+				request->send(200, "text/html", page); });
+
+		_pwebServer->on("/network_config", HTTP_GET, [this](AsyncWebServerRequest *request)
+						{
+			logd("config");
+			String fields = network_config_fields;
+			fields.replace("{n}", _AP_SSID);
+			fields.replace("{v}", CONFIG_VERSION);
+			fields.replace("{AP_SSID}", _AP_SSID);
+			fields.replace("{AP_Pw}", _AP_Password);
+			fields.replace("{SSID}", _SSID);
+			fields.replace("{WiFi_Pw}", _WiFi_Password);
+			fields.replace("{mqttServer}", _mqttServer);
+			fields.replace("{mqttPort}", String(_mqttPort));
+			fields.replace("{mqttUser}", _mqttUserName);
+			fields.replace("{mqttPw}", _mqttUserPassword);
+			fields.replace("{modbusPort}", String(_modbusPort));
+			fields.replace("{modbusID}", String(_modbusID));
+			String page = network_config_top;
+			page.replace("{n}", _AP_SSID);
+			page.replace("{v}", CONFIG_VERSION);
+			page += fields;
+			_iotCB->addNetworkConfigs(page);
+			String apply_button = network_config_apply_button;
+			page += apply_button;
+			page += network_config_links;
+			request->send(200, "text/html", page); });
+
+		_pwebServer->on("/submit", HTTP_POST, [this](AsyncWebServerRequest *request)
+						{
+			logd("submit");
+			if (request->hasParam("AP_SSID", true)) {
+				_AP_SSID = request->getParam("AP_SSID", true)->value().c_str();
 			}
-			String page = redirect_html;
-			String url = "http://";
-			url += WiFi.localIP().toString();
-			url += ":";
-			url += ASYNC_WEBSERVER_PORT;
-			page.replace("{h}", url.c_str());
-			page.replace("{hp}", String(WSOCKET_HOME_PORT));
-			webServer.send(200, "text/html", page.c_str());
-		 });
-		 if (_watchdogTimer == NULL)
-		 {
-			 _watchdogTimer = timerBegin(0, 80, true);					   // timer 0, div 80
-			 timerAttachInterrupt(_watchdogTimer, []() { esp_restart(); }, true);	   // attach callback
-			 timerAlarmWrite(_watchdogTimer, WATCHDOG_TIMER * 1000, false); // set time in us
-			 timerAlarmEnable(_watchdogTimer);							   // enable interrupt
-		 }
+			if (request->hasParam("AP_Pw", true)) {
+				_AP_Password = request->getParam("AP_Pw", true)->value().c_str();
+			}
+			if (request->hasParam("SSID", true)) {
+				_SSID = request->getParam("SSID", true)->value().c_str();
+			}
+			if (request->hasParam("WiFi_Pw", true)) {
+				_WiFi_Password = request->getParam("WiFi_Pw", true)->value().c_str();
+			}
+			if (request->hasParam("mqttCheckbox", true)) {
+				_useMQTT = request->getParam("mqttCheckbox", true)->value() == "on" ? true : false;
+			}
+			if (request->hasParam("mqttServer", true)) {
+				_mqttServer = request->getParam("mqttServer", true)->value().c_str();
+			}
+			if (request->hasParam("mqttPort", true)) {
+				_mqttPort = request->getParam("mqttPort", true)->value().toInt();
+			}
+			if (request->hasParam("mqttUser", true)) {
+				_mqttUserName = request->getParam("mqttUser", true)->value().c_str();
+			}
+			if (request->hasParam("mqttPw", true)) {
+				_mqttUserPassword = request->getParam("mqttPw", true)->value().c_str();
+			}
+			if (request->hasParam("modbusCheckbox", true)) {
+				_useModbus = request->getParam("modbusCheckbox", true)->value() == "on" ? true : false;
+			}
+			if (request->hasParam("modbusPort", true)) {
+				_modbusPort = request->getParam("modbusPort", true)->value().toInt();
+			}
+			if (request->hasParam("modbusID", true)) {
+				_modbusID = request->getParam("modbusID", true)->value().toInt();
+			}
+			_iotCB->onSubmitForm(request);
+			logd("Save updated parameters");
+			saveSettings();
+			SendNetworkSettings(request); });
+		_pwebServer->on("/settings", HTTP_GET, [this](AsyncWebServerRequest *request)
+						{ SendNetworkSettings(request); });
 	}
 
-	boolean IOT::Run()
+	void IOT::SendNetworkSettings(AsyncWebServerRequest *request)
 	{
-		bool rVal = false;
-		if (_watchdogTimer != NULL)
+		String fields = network_settings_fields;
+		fields.replace("{AP_SSID}", _AP_SSID);
+		fields.replace("{AP_Pw}", _AP_Password);
+
+		fields.replace("{SSID}", _SSID);
+		fields.replace("{WiFi_Pw}", _WiFi_Password);
+
+		fields.replace("{mqttServer}", _mqttServer);
+		fields.replace("{mqttPort}", String(_mqttPort));
+		fields.replace("{mqttUser}", _mqttUserName);
+		fields.replace("{mqttPw}", _mqttUserPassword);
+
+		fields.replace("{modbusPort}", String(_modbusPort));
+		fields.replace("{modbusID}", String(_modbusID));
+		String page = network_config_top;
+		page.replace("{n}", _AP_SSID);
+		page.replace("{v}", CONFIG_VERSION);
+		page += fields;
+		_iotCB->addNetworkSettings(page);
+		page += network_settings_links;
+		request->send(200, "text/html", page);
+	}
+	void IOT::registerMBWorkers(FunctionCode fc, MBSworker worker)
+	{
+		_MBserver.registerWorker(_modbusID, fc, worker);
+	}
+
+	void IOT::ConnectToMQTTServer()
+	{
+		if (WiFi.isConnected())
 		{
-			timerWrite(_watchdogTimer, 0); // feed the watchdog
+			if (_useMQTT && _mqttServer.length() > 0) // mqtt configured?
+			{
+				logd("Connecting to MQTT...");
+				_mqttClient.connect();
+			}
 		}
-		_iotWebConf.doLoop();
-		if (_clientsConfigured && WiFi.isConnected())
-		{
-			rVal = _mqttClient.connected();
-		}
-		else
-		{
+	}
+
+	void IOT::Run()
+	{
+		uint32_t now = millis();
+		if (_WiFiStatus == NotConnected && _SSID.length() == 0)
+		{ // WiFi not setup, see if flasher is trying to send us the SSID/Pw
 			if (Serial.peek() == '{')
 			{
 				String s = Serial.readStringUntil('}');
@@ -285,15 +340,11 @@ namespace ESP_PLC
 				{
 					if (doc["ssid"].is<const char *>() && doc["password"].is<const char *>())
 					{
-						iotwebconf::Parameter *p = _iotWebConf.getWifiSsidParameter();
-						strcpy(p->valueBuffer, doc["ssid"]);
-						logd("Setting ssid: %s", p->valueBuffer);
-						p = _iotWebConf.getWifiPasswordParameter();
-						strcpy(p->valueBuffer, doc["password"]);
-						logd("Setting password: %s", p->valueBuffer);
-						p = _iotWebConf.getApPasswordParameter();
-						strcpy(p->valueBuffer, DEFAULT_AP_PASSWORD); // reset to default AP password
-						_iotWebConf.saveConfig();
+						_SSID = doc["ssid"].as<String>();
+						logd("Setting ssid: %s", _SSID.c_str());
+						_WiFi_Password = doc["password"].as<String>();
+						logd("Setting password: %s", _WiFi_Password.c_str());
+						saveSettings();
 						esp_restart();
 					}
 					else
@@ -307,7 +358,168 @@ namespace ESP_PLC
 				Serial.read(); // discard data
 			}
 		}
-		return rVal;
+		if (_networkState == Boot)
+		{ // switch to AP mode for AP_TIMEOUT
+			setState(ApMode);
+		}
+		else if (_networkState == ApMode)
+		{
+			if (_WiFiStatus == NotConnected && _SSID.length() > 0) // wifi configured and no AP connections
+			{ 
+				if (now > (_waitInAPTimeStamp + AP_TIMEOUT))
+				{ // switch to WiFi after waiting for AP connection
+					logd("Connecting to WiFi : %s", _SSID.c_str());
+					setState(Connecting);
+				}
+			}
+			_dnsServer.processNextRequest();
+			_webLog.process();
+		}
+		else if (_networkState == Connecting)
+		{
+			if (WiFi.status() != WL_CONNECTED)
+			{
+				if ((millis() - _wifiConnectionStart) > WIFI_CONNECTION_TIMEOUT)
+				{
+					// -- WiFi not available, fall back to AP mode.
+					logw("Giving up on WiFi connection.");
+					WiFi.disconnect(true);
+					setState(ApMode);
+				}
+			}
+			else
+			{
+				logi("WiFi connected, IP address: %s", WiFi.localIP().toString().c_str());
+				setState(OnLine);
+				return;
+			}
+		}
+		else if (_networkState == OnLine)
+		{
+			_webLog.process();
+		}
+		// handle blink led, fast : NotConnected slow: AP connected On: Station connected
+		if (_WiFiStatus != WiFiMode)
+		{
+			unsigned long binkRate = _WiFiStatus == NotConnected ? NC_BLINK_RATE : AP_BLINK_RATE;
+			unsigned long now = millis();
+			if (binkRate < now - _lastBlinkTime)
+			{
+				_blinkStateOn = !_blinkStateOn;
+				_lastBlinkTime = now;
+				digitalWrite(WIFI_STATUS_PIN, _blinkStateOn ? HIGH : LOW);
+			}
+		}
+		else
+		{
+			digitalWrite(WIFI_STATUS_PIN, HIGH);
+		}
+		return;
+	}
+
+	void IOT::setState(NetworkState newState)
+	{
+		NetworkState oldState = _networkState;
+		_networkState = newState;
+		switch (newState)
+		{
+		case OffLine:
+			WiFi.disconnect(true);
+			WiFi.mode(WIFI_OFF);
+			break;
+		case ApMode:
+			if ((oldState == Connecting) || (oldState == OnLine))
+			{
+				WiFi.disconnect(true);
+			}
+			WiFi.mode(WIFI_AP);
+			if (WiFi.softAP(_AP_SSID, _AP_Password)) 
+			{
+				IPAddress IP = WiFi.softAPIP();
+				logi("WiFi AP SSID: %s PW: %s", _AP_SSID.c_str(), _AP_Password.c_str());
+				logd("AP IP address: %s", IP.toString().c_str());
+				_dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
+				_dnsServer.start(DNS_PORT, "*", IP);
+			}
+			_waitInAPTimeStamp = millis();
+			break;
+		case Connecting:
+			if (oldState == OnLine)
+				MDNS.end();
+			_wifiConnectionStart = millis();
+			WiFi.setHostname(_AP_SSID.c_str());
+			WiFi.mode(WIFI_STA);
+			WiFi.begin(_SSID, _WiFi_Password);
+			break;
+		case OnLine:
+			break;
+		default:
+			break;
+		}
+	}
+
+	void IOT::loadSettings()
+	{
+		String jsonString;
+		char ch;
+		for (int i = 0; i < EEPROM_SIZE; ++i)
+		{
+			ch = EEPROM.read(i);
+			if (ch == '\0')
+				break; // Stop at the null terminator
+			jsonString += ch;
+		}
+		JsonDocument doc;
+		DeserializationError error = deserializeJson(doc, jsonString);
+		if (error)
+		{
+			loge("Failed to load data from EEPROM, using defaults: %s", error.c_str());
+			saveSettings(); // save default values
+		}
+		else
+		{
+			logd("JSON loaded from EEPROM: %d", jsonString.length());
+			_AP_SSID = doc["AP_SSID"].isNull() ? TAG : doc["AP_SSID"].as<String>();
+			_AP_Password = doc["AP_Pw"].isNull() ? DEFAULT_AP_PASSWORD : doc["AP_Pw"].as<String>();
+			_SSID = doc["SSID"].isNull() ? "" : doc["SSID"].as<String>();
+			_WiFi_Password = doc["WiFi_Pw"].isNull() ? "" : doc["WiFi_Pw"].as<String>();
+			_useMQTT = doc["useMQTT"].isNull() ? false : doc["useMQTT"].as<bool>();
+			_mqttServer = doc["mqttServer"].isNull() ? "" : doc["mqttServer"].as<String>();
+			_mqttPort = doc["mqttPort"].isNull() ? 1883 : doc["mqttPort"].as<uint16_t>();
+			_mqttUserName = doc["mqttUser"].isNull() ? "" : doc["mqttUser"].as<String>();
+			_mqttUserPassword = doc["mqttPw"].isNull() ? "" : doc["mqttPw"].as<String>();
+			_useModbus = doc["useModbus"].isNull() ? false : doc["useModbus"].as<bool>();
+			_modbusPort = doc["modbusPort"].isNull() ? 502 : doc["modbusPort"].as<uint16_t>();
+			_modbusID = doc["modbusID"].isNull() ? 1 : doc["modbusID"].as<uint16_t>();
+		}
+	}
+
+	void IOT::saveSettings()
+	{
+		JsonDocument doc;
+		doc["version"] = CONFIG_VERSION;
+		doc["AP_SSID"] = _AP_SSID;
+		doc["AP_Pw"] = _AP_Password;
+		doc["SSID"] = _SSID;
+		doc["WiFi_Pw"] = _WiFi_Password;
+		doc["useMQTT"] = _useMQTT;
+		doc["mqttServer"] = _mqttServer;
+		doc["mqttPort"] = _mqttPort;
+		doc["mqttUser"] = _mqttUserName;
+		doc["mqttPw"] = _mqttUserPassword;
+		doc["useModbus"] = _useModbus;
+		doc["modbusPort"] = _modbusPort;
+		doc["modbusID"] = _modbusID;
+		String jsonString;
+		serializeJson(doc, jsonString);
+		logd("Required EEPROM size: %d", jsonString.length());
+		for (int i = 0; i < jsonString.length(); ++i)
+		{
+			EEPROM.write(i, jsonString[i]);
+		}
+		EEPROM.write(jsonString.length(), '\0'); // Null-terminate the string
+		EEPROM.commit();
+		logd("JSON saved to EEPROM: %d", jsonString.length());
 	}
 
 	boolean IOT::Publish(const char *subtopic, JsonDocument &payload, boolean retained)
@@ -374,15 +586,9 @@ namespace ESP_PLC
 		return s;
 	};
 
-	std::string IOT::getSubtopicName()
-	{
-		std::string s(mqttSubtopicParam.value());
-		return s;
-	};
-
 	std::string IOT::getThingName()
 	{
-		std::string s(_iotWebConf.getThingName());
+		std::string s(_AP_SSID.c_str());
 		return s;
 	}
 

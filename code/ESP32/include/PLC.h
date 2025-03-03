@@ -1,12 +1,16 @@
 #include <Arduino.h>
-#include "IOTCallbackInterface.h"
+#include <ArduinoJson.h>
+#include <AsyncTCP.h>
+#include <WiFi.h>
+#include <DNSServer.h>
+#include <ESPAsyncWebServer.h>
 #include <ModbusServerTCPasync.h>
-#include "IOTServiceInterface.h"
 #include "Defines.h"
 #include "CoilData.h"
 #include "AnalogSensor.h"
 #include "DigitalSensor.h"
 #include "Coil.h"
+#include "IOTCallbackInterface.h"
 
 namespace ESP_PLC
 {
@@ -14,16 +18,16 @@ namespace ESP_PLC
 	{
 	
 	public:
-		PLC() : MBserver(){};
-		void setup(IOTServiceInterface* pcb);
+		PLC() {};
+		void setup();
 		void Process();
-		//IOTCallbackInterface 
-		String getSettingsHTML() ;
-		iotwebconf::ParameterGroup* parameterGroup() ;
-		bool validate(iotwebconf::WebRequestWrapper* webRequestWrapper);
+		void Monitor();
 		void onMqttConnect(bool sessionPresent);
 		void onMqttMessage(char* topic, JsonDocument& doc);
 		void onWiFiConnect();
+		void addNetworkSettings(String& page);
+		void addNetworkConfigs(String& page);
+		void onSubmitForm(AsyncWebServerRequest *request);
 	
 	protected:
 		boolean PublishDiscoverySub(const char *component, const char *entityName, const char *jsonElement, const char *device_class, const char *unit_of_meas, const char *icon = "");
@@ -32,9 +36,8 @@ namespace ESP_PLC
 		}
 
 	private:
-		IOTServiceInterface* _iot;
 		boolean _discoveryPublished = false;
-		ModbusServerTCPasync MBserver;
+		
 		String _lastMessagePublished;
 		unsigned long _lastPublishTimeStamp = 0;
 
@@ -44,5 +47,9 @@ namespace ESP_PLC
 
 		CoilData _digitalOutputCoils = CoilData(DO_PINS);
 		CoilData _digitalInputDiscretes = CoilData(DI_PINS);
+
+		int16_t _digitalInputs = DI_PINS;
+		int16_t _analogInputs = AI_PINS;
+		unsigned long _lastHeap = 0;
 	};
 }

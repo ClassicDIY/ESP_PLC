@@ -1,96 +1,109 @@
 #include <Arduino.h>
-#include "ModbusServerTCPasync.h"
-#include "IotWebConfOptionalGroup.h"
-#include <IotWebConfTParameter.h>
 #include "Log.h"
-#include "WebLog.h"
-#include "HelperFunctions.h"
+#include "IOT.h"
 #include "PLC.h"
-#include <WebSocketsServer.h>
-#include <ESPAsyncWebServer.h>
-#include <AsyncTCP.h>
-#include "html.h"
+#include "PLC.html"
 
 namespace ESP_PLC
 {
-	WebLog _webLog = WebLog();
-	AsyncWebServer asyncServer(ASYNC_WEBSERVER_PORT);
-	WebSocketsServer _webSocket = WebSocketsServer(WSOCKET_HOME_PORT);
+	static AsyncWebServer _asyncServer(ASYNC_WEBSERVER_PORT);
+	static AsyncWebSocket _webSocket("/ws_home");
+	IOT _iot = IOT();
 
-	iotwebconf::ParameterGroup Gpio_group = iotwebconf::ParameterGroup("gpio", "GPIOs");
-	iotwebconf::IntTParameter<int16_t> digitalInputsParam = iotwebconf::Builder<iotwebconf::IntTParameter<int16_t>>("digitalInputs").label("Digital Inputs").defaultValue(DI_PINS).min(0).max(DI_PINS).build();
-	iotwebconf::IntTParameter<int16_t> analogInputsParam = iotwebconf::Builder<iotwebconf::IntTParameter<int16_t>>("analogInputs").label("Analog Inputs").defaultValue(AI_PINS).min(0).max(AI_PINS).build();
-
-	iotwebconf::ParameterGroup Modbus_group = iotwebconf::ParameterGroup("modbus", "Modbus");
-	iotwebconf::IntTParameter<int16_t> modbusPort = iotwebconf::Builder<iotwebconf::IntTParameter<int16_t>>("modbusPort").label("Modbus Port").defaultValue(502).build();
-	iotwebconf::IntTParameter<int16_t> modbusID = iotwebconf::Builder<iotwebconf::IntTParameter<int16_t>>("modbusID").label("Modbus ID").defaultValue(1).min(0).max(247).build();
-
-	String PLC::getSettingsHTML()
+	void PLC::addNetworkSettings(String& page)
 	{
-		String s;
-		s += "GPIO:";
-		s += "<ul>";
-		s += htmlConfigEntry<int16_t>(digitalInputsParam.label, digitalInputsParam.value());
-
-		char buffer[STR_LEN];
-		s += "<li>Digital Input GPIOs: ";
-		for (int i = 0; i < digitalInputsParam.value(); i++)
-		{
-			s += _DigitalSensors[i].Pin().c_str();
-			s += " ";
-		}
-		s += htmlConfigEntry<int16_t>(analogInputsParam.label, analogInputsParam.value());
-		s += "</li><li>Analog Input GPIOs: ";
-		for (int i = 0; i < analogInputsParam.value(); i++)
-		{
-			s += _AnalogSensors[i].Pin().c_str();
-			s += " ";
-		}
-		s += "</li><li>Digital Output GPIOs: ";
-		for (int i = 0; i < DO_PINS; i++)
-		{
-			s += _Coils[i].Pin().c_str();
-			s += " ";
-		}
-		s += "</li></ul>";
-		s += "Modbus:";
-		s += "<ul>";
-		s += htmlConfigEntry<int16_t>(modbusPort.label, modbusPort.value());
-		s += htmlConfigEntry<int16_t>(modbusID.label, modbusID.value());
-		s += "</ul>";
-		return s;
+		String appFields = app_settings_fields;
+		appFields.replace("{digitalInputs}", String(_digitalInputs));
+		appFields.replace("{analogInputs}", String(_analogInputs));
+		page += appFields;
 	}
 
-	iotwebconf::ParameterGroup *PLC::parameterGroup()
+	void PLC::addNetworkConfigs(String& page)
 	{
-		return &Gpio_group;
+		String appFields = app_config_fields;
+		appFields.replace("{digitalInputs}", String(_digitalInputs));
+		appFields.replace("{analogInputs}", String(_analogInputs));
+		page += appFields;
 	}
 
-	bool PLC::validate(iotwebconf::WebRequestWrapper *webRequestWrapper)
+	void PLC::onSubmitForm(AsyncWebServerRequest *request)
 	{
-		return true;
+		if (request->hasParam("digitalInputs", true)) {
+			_digitalInputs = request->getParam("digitalInputs", true)->value().toInt();
+		}
+		if (request->hasParam("analogInputs", true)) {
+			_analogInputs = request->getParam("analogInputs", true)->value().toInt();
+		}
 	}
 
-	void PLC::setup(IOTServiceInterface *iot)
+	void PLC::setup()
 	{
 		logd("setup");
-		_iot = iot;
-
-		Gpio_group.addItem(&digitalInputsParam);
-		Gpio_group.addItem(&analogInputsParam);
-
-		Modbus_group.addItem(&modbusPort);
-		Modbus_group.addItem(&modbusID);
-		Gpio_group.addItem(&Modbus_group);
+		_iot.Init(this, &_asyncServer);
+		_asyncServer.on("/", HTTP_GET, [this](AsyncWebServerRequest *request) {
+			String page = home_html;
+			page.replace("{n}", _iot.getThingName().c_str());
+			page.replace("{v}", CONFIG_VERSION);
+			String s;
+			for (int i = 0; i < _digitalInputs; i++)
+			{
+				s += "<div class='box' id=";
+				s += _DigitalSensors[i].Pin().c_str();
+				s += "> ";
+				s += _DigitalSensors[i].Pin().c_str();
+				s += "</div>";
+			}
+			page.replace("{digitalInputs}", s);
+			s.clear();
+			for (int i = 0; i < _analogInputs; i++)
+			{
+				s += "<div class='box' id=";
+				s += _AnalogSensors[i].Pin().c_str();
+				s += "> ";
+				s += _AnalogSensors[i].Pin().c_str();
+				s += "</div>";
+			}
+			page.replace("{analogInputs}", s);
+			s.clear();
+			for (int i = 0; i < DO_PINS; i++)
+			{
+				s += "<div class='box' id=";
+				s += _Coils[i].Pin().c_str();
+				s += "> ";
+				s += _Coils[i].Pin().c_str();
+				s += "</div>";
+			}
+			page.replace("{digitalOutputs}", s);
+			request->send(200, "text/html", page);
+		});
+		_asyncServer.addHandler(&_webSocket).addMiddleware([this](AsyncWebServerRequest *request, ArMiddlewareNext next)
+		{
+			// ws.count() is the current count of WS clients: this one is trying to upgrade its HTTP connection
+			if (_webSocket.count() > 1) {
+			// if we have 2 clients or more, prevent the next one to connect
+			request->send(503, "text/plain", "Server is busy");
+			} else {
+			// process next middleware and at the end the handler
+			next();
+		} });
+		_webSocket.onEvent([this](AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
+			(void)len;
+			if (type == WS_EVT_CONNECT) {
+				_lastMessagePublished.clear(); //force a broadcast
+				client->setCloseClientOnQueueFull(false);
+				client->ping();
+			} else if (type == WS_EVT_DISCONNECT) {
+				// logi("Home Page Disconnected!");
+			} else if (type == WS_EVT_ERROR) {
+				loge("ws error");
+			} else if (type == WS_EVT_PONG) {
+            	logd("ws pong");
+        	}
+		});
 	}
 		
 	void PLC::onWiFiConnect()
 	{
-		if (!MBserver.isRunning())
-		{
-			MBserver.start(modbusPort.value(), 5, 0); // listen for modbus requests
-		}
-
 		// READ_INPUT_REGISTER
 		auto modbusFC04 = [this](ModbusMessage request) -> ModbusMessage
 		{
@@ -254,76 +267,23 @@ namespace ESP_PLC
 			}
 			return response;
 		};
-		MBserver.registerWorker(modbusID.value(), READ_INPUT_REGISTER, modbusFC04);
-		MBserver.registerWorker(modbusID.value(), READ_COIL, modbusFC01);
-		MBserver.registerWorker(modbusID.value(), READ_DISCR_INPUT, modbusFC02);
-		MBserver.registerWorker(modbusID.value(), WRITE_COIL, modbusFC05);
-		MBserver.registerWorker(modbusID.value(), WRITE_MULT_COILS, modbusFC0F);
-
-		asyncServer.begin();
-		_webLog.begin(&asyncServer);
-		_webSocket.begin();
-		_webSocket.onEvent([this](uint8_t num, WStype_t type, uint8_t *payload, size_t length)
-						   { 
-			if (type == WStype_DISCONNECTED)
-			{
-				logi("[%u] Home Page Disconnected!\n", num);
-			}
-			else if (type == WStype_CONNECTED)
-			{
-				logi("[%u] Home Page Connected!\n", num);
-				_lastMessagePublished.clear(); //force a broadcast
-			} });
-
-		asyncServer.on("/", HTTP_GET, [this](AsyncWebServerRequest *request) {
-			String page = home_html;
-			page.replace("{n}", _iot->getThingName().c_str());
-			page.replace("{v}", CONFIG_VERSION);
-			page.replace("{hp}", String(WSOCKET_HOME_PORT));
-			page.replace("{cp}", String(IOTCONFIG_PORT));
-			String s;
-			for (int i = 0; i < digitalInputsParam.value(); i++)
-			{
-				s += "<div class='box' id=";
-				s += _DigitalSensors[i].Pin().c_str();
-				s += "> ";
-				s += _DigitalSensors[i].Pin().c_str();
-				s += "</div>";
-			}
-			page.replace("{digitalInputs}", s);
-			s.clear();
-			for (int i = 0; i < analogInputsParam.value(); i++)
-			{
-				s += "<div class='box' id=";
-				s += _AnalogSensors[i].Pin().c_str();
-				s += "> ";
-				s += _AnalogSensors[i].Pin().c_str();
-				s += "</div>";
-			}
-			page.replace("{analogInputs}", s);
-			s.clear();
-			for (int i = 0; i < DO_PINS; i++)
-			{
-				s += "<div class='box' id=";
-				s += _Coils[i].Pin().c_str();
-				s += "> ";
-				s += _Coils[i].Pin().c_str();
-				s += "</div>";
-			}
-			page.replace("{digitalOutputs}", s);
-			request->send(200, "text/html", page);
-		});
+		_iot.registerMBWorkers(READ_INPUT_REGISTER, modbusFC04);
+		_iot.registerMBWorkers(READ_COIL, modbusFC01);
+		_iot.registerMBWorkers(READ_DISCR_INPUT, modbusFC02);
+		_iot.registerMBWorkers(WRITE_COIL, modbusFC05);
+		_iot.registerMBWorkers(WRITE_MULT_COILS, modbusFC0F);
+		_asyncServer.begin();
 	}
 
-	void PLC::Process()
+	void PLC::Monitor()
 	{
 		JsonDocument doc;
 		doc.clear();
-		for (int i = 0; i < digitalInputsParam.value(); i++)
+		for (int i = 0; i < _digitalInputs; i++)
 		{
 			doc[_DigitalSensors[i].Pin()] = _DigitalSensors[i].Level() ? "High" : "Low";
 		}
-		for (int i = 0; i < analogInputsParam.value(); i++)
+		for (int i = 0; i < _analogInputs; i++)
 		{
 			doc[_AnalogSensors[i].Pin()] = _AnalogSensors[i].Level();
 		}
@@ -333,22 +293,35 @@ namespace ESP_PLC
 		}
 		String s;
 		serializeJson(doc, s);
+		DeserializationError err = deserializeJson(doc, s);
+		if (err)
+		{
+			loge("deserializeJson() failed: %s", err.c_str());
+		}
 		if (_lastMessagePublished == s) // anything changed?
 		{
 			return;
 		}
 		if (_lastPublishTimeStamp < millis()) // limit publish rate
 		{
-			_iot->Online();
-			if (_iot->Publish("readings", s.c_str(), false))
-			{
-				_lastMessagePublished = s;
-				_lastPublishTimeStamp = millis() + MQTT_PUBLISH_RATE_LIMIT;
-			}
-			_webSocket.broadcastTXT(s);
+
+			_iot.Online();
+			_iot.Publish("readings", s.c_str(), false);
+			_lastMessagePublished = s;
+			_lastPublishTimeStamp = millis() + MQTT_PUBLISH_RATE_LIMIT;
+			_webSocket.textAll(s);
 		}
-		_webLog.process();
-		_webSocket.loop();
+	}
+	void PLC::Process()
+	{
+		_iot.Run();
+		unsigned long now = millis();
+		if (now - _lastHeap >= 2000)
+		{
+			_lastHeap = now;
+			// cleanup disconnected clients or too many clients
+			_webSocket.cleanupClients();
+		}
 		return;
 	}
 
@@ -360,39 +333,38 @@ namespace ESP_PLC
 			char buffer[STR_LEN];
 			JsonDocument doc;
 			JsonObject device = doc["device"].to<JsonObject>();
-			device["name"] = _iot->getSubtopicName();
 			device["sw_version"] = CONFIG_VERSION;
 			device["manufacturer"] = "ClassicDIY";
-			sprintf(buffer, "ESP32-Bit (%X)", _iot->getUniqueId());
+			sprintf(buffer, "ESP32-Bit (%X)", _iot.getUniqueId());
 			device["model"] = buffer;
 
 			JsonObject origin = doc["origin"].to<JsonObject>();
 			origin["name"] = TAG;
 
 			JsonArray identifiers = device["identifiers"].to<JsonArray>();
-			sprintf(buffer, "%X", _iot->getUniqueId());
+			sprintf(buffer, "%X", _iot.getUniqueId());
 			identifiers.add(buffer);
 
 			JsonObject components = doc["components"].to<JsonObject>();
 
-			for (int i = 0; i < digitalInputsParam.value(); i++)
+			for (int i = 0; i < _digitalInputs; i++)
 			{
 				JsonObject din = components[_DigitalSensors[i].Pin()].to<JsonObject>();
 				din["platform"] = "sensor";
 				din["name"] = _DigitalSensors[i].Pin().c_str();
-				sprintf(buffer, "%X_%s", _iot->getUniqueId(), _DigitalSensors[i].Pin().c_str());
+				sprintf(buffer, "%X_%s", _iot.getUniqueId(), _DigitalSensors[i].Pin().c_str());
 				din["unique_id"] = buffer;
 				sprintf(buffer, "{{ value_json.%s }}", _DigitalSensors[i].Pin().c_str());
 				din["value_template"] = buffer;
 				din["icon"] = "mdi:switch";
 			}
-			for (int i = 0; i < analogInputsParam.value(); i++)
+			for (int i = 0; i < _analogInputs; i++)
 			{
 				JsonObject ain = components[_AnalogSensors[i].Pin()].to<JsonObject>();
 				ain["platform"] = "sensor";
 				ain["name"] = _AnalogSensors[i].Pin().c_str();
 				ain["unit_of_measurement"] = "%";
-				sprintf(buffer, "%X_%s", _iot->getUniqueId(), _AnalogSensors[i].Pin().c_str());
+				sprintf(buffer, "%X_%s", _iot.getUniqueId(), _AnalogSensors[i].Pin().c_str());
 				ain["unique_id"] = buffer;
 				sprintf(buffer, "{{ value_json.%s }}", _AnalogSensors[i].Pin().c_str());
 				ain["value_template"] = buffer;
@@ -403,21 +375,21 @@ namespace ESP_PLC
 				JsonObject dout = components[_Coils[i].Pin()].to<JsonObject>();
 				dout["platform"] = "sensor";
 				dout["name"] = _Coils[i].Pin().c_str();
-				sprintf(buffer, "%X_%s", _iot->getUniqueId(), _Coils[i].Pin().c_str());
+				sprintf(buffer, "%X_%s", _iot.getUniqueId(), _Coils[i].Pin().c_str());
 				dout["unique_id"] = buffer;
 				sprintf(buffer, "{{ value_json.%s }}", _Coils[i].Pin().c_str());
 				dout["value_template"] = buffer;
 				dout["icon"] = "mdi:valve-open";
 			}
 
-			sprintf(buffer, "%s/stat/readings", _iot->getRootTopicPrefix().c_str());
+			sprintf(buffer, "%s/stat/readings", _iot.getRootTopicPrefix().c_str());
 			doc["state_topic"] = buffer;
-			sprintf(buffer, "%s/tele/LWT", _iot->getRootTopicPrefix().c_str());
+			sprintf(buffer, "%s/tele/LWT", _iot.getRootTopicPrefix().c_str());
 			doc["availability_topic"] = buffer;
 			doc["pl_avail"] = "Online";
 			doc["pl_not_avail"] = "Offline";
 
-			_iot->PublishHADiscovery(doc);
+			_iot.PublishHADiscovery(doc);
 			_discoveryPublished = true;
 		}
 	}
