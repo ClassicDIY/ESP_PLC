@@ -155,15 +155,15 @@ const char network_config_fields[] PROGMEM = R"rawliteral(
     <p><div class="fld"><label for="AP_SSID">AP SSID/Device Name</label><input type="text" id="AP_SSID" name="AP_SSID" value="{AP_SSID}" required maxlength="32"></div></p>
     <p><div class="fld"><label for="AP_Pw">AP/admin Password</label><input type="text" id="AP_Pw" name="AP_Pw" value="{AP_Pw}" minlength="8" required maxlength="32"></div></p>
     <p><div class="fld"><label for="SSID">WiFi SSID</label><input type="text" id="SSID" name="SSID" value="{SSID}" maxlength="32"></div></p>
-    <p><div class="fld"><label for="WiFi_Pw">WiFi password</label><input type="text" id="WiFi_Pw" name="WiFi_Pw" value="{WiFi_Pw}"></div></p>
+    <p><div class="fld"><label for="WiFi_Pw">WiFi password</label><input type="text" id="WiFi_Pw" name="WiFi_Pw" value="{WiFi_Pw}" maxlength="32"></div></p>
     </fieldset>
-    <fieldset id="mqtt" class="fs"><legend><label><input type="checkbox" id="mqttCheckbox" name="mqttCheckbox"  onclick="mqttFieldset(this)" checked>MQTT</label></legend>
-    <p><div class="fld"><label for="mqttServer">MQTT Server</label><input type="text" id="mqttServer" name="mqttServer" value="{mqttServer}"></div></p>
+    <fieldset id="mqtt" class="fs"><legend><label><input type="checkbox" id="mqttCheckbox" name="mqttCheckbox"  onclick="mqttFieldset(this)" {mqttchecked}>MQTT</label></legend>
+    <p><div class="fld"><label for="mqttServer">MQTT Server</label><input type="text" id="mqttServer" name="mqttServer" value="{mqttServer}" maxlength="32"></div></p>
     <p><div class="fld"><label for="mqttPort">MQTT port</label><input type="number" id="mqttPort" name="mqttPort" value="{mqttPort}" step="1"></div></p>
     <p><div class="fld"><label for="mqttUser">MQTT user</label><input type="text" id="mqttUser" name="mqttUser" value="{mqttUser}" maxlength="32"></div></p>
-    <p><div class="fld"><label for="mqttPw">MQTT password</label><input type="text" id="mqttPw" name="mqttPw" value="{mqttPw}"></div></p>
+    <p><div class="fld"><label for="mqttPw">MQTT password</label><input type="text" id="mqttPw" name="mqttPw" value="{mqttPw}" maxlength="32"></div></p>
     </fieldset>
-    <fieldset id="modbus" class="fs"><legend><label><input type="checkbox" id="modbusCheckbox" name="modbusCheckbox" onclick="modbusFieldset(this)" checked>Modbus</label></legend>
+    <fieldset id="modbus" class="fs"><legend><label><input type="checkbox" id="modbusCheckbox" name="modbusCheckbox" onclick="modbusFieldset(this)" {modbuschecked}>Modbus</label></legend>
     <p><div class="fld"><label for="modbusPort">Modbus port</label><input type="number" id="modbusPort" name="modbusPort" value="{modbusPort}" step="1"></div></p>
     <p><div class="fld"><label for="modbusID">Modbus ID</label><input type="number" id="modbusID" name="modbusID" value="{modbusID}" step="1"></div></p>
     </fieldset>
@@ -174,20 +174,23 @@ const char network_config_apply_button[] PROGMEM = R"rawliteral(
     </form>
 )rawliteral";
 
-const char network_settings_fields[] PROGMEM = R"rawliteral(
-    
+const char network_settings[] PROGMEM = R"rawliteral(  
 <fieldset id="network" class="fs"><legend>Network</legend>
     <p><div class="fld">AP SSID/Device Name: {AP_SSID}</div></p>
     <p><div class="fld">AP/admin Password: {AP_Pw}</div></p>
     <p><div class="fld">WiFi SSID: {SSID}</div></p>
     <p><div class="fld">WiFi Password: {WiFi_Pw}</div></p>
 </fieldset>
+)rawliteral";
+const char mqtt_settings[] PROGMEM = R"rawliteral(
 <fieldset id="mqtt" class="fs"><legend>MQTT</legend>
     <p><div class="fld">MQTT server: {mqttServer}</div></p>
     <p><div class="fld">MQTT port: {mqttPort}</div></p>
     <p><div class="fld">MQTT user: {mqttUser}</div></p>
     <p><div class="fld">MQTT password: {mqttPw}</div></p>
 </fieldset>
+)rawliteral";
+const char modbus_settings[] PROGMEM = R"rawliteral(
 <fieldset id="Modbus" class="fs"><legend>Modbus</legend>
     <p><div class="fld">Modbus Port: {modbusPort}</div></p>
     <p><div class="fld">Modbus ID: {modbusID}</div></p>

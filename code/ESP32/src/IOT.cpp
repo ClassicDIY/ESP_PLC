@@ -17,6 +17,9 @@ namespace ESP_PLC
 	static AsyncWebSocket _webSocket("/ws_iot");
 	static WebLog _webLog;
 	static ModbusServerTCPasync _MBserver;
+	static AsyncAuthenticationMiddleware basicAuth;
+
+
 
 	void IOT::Init(IOTCallbackInterface *iotCB, AsyncWebServer *pwebServer)
 	{
@@ -76,11 +79,12 @@ namespace ESP_PLC
 				MDNS.addService("http", "tcp", ASYNC_WEBSERVER_PORT);
 				logd("Active mDNS services: %d", MDNS.queryService("http", "tcp"));
 				xTimerStart(mqttReconnectTimer, 0);
-				if (!_MBserver.isRunning())
+				this->IOTCB()->onWiFiConnect();
+				if (_useModbus && !_MBserver.isRunning())
 				{
 					_MBserver.start(_modbusPort, 5, 0); // listen for modbus requests
 				}
-				this->IOTCB()->onWiFiConnect();
+
 				break;
 			case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
 				logw("STA_DISCONNECTED");
@@ -197,18 +201,23 @@ namespace ESP_PLC
 			esp_restart(); });
 
 		_pwebServer->onNotFound([this](AsyncWebServerRequest *request)
-								{
-				logd("Redirecting from: %s", request->url().c_str());
-				String page = redirect_html;
-				page.replace("{n}", _SSID);
-				IPAddress IP = WiFi.softAPIP();
-				String home = IP.toString();
-				home += "/settings";
-				page.replace("{ip}", home.c_str()); // go directly to settings
-				request->send(200, "text/html", page); });
+		{
+			logd("Redirecting from: %s", request->url().c_str());
+			String page = redirect_html;
+			page.replace("{n}", _SSID);
+			IPAddress IP = WiFi.softAPIP();
+			String home = IP.toString();
+			home += "/settings";
+			page.replace("{ip}", home.c_str()); // go directly to settings
+			request->send(200, "text/html", page); });
 
+		basicAuth.setUsername("admin");
+		basicAuth.setPassword("admin");
+		basicAuth.setAuthFailureMessage("Authentication failed");
+		basicAuth.setAuthType(AsyncAuthType::AUTH_BASIC);
+		basicAuth.generateHash();
 		_pwebServer->on("/network_config", HTTP_GET, [this](AsyncWebServerRequest *request)
-						{
+		{
 			logd("config");
 			String fields = network_config_fields;
 			fields.replace("{n}", _AP_SSID);
@@ -217,12 +226,15 @@ namespace ESP_PLC
 			fields.replace("{AP_Pw}", _AP_Password);
 			fields.replace("{SSID}", _SSID);
 			fields.replace("{WiFi_Pw}", _WiFi_Password);
+			fields.replace("{mqttchecked}", _useMQTT ? "checked" : "unchecked");
 			fields.replace("{mqttServer}", _mqttServer);
 			fields.replace("{mqttPort}", String(_mqttPort));
 			fields.replace("{mqttUser}", _mqttUserName);
 			fields.replace("{mqttPw}", _mqttUserPassword);
+			fields.replace("{modbuschecked}", _useModbus ? "checked" : "unchecked");
 			fields.replace("{modbusPort}", String(_modbusPort));
 			fields.replace("{modbusID}", String(_modbusID));
+			Serial.println(fields.c_str());
 			String page = network_config_top;
 			page.replace("{n}", _AP_SSID);
 			page.replace("{v}", CONFIG_VERSION);
@@ -231,10 +243,10 @@ namespace ESP_PLC
 			String apply_button = network_config_apply_button;
 			page += apply_button;
 			page += network_config_links;
-			request->send(200, "text/html", page); });
+			request->send(200, "text/html", page); }).addMiddleware(&basicAuth);
 
 		_pwebServer->on("/submit", HTTP_POST, [this](AsyncWebServerRequest *request)
-						{
+		{
 			logd("submit");
 			if (request->hasParam("AP_SSID", true)) {
 				_AP_SSID = request->getParam("AP_SSID", true)->value().c_str();
@@ -248,9 +260,7 @@ namespace ESP_PLC
 			if (request->hasParam("WiFi_Pw", true)) {
 				_WiFi_Password = request->getParam("WiFi_Pw", true)->value().c_str();
 			}
-			if (request->hasParam("mqttCheckbox", true)) {
-				_useMQTT = request->getParam("mqttCheckbox", true)->value() == "on" ? true : false;
-			}
+			_useMQTT =  request->hasParam("mqttCheckbox", true);
 			if (request->hasParam("mqttServer", true)) {
 				_mqttServer = request->getParam("mqttServer", true)->value().c_str();
 			}
@@ -263,9 +273,7 @@ namespace ESP_PLC
 			if (request->hasParam("mqttPw", true)) {
 				_mqttUserPassword = request->getParam("mqttPw", true)->value().c_str();
 			}
-			if (request->hasParam("modbusCheckbox", true)) {
-				_useModbus = request->getParam("modbusCheckbox", true)->value() == "on" ? true : false;
-			}
+			_useModbus = request->hasParam("modbusCheckbox", true);
 			if (request->hasParam("modbusPort", true)) {
 				_modbusPort = request->getParam("modbusPort", true)->value().toInt();
 			}
@@ -273,7 +281,6 @@ namespace ESP_PLC
 				_modbusID = request->getParam("modbusID", true)->value().toInt();
 			}
 			_iotCB->onSubmitForm(request);
-			logd("Save updated parameters");
 			saveSettings();
 			SendNetworkSettings(request); });
 		_pwebServer->on("/settings", HTTP_GET, [this](AsyncWebServerRequest *request)
@@ -282,24 +289,31 @@ namespace ESP_PLC
 
 	void IOT::SendNetworkSettings(AsyncWebServerRequest *request)
 	{
-		String fields = network_settings_fields;
-		fields.replace("{AP_SSID}", _AP_SSID);
-		fields.replace("{AP_Pw}", _AP_Password);
-
-		fields.replace("{SSID}", _SSID);
-		fields.replace("{WiFi_Pw}", _WiFi_Password);
-
-		fields.replace("{mqttServer}", _mqttServer);
-		fields.replace("{mqttPort}", String(_mqttPort));
-		fields.replace("{mqttUser}", _mqttUserName);
-		fields.replace("{mqttPw}", _mqttUserPassword);
-
-		fields.replace("{modbusPort}", String(_modbusPort));
-		fields.replace("{modbusID}", String(_modbusID));
 		String page = network_config_top;
 		page.replace("{n}", _AP_SSID);
 		page.replace("{v}", CONFIG_VERSION);
-		page += fields;
+		String network = network_settings;
+		network.replace("{AP_SSID}", _AP_SSID);
+		network.replace("{AP_Pw}", _AP_Password);
+		network.replace("{SSID}", _SSID);
+		network.replace("{WiFi_Pw}", _WiFi_Password);
+		page += network;
+		if (_useMQTT)
+		{
+			String mqtt = mqtt_settings;
+			mqtt.replace("{mqttServer}", _mqttServer);
+			mqtt.replace("{mqttPort}", String(_mqttPort));
+			mqtt.replace("{mqttUser}", _mqttUserName);
+			mqtt.replace("{mqttPw}", _mqttUserPassword);
+			page += mqtt;
+		}
+		if (_useModbus)
+		{
+			String modbus = modbus_settings;
+			modbus.replace("{modbusPort}", String(_modbusPort));
+			modbus.replace("{modbusID}", String(_modbusID));
+			page += modbus;
+		}
 		_iotCB->addNetworkSettings(page);
 		page += network_settings_links;
 		request->send(200, "text/html", page);
@@ -444,8 +458,6 @@ namespace ESP_PLC
 			_waitInAPTimeStamp = millis();
 			break;
 		case Connecting:
-			if (oldState == OnLine)
-				MDNS.end();
 			_wifiConnectionStart = millis();
 			WiFi.setHostname(_AP_SSID.c_str());
 			WiFi.mode(WIFI_STA);
@@ -469,6 +481,7 @@ namespace ESP_PLC
 				break; // Stop at the null terminator
 			jsonString += ch;
 		}
+		// Serial.println(jsonString.c_str());
 		JsonDocument doc;
 		DeserializationError error = deserializeJson(doc, jsonString);
 		if (error)
@@ -479,7 +492,6 @@ namespace ESP_PLC
 		else
 		{
 			logd("JSON loaded from EEPROM: %d", jsonString.length());
-			logd("json: %s",jsonString.c_str());
 			JsonObject iot = doc["iot"].as<JsonObject>();
 			_AP_SSID = iot["AP_SSID"].isNull() ? TAG : iot["AP_SSID"].as<String>();
 			_AP_Password = iot["AP_Pw"].isNull() ? DEFAULT_AP_PASSWORD : iot["AP_Pw"].as<String>();
@@ -493,6 +505,7 @@ namespace ESP_PLC
 			_useModbus = iot["useModbus"].isNull() ? false : iot["useModbus"].as<bool>();
 			_modbusPort = iot["modbusPort"].isNull() ? 502 : iot["modbusPort"].as<uint16_t>();
 			_modbusID = iot["modbusID"].isNull() ? 1 : iot["modbusID"].as<uint16_t>();
+
 			_iotCB->onLoadSetting(doc);
 		}
 	}
@@ -517,14 +530,15 @@ namespace ESP_PLC
 		_iotCB->onSaveSetting(doc);
 		String jsonString;
 		serializeJson(doc, jsonString);
-		logd("Required EEPROM size: %d", jsonString.length());
+		// Serial.println(jsonString.c_str());
+		logd ("_useMQTT: %d", _useMQTT);
 		for (int i = 0; i < jsonString.length(); ++i)
 		{
 			EEPROM.write(i, jsonString[i]);
 		}
 		EEPROM.write(jsonString.length(), '\0'); // Null-terminate the string
 		EEPROM.commit();
-		logd("JSON saved to EEPROM: %d", jsonString.length());
+		logd("JSON saved, required EEPROM size: %d", jsonString.length());
 	}
 
 	boolean IOT::Publish(const char *subtopic, JsonDocument &payload, boolean retained)
