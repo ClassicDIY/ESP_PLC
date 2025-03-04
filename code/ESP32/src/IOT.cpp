@@ -212,7 +212,7 @@ namespace ESP_PLC
 			request->send(200, "text/html", page); });
 
 		basicAuth.setUsername("admin");
-		basicAuth.setPassword("admin");
+		basicAuth.setPassword(_AP_Password.c_str());
 		basicAuth.setAuthFailureMessage("Authentication failed");
 		basicAuth.setAuthType(AsyncAuthType::AUTH_BASIC);
 		basicAuth.generateHash();
@@ -294,9 +294,9 @@ namespace ESP_PLC
 		page.replace("{v}", CONFIG_VERSION);
 		String network = network_settings;
 		network.replace("{AP_SSID}", _AP_SSID);
-		network.replace("{AP_Pw}", _AP_Password);
+		network.replace("{AP_Pw}", _AP_Password.length() > 0 ? "******" : "");
 		network.replace("{SSID}", _SSID);
-		network.replace("{WiFi_Pw}", _WiFi_Password);
+		network.replace("{WiFi_Pw}", _WiFi_Password.length() > 0 ? "******" : "");
 		page += network;
 		if (_useMQTT)
 		{
