@@ -304,7 +304,7 @@ namespace ESP_PLC
 			mqtt.replace("{mqttServer}", _mqttServer);
 			mqtt.replace("{mqttPort}", String(_mqttPort));
 			mqtt.replace("{mqttUser}", _mqttUserName);
-			mqtt.replace("{mqttPw}", _mqttUserPassword);
+			mqtt.replace("{mqttPw}", _mqttUserPassword.length() > 0 ? "******" : "");
 			page += mqtt;
 		}
 		if (_useModbus)
