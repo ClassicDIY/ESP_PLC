@@ -38,44 +38,6 @@ const char update_html[] PROGMEM = R"rawliteral(
     </body></html>
 )rawliteral";
 
-// const char network_settings_top[] PROGMEM = R"rawliteral(
-//     <!DOCTYPE html><html lang=\"en\"><head><meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-//     <title>{n}</title>
-
-//     <style>
-//     .c{text-align: center;} 
-//     .center-flex {
-//         display: grid;
-//         place-items: center;
-//         height: 100%; 
-//     }
-
-//     .fld
-//     {
-//         margin-left: 20px;
-//         color: #000080;
-//         background-color: #FFD700;
-//         clear: both;
-//         text-align: center;
-//         font-size:larger;
-//         background: transparent;
-//         display: inline-block;
-//     }
-//     body{text-align: center;font-family:verdana;} 
-//     fieldset{border-radius:0.3rem;margin: 0px;width:50%; align: center;}
-//     </style>
-
-//     </head><body>
-//         <div>
-//             <h2>{n}</h2>
-//             <div style='font-size: .6em;'>Firmware config version '{v}'</div>
-//             <hr>
-//         </div>
-//     <div class="center-flex">
-// )rawliteral";
-
-
-
 const char network_config_top[] PROGMEM = R"rawliteral(
     <!DOCTYPE html><html lang=\"en\"><head><meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
     <title>{n}</title>
@@ -89,11 +51,13 @@ const char network_config_top[] PROGMEM = R"rawliteral(
             fieldset.disabled = !checkbox.checked;
         }
     </script>
-    <style>
-        .de{background-color:#ffaaaa;} 
-        .em{font-size:0.8em;color:#bb0000;padding-bottom:0px;} 
-        .c{text-align: center;} 
+<style>
 
+        body {
+            font-family: apercu-pro, -apple-system, system-ui, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+            line-height: 1em;
+            font-weight: 100;
+        }
         .container {
             display: flex;
             justify-content: center; 
@@ -102,47 +66,61 @@ const char network_config_top[] PROGMEM = R"rawliteral(
         }
         .form-group {
             margin-bottom: 10px;
+            margin-top: 10px;
             display: flex;
             flex-direction: column;
             height: 100%; 
-            width:300px;
+			width:100%;
         }
-
         .fs {
             display: inline-block;
             border-radius:0.3rem;
             margin: 0px;
-            width:100%; 
+            width:92%; 
         }
         .fld {
             color: #000080;
             clear: both;
             display: flex;
-            text-align: left; /* Align text and inputs properly */
+            text-align: left; 
         }
-
         .fld label {
-            width: 250px; /* Adjust width for consistent alignment */
-            text-align: right; /* Aligns label text */
-            margin-right: 10px; /* Add space between label and input */
+            width: 50%;
+            text-align: right;
+            margin-right: 10px;
         }
-
         .fld input[type="text"],
         .fld input[type="number"] {
             flex: 1;
-            width: auto; /* Adjust widths as necessary */
+            width: 50%;
         }
+        button{
+            border:0;
+            border-radius:0.3rem;
+            background-color:#16A1E7;
+            color:#fff;
+            line-height:2.4rem;
+            font-size:1.2rem;
+            width:100%;
 
-        body{text-align: center;font-family:verdana;} 
-        button{border:0;border-radius:0.3rem;background-color:#16A1E7;color:#fff;line-height:2.4rem;font-size:1.2rem;width:50%;align: center;} 
-
+            margin-top: 10px;
+		} 
         .hide{display: none;}
+        .ver {
+            font-size: .6em;
+        }
+        #config {
+			width: 400px;
+			margin: 0 auto;
+            align: center;
+		}
     </style>
 
     </head><body>
+        <div id="config">
         <div>
             <h2>{n}</h2>
-            <div style='font-size: .6em;'>Firmware config version '{v}'</div>
+            <div class="ver">Firmware config version '{v}'</div>
             <hr>
         </div>
     <div class="container">
@@ -170,7 +148,7 @@ const char network_config_fields[] PROGMEM = R"rawliteral(
 )rawliteral";
 
 const char network_config_apply_button[] PROGMEM = R"rawliteral(
-    <button type="submit" style="margin-top: 10px;">Apply</button>
+    <button type="submit" >Apply</button>
     </form>
 )rawliteral";
 
@@ -212,7 +190,7 @@ const char network_config_links[] PROGMEM = R"rawliteral(
         <a href='/'>Return to home page.</a>
         <p><a href='settings'>Return to Settings</a></p>
         <a href='reboot'>Reboot ESP32</a>
-    </div>
+    </div></div>
     </body></html>
 )rawliteral";
 
