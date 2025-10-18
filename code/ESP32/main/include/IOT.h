@@ -59,6 +59,7 @@ namespace ESP_PLC
         String _SIM_Password;
         String _SIM_PIN;
         bool _useDHCP = false;
+        char _Current_IP[16] = "";
         String _Static_IP;
         String _Subnet_Mask;
         String _Gateway_IP;
@@ -85,6 +86,7 @@ namespace ESP_PLC
         char _willTopic[STR_LEN*2];
         char _rootTopicPrefix[STR_LEN];
         esp_mqtt_client_handle_t _mqtt_client_handle = 0;
+        void UpdateOledDisplay();
         void GoOffline();
         void saveSettings();
         void loadSettings();

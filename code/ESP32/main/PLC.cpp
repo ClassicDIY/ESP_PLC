@@ -409,6 +409,7 @@ namespace ESP_PLC
 			_iot.Publish("readings", s.c_str(), false);
 			_lastMessagePublished = s;
 			_webSocket.textAll(s);
+			logv("Published readings: %s", s.c_str());
 		}
 	}
 

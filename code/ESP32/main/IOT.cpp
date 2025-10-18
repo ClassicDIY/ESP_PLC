@@ -18,6 +18,17 @@
 #include "IOT.html"
 #include "HelperFunctions.h"
 
+#ifdef Has_OLED_Display
+#include <Adafruit_GFX.h> 
+#include <Adafruit_SSD1306.h>
+
+extern Adafruit_SSD1306 oled_display;
+
+#endif
+
+// extern const uint8_t hivemq_ca_pem_start[] asm("_binary_hivemq_ca_pem_start");
+// extern const uint8_t hivemq_ca_pem_end[] asm("_binary_hivemq_ca_pem_end");
+
 namespace ESP_PLC
 {
 	TimerHandle_t mqttReconnectTimer;
@@ -83,6 +94,7 @@ namespace ESP_PLC
 			case ARDUINO_EVENT_WIFI_STA_GOT_IP:
 				logd("STA_GOT_IP");
 				doc["IP"] = WiFi.localIP().toString().c_str();
+				sprintf(_Current_IP, "%s", WiFi.localIP().toString().c_str());
 				doc["ApPassword"] = DEFAULT_AP_PASSWORD;
 				serializeJson(doc, s);
 				s += '\n';
@@ -526,6 +538,7 @@ namespace ESP_PLC
 		}
 #endif
 #endif
+
 		vTaskDelay(pdMS_TO_TICKS(20));
 		return;
 	}
@@ -555,6 +568,41 @@ namespace ESP_PLC
 		}
 	}
 
+	void IOT::UpdateOledDisplay()
+	{
+#ifdef Has_OLED_Display
+		oled_display.clearDisplay();
+		oled_display.setTextSize(2);
+		oled_display.setTextColor(SSD1306_WHITE);
+		oled_display.setCursor(0,0);
+		oled_display.println("ESP_PLC");
+		oled_display.setTextSize(1);
+		oled_display.println(APP_VERSION);
+		oled_display.setTextSize(2);
+		oled_display.setCursor(0, 30);
+		
+		if (_networkState == OnLine)
+		{
+			oled_display.println(_NetworkSelection == WiFiMode ? "WiFi: " : "LTE: ");
+			oled_display.setTextSize(1);
+			oled_display.println(_Current_IP);
+		}
+		else if (_networkState == Connecting)
+		{
+			oled_display.println("Connecting...");
+		}
+		else if (_networkState == ApState)
+		{
+			oled_display.println("AP Mode");
+		}
+		else
+		{
+			oled_display.println("Offline");
+		}
+		oled_display.display();
+#endif
+	}
+
 	void IOT::GoOffline()
 	{
 		xTimerStop(mqttReconnectTimer, 0); // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
@@ -575,7 +623,7 @@ namespace ESP_PLC
 															   : _networkState == Connecting ? "Connecting"
 															   : _networkState == OnLine	 ? "OnLine"
 																							 : "OffLine");
-
+		UpdateOledDisplay();
 		switch (newState)
 		{
 		case OffLine:
@@ -716,7 +764,7 @@ namespace ESP_PLC
 		{
 			if (_useMQTT && _mqttServer.length() > 0) // mqtt configured?
 			{
-				logd("Connecting to MQTT...");
+				logd("Connecting to MQTT: %s:%d", _mqttServer.c_str(), _mqttPort);
 				int len = strlen(_AP_SSID.c_str());
 				strncpy(_rootTopicPrefix, _AP_SSID.c_str(), len);
 				logd("rootTopicPrefix: %s", _rootTopicPrefix);
@@ -732,6 +780,9 @@ namespace ESP_PLC
 				mqtt_cfg.lwt_retain = 1;
 				mqtt_cfg.lwt_msg = "Offline";
 				mqtt_cfg.lwt_msg_len = 7;
+				mqtt_cfg.transport = MQTT_TRANSPORT_OVER_TCP;
+				// mqtt_cfg.cert_pem = (const char *)hivemq_ca_pem_start,
+				// mqtt_cfg.skip_cert_common_name_check = true; // allow self-signed certs
 				_mqtt_client_handle = esp_mqtt_client_init(&mqtt_cfg);
 				esp_mqtt_client_register_event(_mqtt_client_handle, (esp_mqtt_event_id_t)ESP_EVENT_ANY_ID, mqtt_event_handler, this);
 				esp_mqtt_client_start(_mqtt_client_handle);
@@ -835,6 +886,7 @@ namespace ESP_PLC
 			logi("Got IP Address");
 			logi("~~~~~~~~~~~");
 			logi("IP:" IPSTR, IP2STR(&ip_info->ip));
+			sprintf(_Current_IP, IPSTR, IP2STR(&ip_info->ip));
 			logi("IPMASK:" IPSTR, IP2STR(&ip_info->netmask));
 			logi("Gateway:" IPSTR, IP2STR(&ip_info->gw));
 			logi("~~~~~~~~~~~");
@@ -972,9 +1024,7 @@ namespace ESP_PLC
 		loge("Ethernet not supported on this device");
 		return ESP_ERR_NOT_SUPPORTED;
 		#endif
-		
 	}
-	
 
 	void IOT::wakeup_modem(void)
 	{
@@ -1031,6 +1081,7 @@ namespace ESP_PLC
 				vTaskDelay(pdMS_TO_TICKS(10000));
 				continue;
 			}
+			break;
 		}
 		logi("Modem has acquired network");
 		return ret;

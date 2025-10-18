@@ -23,7 +23,7 @@ namespace ESP_PLC
         </head><body>
             <div>
                 <h2>{n}</h2>
-                <div style='font-size: .6em;'>Firmware config version '{v}'</div>
+                <div style='font-size: .6em;'>Firmware version '{v}'</div>
                 <hr>
             </div>
             <form method='POST' action='/doupdate' enctype='multipart/form-data'>

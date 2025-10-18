@@ -6,6 +6,10 @@
 #include <time.h>
 #include <Wire.h>
 #include <Adafruit_ADS1X15.h>
+#ifdef Has_OLED_Display
+#include <Adafruit_GFX.h> 
+#include <Adafruit_SSD1306.h>
+#endif
 #include <Thread.h>
 #include <ThreadController.h>
 #include "main.h"
@@ -22,6 +26,9 @@ RTC_PCF8563 rtc;
 static Main my_main;
 PLC _plc = PLC();
 Adafruit_ADS1115 ads; /* Use this for the 16-bit version */
+#ifdef Has_OLED_Display
+Adafruit_SSD1306 oled_display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+#endif
 ThreadController _controller = ThreadController();
 Thread *_workerThread1 = new Thread();
 Thread *_workerThread2 = new Thread();
@@ -33,7 +40,6 @@ esp_err_t Main::setup()
 	while (!Serial) {}
 	esp_err_t ret = ESP_OK;
  
-	Serial.println("Starting ESP32-S3 PLC Controller");
 	logd("------------ESP32-S3 specifications ---------------");
 	logd("Chip Model: %s", ESP.getChipModel());
 	logd("Chip Revision: %d", ESP.getChipRevision());
@@ -43,7 +49,7 @@ esp_err_t Main::setup()
 	logd("Flash Frequency: %d MHz", ESP.getFlashChipSpeed() / 1000000);
 	logd("Heap Size: %d KB", ESP.getHeapSize() / 1024);
 	logd("Free Heap: %d KB", ESP.getFreeHeap() / 1024);
-	logd("------------ESP32-S3 specifications ---------------");
+	logd("------------ESP32 specifications ---------------");
 
 	Wire.begin(I2C_SDA, I2C_SCL);
 	if (!ads.begin(0x48, &Wire))
@@ -64,7 +70,14 @@ esp_err_t Main::setup()
 	DateTime now = rtc.now();
     logi("Date Time: %s", now.timestamp().c_str());
 	#endif
+	#ifdef Has_OLED_Display
+	if(!oled_display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+		loge("SSD1306 allocation failed");
+	} else {
+		oled_display.clearDisplay();
 
+	}
+	#endif
 	_plc.setup();
 	// Configure main worker thread
 	_workerThread1->onRun([]() { _plc.CleanUp(); });

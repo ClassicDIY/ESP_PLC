@@ -14,7 +14,7 @@
 #define AP_TIMEOUT 30000
 #define FLASHER_TIMEOUT 10000
 #define WS_CLIENT_CLEANUP 5000
-#define WIFI_CONNECTION_TIMEOUT 30000
+#define WIFI_CONNECTION_TIMEOUT 120000
 #define DEFAULT_AP_PASSWORD "12345678"
 
 #define ADC_Resolution 65536.0
@@ -28,5 +28,10 @@
 #define COIL_BASE_ADDRESS 2000
 #define DISCRETE_BASE_ADDRESS 3000
 
-
+#ifdef Has_OLED_Display
+// OLED display definitions
+#define SCREEN_WIDTH 128 // OLED display width, in pixels 
+#define SCREEN_HEIGHT 64 // OLED display height, in pixels 
+#define OLED_RESET -1 // Reset pin # (or -1 if sharing Arduino reset pin)
+#endif
 
