@@ -7,6 +7,8 @@
 #include <DNSServer.h>
 #include <ESPAsyncWebServer.h>
 #include <ModbusServerTCPasync.h>
+#include <ModbusClientRTU.h>
+#include "ModbusBridgeEthernet.h"
 #include "mqtt_client.h"
 #include "time.h"
 #include <sstream>
@@ -37,7 +39,7 @@ namespace ESP_PLC
         void PublishOnline();
         NetworkState getNetworkState() { return _networkState; }
         IOTCallbackInterface *IOTCB() { return _iotCB; }
-        void registerMBWorkers(FunctionCode fc, MBSworker worker);
+        void registerMBTCPWorkers(FunctionCode fc, MBSworker worker);
         uint16_t InputRegisterBaseAddr() { return _input_register_base_addr; }
         uint16_t CoilBaseAddr() { return _coil_base_addr; }
         uint16_t DiscreteBaseAddr() { return _discrete_input_base_addr; }

@@ -35,6 +35,7 @@ namespace ESP_PLC
 	static DNSServer _dnsServer;
 	static WebLog _webLog;
 	static ModbusServerTCPasync _MBserver;
+	static ModbusClientRTU _MBclientRTU(RS485_RTS);
 	static AsyncAuthenticationMiddleware basicAuth;
 
 	void IOT::Init(IOTCallbackInterface *iotCB, AsyncWebServer *pwebServer)
@@ -73,6 +74,13 @@ namespace ESP_PLC
 			logi("Loading configuration from EEPROM");
 			loadSettings();
 		}
+		#ifdef HasRS485
+		pinMode(RS485_RTS, OUTPUT);
+		// Set up Serial2 connected to Modbus RTU
+		RTUutils::prepareHardwareSerial(Serial2);
+		Serial2.begin(9600, SERIAL_8N1,RS485_RXD,RS485_TXD);
+		while (!Serial2) {}
+		#endif
 		mqttReconnectTimer = xTimerCreate("mqttTimer", pdMS_TO_TICKS(8000), pdFALSE, this, mqttReconnectTimerCF);
 
 		WiFi.onEvent([this](WiFiEvent_t event, WiFiEventInfo_t info)
@@ -338,7 +346,7 @@ namespace ESP_PLC
 		page += network_settings_links;
 		request->send(200, "text/html", page);
 	}
-	void IOT::registerMBWorkers(FunctionCode fc, MBSworker worker)
+	void IOT::registerMBTCPWorkers(FunctionCode fc, MBSworker worker)
 	{
 		_MBserver.registerWorker(_modbusID, fc, worker);
 	}
@@ -494,6 +502,10 @@ namespace ESP_PLC
 					logd("Connecting to network: %d", _NetworkSelection);
 					setState(Connecting);
 				}
+				else
+				{
+					UpdateOledDisplay(); // update countdown
+				}
 			}
 			_dnsServer.processNextRequest();
 			_webLog.process();
@@ -561,6 +573,18 @@ namespace ESP_PLC
 			if (_useModbus && !_MBserver.isRunning())
 			{
 				_MBserver.start(_modbusPort, 5, 0); // listen for modbus requests
+				_MBclientRTU.setTimeout(2000);
+				_MBclientRTU.begin(Serial2);	 // setup modbus RTU client
+				_MBclientRTU.useModbusRTU();
+				_MBclientRTU.onDataHandler([this](ModbusMessage response, uint32_t token)
+				{
+					logd("RTU Response: serverID=%d, FC=%d, Token=%08X, length=%d:\n", response.getServerID(), response.getFunctionCode(), token, response.size());
+				});
+				_MBclientRTU.onErrorHandler([this](Modbus::Error errorCode, uint32_t token)
+				{
+					loge("Modbus RTU Client Error: %d Token: %08X", errorCode, token);
+					return true;
+				});
 			}
 			logd("Before xTimerStart _NetworkSelection: %d", _NetworkSelection);
 			xTimerStart(mqttReconnectTimer, 0);
@@ -594,6 +618,12 @@ namespace ESP_PLC
 		else if (_networkState == ApState)
 		{
 			oled_display.println("AP Mode");
+			int countdown = (AP_TIMEOUT - (millis() - _waitInAPTimeStamp)) / 1000;
+			if (countdown > 0)
+			{
+				oled_display.setTextSize(2);
+				oled_display.printf("%d", countdown);
+			}
 		}
 		else
 		{

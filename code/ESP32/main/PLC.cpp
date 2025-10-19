@@ -355,11 +355,11 @@ namespace ESP_PLC
 			}
 			return response;
 		};
-		_iot.registerMBWorkers(READ_INPUT_REGISTER, modbusFC04);
-		_iot.registerMBWorkers(READ_COIL, modbusFC01);
-		_iot.registerMBWorkers(READ_DISCR_INPUT, modbusFC02);
-		_iot.registerMBWorkers(WRITE_COIL, modbusFC05);
-		_iot.registerMBWorkers(WRITE_MULT_COILS, modbusFC0F);
+		_iot.registerMBTCPWorkers(READ_INPUT_REGISTER, modbusFC04);
+		_iot.registerMBTCPWorkers(READ_COIL, modbusFC01);
+		_iot.registerMBTCPWorkers(READ_DISCR_INPUT, modbusFC02);
+		_iot.registerMBTCPWorkers(WRITE_COIL, modbusFC05);
+		_iot.registerMBTCPWorkers(WRITE_MULT_COILS, modbusFC0F);
 	}
 
 	void PLC::CleanUp()

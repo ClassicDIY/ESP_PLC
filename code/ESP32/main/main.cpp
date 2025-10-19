@@ -40,7 +40,7 @@ esp_err_t Main::setup()
 	while (!Serial) {}
 	esp_err_t ret = ESP_OK;
  
-	logd("------------ESP32-S3 specifications ---------------");
+	logd("------------ESP32 specifications ---------------");
 	logd("Chip Model: %s", ESP.getChipModel());
 	logd("Chip Revision: %d", ESP.getChipRevision());
 	logd("Number of CPU Cores: %d", ESP.getChipCores());
