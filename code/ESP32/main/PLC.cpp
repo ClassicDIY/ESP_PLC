@@ -115,8 +115,8 @@ namespace ESP_PLC
 			{
 				s += "<div class='box' id=";
 				s += _DigitalSensors[i].Pin().c_str();
-				s += "> ";
-				s += _DigitalSensors[i].Pin().c_str();
+				s += "> DI: ";
+				s += std::to_string(i);
 				s += "</div>";
 			}
 			page.replace("{digitalInputs}", s.c_str());
@@ -137,8 +137,8 @@ namespace ESP_PLC
 			{
 				s += "<div class='box' id=";
 				s += _Coils[i].Pin().c_str();
-				s += "> ";
-				s += _Coils[i].Pin().c_str();
+				s += "> DO: ";
+				s += std::to_string(i);
 				s += "</div>";
 			}
 			page.replace("{digitalOutputs}", s.c_str());

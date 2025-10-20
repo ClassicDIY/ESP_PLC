@@ -984,7 +984,6 @@ namespace ESP_PLC
 		}
 	}
 
-
 	esp_err_t IOT::ConnectEthernet()
 	{
 		#ifdef HasEthernet
