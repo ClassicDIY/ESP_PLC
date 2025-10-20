@@ -113,9 +113,9 @@ namespace ESP_PLC
 			std::string s = _iot.getIOTypeDesc(IOTypes::DigitalInputs);
 			for (int i = 0; i < DI_PINS; i++)
 			{
-				s += "<div class='box' id=";
-				s += _DigitalSensors[i].Pin().c_str();
-				s += "> DI: ";
+				s += "<div class='box' id=DI";
+				s += std::to_string(i);
+				s += "> DI";
 				s += std::to_string(i);
 				s += "</div>";
 			}
@@ -124,10 +124,10 @@ namespace ESP_PLC
 			s = _iot.getIOTypeDesc(IOTypes::AnalogInputs);
 			for (int i = 0; i < AI_PINS; i++)
 			{
-				s += "<div class='box' id=";
-				s += _AnalogSensors[i].Channel().c_str();
-				s += "> ";
-				s += _AnalogSensors[i].Channel().c_str();
+				s += "<div class='box' id=AI";
+				s += std::to_string(i);
+				s += "> AI";
+				s += std::to_string(i);
 				s += "</div>";
 			}
 			page.replace("{analogInputs}", s.c_str());
@@ -135,9 +135,9 @@ namespace ESP_PLC
 			s = _iot.getIOTypeDesc(IOTypes::DigitalOutputs);
 			for (int i = 0; i < DO_PINS; i++)
 			{
-				s += "<div class='box' id=";
-				s += _Coils[i].Pin().c_str();
-				s += "> DO: ";
+				s += "<div class='box' id=DO";
+				s += std::to_string(i);
+				s += "> DO";
 				s += std::to_string(i);
 				s += "</div>";
 			}
@@ -368,7 +368,9 @@ namespace ESP_PLC
 			doc.clear();
 			for (int i = 0; i < DI_PINS; i++)
 			{
-				doc[_DigitalSensors[i].Pin()] = _DigitalSensors[i].Level() ? "High" : "Low";
+				std::stringstream ss;
+				ss << "DI" << i;
+				doc[ss.str()] = _DigitalSensors[i].Level() ? "High" : "Low";
 			}
 			for (int i = 0; i < AI_PINS; i++)
 			{
@@ -376,7 +378,9 @@ namespace ESP_PLC
 			}
 			for (int i = 0; i < DO_PINS; i++)
 			{
-				doc[_Coils[i].Pin()] = _Coils[i].Level() ? "On" : "Off";
+				std::stringstream ss;
+				ss << "DO" << i;
+				doc[ss.str()] = _Coils[i].Level() ? "On" : "Off";
 			}
 			String s;
 			serializeJson(doc, s);
