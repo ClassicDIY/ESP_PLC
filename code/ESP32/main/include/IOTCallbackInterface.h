@@ -2,6 +2,8 @@
 #include "Arduino.h"
 #include "ArduinoJson.h"
 
+namespace ESP_PLC
+{   
 class IOTCallbackInterface
 {
 public:
@@ -15,3 +17,4 @@ public:
     virtual void onLoadSetting(JsonDocument& doc);
     
 };
+} // namespace ESP_PLC

@@ -55,9 +55,6 @@ namespace ESP_PLC
 		#endif
 		CoilData _digitalOutputCoils = CoilData(DO_PINS);
 		CoilData _digitalInputDiscretes = CoilData(DI_PINS);
-
-		int16_t _digitalInputs = DI_PINS;
-		int16_t _analogInputs = AI_PINS;
 		unsigned long _lastHeap = 0;
 	};
 }

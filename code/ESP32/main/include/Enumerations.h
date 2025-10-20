@@ -19,4 +19,12 @@ namespace ESP_PLC
       OnLine,
       OffLine
     };
+
+    enum IOTypes  
+    {
+      DigitalInputs,
+      AnalogInputs,
+      DigitalOutputs,
+      AnalogOutputs
+    };
 }

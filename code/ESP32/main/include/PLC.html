@@ -75,6 +75,10 @@ const char home_html[] PROGMEM = R"rawliteral(
             display: flex;
             text-align: left; /* Align text and inputs properly */
         }
+		.desc {
+            color: #4207e4ff;
+            font-size: .8em;
+        }
         .box {
             width: 120px;
             height: 25px;
@@ -112,8 +116,6 @@ const char home_html[] PROGMEM = R"rawliteral(
 
 const char app_settings_fields[] PROGMEM = R"rawliteral(
 	<fieldset id="app" class="fs"><legend>Application</legend>
-		<p><div class="fld">Digital Inputs: {digitalInputs}</div></p>
-		<p><div class="fld">Analog Inputs: {analogInputs}</div></p>
 		<div class="conv">
 			{aconv}
 		</div>
@@ -122,8 +124,6 @@ const char app_settings_fields[] PROGMEM = R"rawliteral(
 
 const char app_config_fields[] PROGMEM = R"rawliteral(
 	<fieldset id="app" class="fs"><legend>Application</legend>
-		<p><div class="fld"><label for="digitalInputs">Digital Inputs</label><input type="number" id="digitalInputs" name="digitalInputs" value="{digitalInputs}" step="1" min="0" max="12" ></div></p>
-		<p><div class="fld"><label for="analogInputs">Analog Inputs</label><input type="number" id="analogInputs" name="analogInputs" value="{analogInputs}" step="1" min="0" max="4"></div></p>
 		<div class="conv">
 			{aconv}
 		</div>

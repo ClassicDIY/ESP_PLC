@@ -1,8 +1,10 @@
 #pragma once
 #include "Arduino.h"
 #include "ArduinoJson.h"
+#include "Enumerations.h"
 
-
+namespace ESP_PLC
+{
 class IOTServiceInterface
 {
 public:
@@ -17,4 +19,6 @@ public:
     // virtual u_int getUniqueId() = 0;
     virtual std::string getThingName() = 0;
     virtual void PublishOnline() = 0;
+    virtual std::string getIOTypeDesc(IOTypes type) = 0;
 };
+} // namespace ESP_PLC

@@ -13,11 +13,8 @@ namespace ESP_PLC
 	void PLC::addApplicationSettings(String &page)
 	{
 		String appFields = app_settings_fields;
-		appFields.replace("{digitalInputs}", String(_digitalInputs));
-		appFields.replace("{analogInputs}", String(_analogInputs));
-
 		String appConvs;
-		for (int i = 0; i < _analogInputs; i++)
+		for (int i = 0; i < AI_PINS; i++)
 		{
 			String conv_flds(analog_conv_val);
 			conv_flds.replace("{An}", "A" + String(i));
@@ -34,12 +31,9 @@ namespace ESP_PLC
 	void PLC::addApplicationConfigs(String &page)
 	{
 		String appFields = app_config_fields;
-		
-		appFields.replace("{digitalInputs}", String(_digitalInputs));
-		appFields.replace("{analogInputs}", String(_analogInputs));
 		String appConvs;
 		String scriptConvs;
-		for (int i = 0; i < _analogInputs; i++)
+		for (int i = 0; i < AI_PINS; i++)
 		{
 			String conv_flds(analog_conv_flds);
 			String conv_script(app_validateInputs);
@@ -59,15 +53,7 @@ namespace ESP_PLC
 
 	void PLC::onSubmitForm(AsyncWebServerRequest *request)
 	{
-		if (request->hasParam("digitalInputs", true))
-		{
-			_digitalInputs = request->getParam("digitalInputs", true)->value().toInt();
-		}
-		if (request->hasParam("analogInputs", true))
-		{
-			_analogInputs = request->getParam("analogInputs", true)->value().toInt();
-		}
-		for (int i = 0; i < _analogInputs; i++)
+		for (int i = 0; i < AI_PINS; i++)
 		{
 			String ain = "A" + String(i);
 			if (request->hasParam(ain + "_min", true))
@@ -92,9 +78,7 @@ namespace ESP_PLC
 	void PLC::onSaveSetting(JsonDocument &doc)
 	{
 		JsonObject plc = doc["plc"].to<JsonObject>();
-		plc["digitalInputs"] = _digitalInputs;
-		plc["analogInputs"] = _analogInputs;
-		for (int i = 0; i < _analogInputs; i++)
+		for (int i = 0; i < AI_PINS; i++)
 		{
 			String ain = "A" + String(i);
 			plc[ain + "_minV"] = _AnalogSensors[i].minV();
@@ -107,9 +91,7 @@ namespace ESP_PLC
 	void PLC::onLoadSetting(JsonDocument &doc)
 	{
 		JsonObject plc = doc["plc"].as<JsonObject>();
-		_digitalInputs = plc["digitalInputs"].isNull() ? DI_PINS : plc["digitalInputs"].as<uint16_t>();
-		_analogInputs = plc["analogInputs"].isNull() ? AI_PINS : plc["analogInputs"].as<uint16_t>();
-		for (int i = 0; i < _analogInputs; i++)
+		for (int i = 0; i < AI_PINS; i++)
 		{
 			String ain = "A" + String(i);
 			plc[ain + "_minV"].isNull() ? _AnalogSensors[i].SetMinV(1.0) : _AnalogSensors[i].SetMinV(plc[ain + "_minV"].as<float>());
@@ -128,8 +110,8 @@ namespace ESP_PLC
 			String page = home_html;
 			page.replace("{n}", _iot.getThingName().c_str());
 			page.replace("{v}", APP_VERSION);
-			String s;
-			for (int i = 0; i < _digitalInputs; i++)
+			std::string s = _iot.getIOTypeDesc(IOTypes::DigitalInputs);
+			for (int i = 0; i < DI_PINS; i++)
 			{
 				s += "<div class='box' id=";
 				s += _DigitalSensors[i].Pin().c_str();
@@ -137,9 +119,10 @@ namespace ESP_PLC
 				s += _DigitalSensors[i].Pin().c_str();
 				s += "</div>";
 			}
-			page.replace("{digitalInputs}", s);
+			page.replace("{digitalInputs}", s.c_str());
 			s.clear();
-			for (int i = 0; i < _analogInputs; i++)
+			s = _iot.getIOTypeDesc(IOTypes::AnalogInputs);
+			for (int i = 0; i < AI_PINS; i++)
 			{
 				s += "<div class='box' id=";
 				s += _AnalogSensors[i].Channel().c_str();
@@ -147,8 +130,9 @@ namespace ESP_PLC
 				s += _AnalogSensors[i].Channel().c_str();
 				s += "</div>";
 			}
-			page.replace("{analogInputs}", s);
+			page.replace("{analogInputs}", s.c_str());
 			s.clear();
+			s = _iot.getIOTypeDesc(IOTypes::DigitalOutputs);
 			for (int i = 0; i < DO_PINS; i++)
 			{
 				s += "<div class='box' id=";
@@ -157,7 +141,7 @@ namespace ESP_PLC
 				s += _Coils[i].Pin().c_str();
 				s += "</div>";
 			}
-			page.replace("{digitalOutputs}", s);
+			page.replace("{digitalOutputs}", s.c_str());
 			request->send(200, "text/html", page); });
 		_asyncServer.addHandler(&_webSocket).addMiddleware([this](AsyncWebServerRequest *request, ArMiddlewareNext next)
 														   {
@@ -369,7 +353,7 @@ namespace ESP_PLC
 
 	void PLC::Monitor()
 	{
-		for (int i = 0; i < _analogInputs; i++)
+		for (int i = 0; i < AI_PINS; i++)
 		{
 			_AnalogSensors[i].Run();
 		}
@@ -382,11 +366,11 @@ namespace ESP_PLC
 		{
 			JsonDocument doc;
 			doc.clear();
-			for (int i = 0; i < _digitalInputs; i++)
+			for (int i = 0; i < DI_PINS; i++)
 			{
 				doc[_DigitalSensors[i].Pin()] = _DigitalSensors[i].Level() ? "High" : "Low";
 			}
-			for (int i = 0; i < _analogInputs; i++)
+			for (int i = 0; i < AI_PINS; i++)
 			{
 				doc[_AnalogSensors[i].Channel()] = _AnalogSensors[i].Level();
 			}
@@ -435,7 +419,7 @@ namespace ESP_PLC
 
 			JsonObject components = doc["components"].to<JsonObject>();
 
-			for (int i = 0; i < _digitalInputs; i++)
+			for (int i = 0; i < DI_PINS; i++)
 			{
 				JsonObject din = components[_DigitalSensors[i].Pin()].to<JsonObject>();
 				din["platform"] = "sensor";
@@ -446,7 +430,7 @@ namespace ESP_PLC
 				din["value_template"] = buffer;
 				din["icon"] = "mdi:switch";
 			}
-			for (int i = 0; i < _analogInputs; i++)
+			for (int i = 0; i < AI_PINS; i++)
 			{
 				JsonObject ain = components[_AnalogSensors[i].Channel()].to<JsonObject>();
 				ain["platform"] = "sensor";

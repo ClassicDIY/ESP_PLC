@@ -890,6 +890,47 @@ namespace ESP_PLC
 		return s;
 	}
 
+	std::string IOT::getIOTypeDesc(IOTypes type)
+	{
+		std::string s = "<div class='desc'> ";
+		char addr_buf[64];
+		switch(type)
+		{
+			case DigitalInputs:
+				if (_useModbus)
+				{
+					sprintf(addr_buf, "Modbus Discretes: %d-%d", _discrete_input_base_addr, _discrete_input_base_addr + DI_PINS);
+					s += addr_buf;
+				}
+				break;
+			case DigitalOutputs:
+				if (_useModbus)
+				{
+					sprintf(addr_buf, "Modbus Coils: %d-%d", _coil_base_addr, _coil_base_addr + DO_PINS);
+					s += addr_buf;
+				}
+				break;
+				
+			case AnalogInputs:
+				if (_useModbus)
+				{
+					sprintf(addr_buf, "Modbus Input Registers: %d-%d", _input_register_base_addr, _input_register_base_addr + AI_PINS);
+					s += addr_buf;
+				}
+				break;
+				
+			case AnalogOutputs:
+				if (_useModbus)
+				{
+					sprintf(addr_buf, "Modbus Holding Registers: %d-%d", _holding_register_base_addr, _holding_register_base_addr + AO_PINS);
+					s += addr_buf;
+				}
+				break;
+		}	
+		s += "</div>";
+		return s;
+	}
+
 	void IOT::PublishOnline()
 	{
 		if (!_publishedOnline)
