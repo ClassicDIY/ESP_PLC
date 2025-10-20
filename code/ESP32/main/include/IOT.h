@@ -74,10 +74,10 @@ namespace ESP_PLC
         bool _useModbus = false;
         int16_t _modbusPort = 502;
         int16_t _modbusID = 1;
-        uint16_t _holding_register_base_addr = HOLDING_REGISTER_BASE_ADDRESS;
         uint16_t _input_register_base_addr = INPUT_REGISTER_BASE_ADDRESS;
 		uint16_t _coil_base_addr = COIL_BASE_ADDRESS;
 		uint16_t _discrete_input_base_addr = DISCRETE_BASE_ADDRESS;
+        uint16_t _holding_register_base_addr = HOLDING_REGISTER_BASE_ADDRESS;
         bool _clientsConfigured = false;
         IOTCallbackInterface *_iotCB;
         u_int _uniqueId = 0; // unique id from mac address NIC segment

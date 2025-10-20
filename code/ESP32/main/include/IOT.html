@@ -233,6 +233,7 @@ const char network_config_fields[] PROGMEM = R"rawliteral(
     <p><div class="fld"><label for="inputRegBase">Input Register Base Addess</label><input type="number" id="inputRegBase" name="inputRegBase" value="{inputRegBase}" step="1" min="0" max="65531"></div></p>
     <p><div class="fld"><label for="coilBase">Coil Base Address</label><input type="number" id="coilBase" name="coilBase" value="{coilBase}" step="1" min="0" max="65529"></div></p>
     <p><div class="fld"><label for="discreteBase">Discrete Base Address</label><input type="number" id="discreteBase" name="discreteBase" value="{discreteBase}" step="1" min="0" max="65531"></div></p>
+    <p><div class="fld"><label for="holdingRegBase">Holding Register Base Address</label><input type="number" id="holdingRegBase" name="holdingRegBase" value="{holdingRegBase}" step="1" min="0" max="65531"></div></p>
     </fieldset>
 )rawliteral";
 
@@ -285,6 +286,7 @@ const char modbus_settings[] PROGMEM = R"rawliteral(
     <p><div class="fld">Input Register Base Addess: {inputRegBase}</div></p>
     <p><div class="fld">Coil Base Address: {coilBase}</div></p>
     <p><div class="fld">Discrete Base Address: {discreteBase}</div></p>
+    <p><div class="fld">Holding Register Base Address: {holdingRegBase}</div></p>
 </fieldset>
 )rawliteral";
 

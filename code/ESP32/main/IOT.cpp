@@ -187,6 +187,7 @@ namespace ESP_PLC
 			fields.replace("{inputRegBase}", String(_input_register_base_addr));
 			fields.replace("{coilBase}", String(_coil_base_addr));
 			fields.replace("{discreteBase}", String(_discrete_input_base_addr));
+			fields.replace("{holdingRegBase}", String(_holding_register_base_addr));
 			Serial.println(fields.c_str());
 			String page = network_config_top;
 			page.replace("{n}", _AP_SSID);
@@ -271,6 +272,9 @@ namespace ESP_PLC
 			if (request->hasParam("discreteBase", true)) {
 				_discrete_input_base_addr = request->getParam("discreteBase", true)->value().toInt();
 			}
+			if (request->hasParam("holdingRegBase", true)) {
+				_holding_register_base_addr = request->getParam("holdingRegBase", true)->value().toInt();
+			}
 			_iotCB->onSubmitForm(request);
 			saveSettings();
 			SendNetworkSettings(request); });
@@ -340,6 +344,7 @@ namespace ESP_PLC
 			modbus.replace("{inputRegBase}", String(_input_register_base_addr));
 			modbus.replace("{coilBase}", String(_coil_base_addr));
 			modbus.replace("{discreteBase}", String(_discrete_input_base_addr));
+			modbus.replace("{holdingRegBase}", String(_holding_register_base_addr));
 			page += modbus;
 		}
 		_iotCB->addApplicationSettings(page);
@@ -399,6 +404,7 @@ namespace ESP_PLC
 			_input_register_base_addr = iot["inputRegBase"].isNull() ? INPUT_REGISTER_BASE_ADDRESS : iot["inputRegBase"].as<uint16_t>();
 			_coil_base_addr = iot["coilBase"].isNull() ? COIL_BASE_ADDRESS : iot["coilBase"].as<uint16_t>();
 			_discrete_input_base_addr = iot["discreteBase"].isNull() ? DISCRETE_BASE_ADDRESS : iot["discreteBase"].as<uint16_t>();
+			_holding_register_base_addr = iot["holdingRegBase"].isNull() ? HOLDING_REGISTER_BASE_ADDRESS : iot["holdingRegBase"].as<uint16_t>();
 			_iotCB->onLoadSetting(doc);
 		}
 	}
@@ -433,6 +439,7 @@ namespace ESP_PLC
 		iot["inputRegBase"] = _input_register_base_addr;
 		iot["coilBase"] = _coil_base_addr;
 		iot["discreteBase"] = _discrete_input_base_addr;
+		iot["holdingRegBase"] = _holding_register_base_addr;
 		_iotCB->onSaveSetting(doc);
 		String jsonString;
 		serializeJson(doc, jsonString);
