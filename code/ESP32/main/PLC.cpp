@@ -374,7 +374,9 @@ namespace ESP_PLC
 			}
 			for (int i = 0; i < AI_PINS; i++)
 			{
-				doc[_AnalogSensors[i].Channel()] = _AnalogSensors[i].Level();
+				std::stringstream ss;
+				ss << "AI" << i;
+				doc[ss.str()] = _AnalogSensors[i].Level();
 			}
 			for (int i = 0; i < DO_PINS; i++)
 			{
@@ -425,37 +427,48 @@ namespace ESP_PLC
 
 			for (int i = 0; i < DI_PINS; i++)
 			{
-				JsonObject din = components[_DigitalSensors[i].Pin()].to<JsonObject>();
-				din["platform"] = "sensor";
-				din["name"] = _DigitalSensors[i].Pin().c_str();
-				sprintf(buffer, "%X_%s", _iot.getUniqueId(), _DigitalSensors[i].Pin().c_str());
+				std::stringstream ss;
+				ss << "DI" << i;
+				JsonObject din = components[ss.str()].to<JsonObject>();
+				din["platform"] = "binary_sensor";
+				din["name"] = ss.str();
+				din["payload_off "] = "Low";
+				din["payload_on"] = "High";
+				sprintf(buffer, "%X_%s", _iot.getUniqueId(), ss.str().c_str());
 				din["unique_id"] = buffer;
-				sprintf(buffer, "{{ value_json.%s }}", _DigitalSensors[i].Pin().c_str());
+				sprintf(buffer, "{{ value_json.%s }}", ss.str().c_str());
 				din["value_template"] = buffer;
 				din["icon"] = "mdi:switch";
 			}
 			for (int i = 0; i < AI_PINS; i++)
 			{
-				JsonObject ain = components[_AnalogSensors[i].Channel()].to<JsonObject>();
+				std::stringstream ss;
+				ss << "AI" << i;		
+				JsonObject ain = components[ss.str()].to<JsonObject>();
 				ain["platform"] = "sensor";
-				ain["name"] = _AnalogSensors[i].Channel().c_str();
+				ain["name"] = ss.str();
 				ain["unit_of_measurement"] = "%";
-				sprintf(buffer, "%X_%s", _iot.getUniqueId(), _AnalogSensors[i].Channel().c_str());
+				sprintf(buffer, "%X_%s", _iot.getUniqueId(), ss.str().c_str());
 				ain["unique_id"] = buffer;
-				sprintf(buffer, "{{ value_json.%s }}", _AnalogSensors[i].Channel().c_str());
+				sprintf(buffer, "{{ value_json.%s }}", ss.str().c_str());
 				ain["value_template"] = buffer;
 				ain["icon"] = "mdi:lightning-bolt";
 			}
 			for (int i = 0; i < DO_PINS; i++)
 			{
-				JsonObject dout = components[_Coils[i].Pin()].to<JsonObject>();
-				dout["platform"] = "sensor";
-				dout["name"] = _Coils[i].Pin().c_str();
-				sprintf(buffer, "%X_%s", _iot.getUniqueId(), _Coils[i].Pin().c_str());
+				std::stringstream ss;
+				ss << "DO" << i;
+				JsonObject dout = components[ss.str()].to<JsonObject>();
+				dout["platform"] = "switch";
+				dout["name"] = ss.str();
+				dout["state_on"] = "On";
+				dout["state_off"] = "Off";
+				dout["command_topic"] = _iot.getRootTopicPrefix() + "/cmd/" + ss.str();
+				sprintf(buffer, "%X_%s", _iot.getUniqueId(), ss.str().c_str());
 				dout["unique_id"] = buffer;
-				sprintf(buffer, "{{ value_json.%s }}", _Coils[i].Pin().c_str());
+				sprintf(buffer, "{{ value_json.%s }}", ss.str().c_str());
 				dout["value_template"] = buffer;
-				dout["icon"] = "mdi:valve-open";
+				dout["icon"] = "mdi:valve";
 			}
 
 			sprintf(buffer, "%s/stat/readings", _iot.getRootTopicPrefix().c_str());
@@ -470,35 +483,35 @@ namespace ESP_PLC
 		}
 	}
 
-	void PLC::onMqttMessage(char *topic, JsonDocument &doc)
+	void PLC::onMqttMessage(char *topic, char *payload)
 	{
 		logd("onMqttMessage %s", topic);
-		if (doc.containsKey("command"))
-		{
-			if (strcmp(doc["command"], "Write Coil") == 0)
+		std::string fullPath = topic;
+		size_t lastSlash = fullPath.find_last_of('/');
+		std::string lastName;
+		if (lastSlash != std::string::npos) {
+			lastName = fullPath.substr(lastSlash + 1);
+			logd("coil: %s: ", lastName.c_str());
+			int coil = atoi(lastName.substr(2).c_str());
+			if (coil >= 0 && coil < DO_PINS)
 			{
-				int coil = doc["coil"];
-				coil -= 1;
-				if (coil >= 0 && coil < DO_PINS)
+				String input = payload;
+				input.toLowerCase();
+				if (input == "on" || input == "high" || input == "1")
 				{
-					String input = doc["state"];
-					input.toLowerCase();
-					if (input == "on" || input == "high" || input == "1")
-					{
-						_Coils[coil].Set(HIGH);
-						logi("Write Coil %d HIGH", coil);
-					}
-					else if (input == "off" || input == "low" || input == "0")
-					{
-						_Coils[coil].Set(LOW);
-						logi("Write Coil %d LOW", coil);
-					}
-					else
-					{
-						logw("Write Coil %d invalid state", coil);
-					}
+					_Coils[coil].Set(HIGH);
+					logi("Write Coil %d HIGH", coil);
+				}
+				else if (input == "off" || input == "low" || input == "0")
+				{
+					_Coils[coil].Set(LOW);
+					logi("Write Coil %d LOW", coil);
+				}
+				else
+				{
+					logw("Write Coil %d invalid state", coil);
 				}
 			}
-		}
+		} 
 	}
 }

@@ -4,7 +4,11 @@
 #define DI_PINS 4	// Number of digital input pins
 #define DO_PINS 6	// Number of digital output pins
 #define AI_PINS 4	// Number of analog input pins
-#define WIFI_STATUS_PIN 43 //LED Pin on Edgebox is shared with TXD0, disable logs to use it
+#define AO_PINS 2   // Number of analog output pins
+#ifndef LOG_TO_SERIAL_PORT //disable logs to use LED wifi status
+// use LED if the log level is none (edgeBox shares the LED pin with the serial TX gpio)
+#define WIFI_STATUS_PIN 43 //LED Pin
+#endif
 #define FACTORY_RESET_PIN 2 // Clear NVRAM, shared with CAN_RXD
 
 //Programming and Debugging Port
@@ -27,8 +31,8 @@ static const uint8_t ETH_INT = 14;
 static const uint8_t ETH_RST = 15;
 
 //A7670G
-static const uint8_t LTE_PWR_EN = 16;
-static const uint8_t LTE_PWR_KEY = 21;
+static const uint8_t LTE_AIRPLANE_MODE = 16;
+static const uint8_t LTE_PWR_EN = 21;
 static const uint8_t LTE_TXD = 48;
 static const uint8_t LTE_RXD = 47;
 
@@ -84,7 +88,7 @@ static const uint8_t I2C_SDA = 16;
 static const uint8_t I2C_SCL = 17;
 
 //GSM Modem
-static const uint8_t LTE_PWR_KEY = 21;
+static const uint8_t LTE_PWR_EN = 21;
 static const uint8_t LTE_TXD = 32;
 static const uint8_t LTE_RXD = 33;
 
@@ -110,6 +114,41 @@ static const uint8_t AI0 = 0;
 static const uint8_t AI1 = 1;
 static const uint8_t AI2 = 2;
 static const uint8_t AI3 = 3;
+
+// No Analog output
+
+#elif LILYGO_T_SIM7600G
+
+#define DI_PINS 2	// Number of digital input pins
+#define DO_PINS 2	// Number of digital output pins
+#define AI_PINS 0	// Number of analog input pins
+#define AO_PINS 0   // Number of analog output pins
+
+#define WIFI_STATUS_PIN 12 //LED Pin
+#define FACTORY_RESET_PIN 2 // Clear NVRAM
+
+//Programming and Debugging Port
+static const uint8_t U0_TXD = 01;
+static const uint8_t U0_RXD = 03;
+
+//I2C
+static const uint8_t I2C_SDA = 21;
+static const uint8_t I2C_SCL = 22;
+
+//GSM Modem
+static const uint8_t LTE_AIRPLANE_MODE = 25; // SIM7600G airplane mode pin, High to exit.
+static const uint8_t LTE_PWR_EN = 4; // send power to the modem
+static const uint8_t LTE_TXD = 27;
+static const uint8_t LTE_RXD = 26;
+
+// digital outputs
+static const uint8_t DO0 = 14;
+static const uint8_t DO1 = 15;
+
+// digital inputs
+static const uint8_t DI0 = 12;
+static const uint8_t DI1 = 13;
+
 
 // No Analog output
 

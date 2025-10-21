@@ -24,7 +24,7 @@ namespace ESP_PLC
 		void Monitor();
 		void Process();
 		void onMqttConnect();
-		void onMqttMessage(char* topic, JsonDocument& doc);
+		void onMqttMessage(char* topic, char *payload);
 		void onNetworkConnect();
 		void addApplicationSettings(String& page);
 		void addApplicationConfigs(String& page);
@@ -52,6 +52,10 @@ namespace ESP_PLC
 		Coil _Coils[DO_PINS] = {DO0, DO1};
 		DigitalSensor _DigitalSensors[DI_PINS] = {DI0, DI1, DI2, DI3, DI4, DI5, DI6, DI7};
 		AnalogSensor _AnalogSensors[AI_PINS] = {AI0, AI1, AI2, AI3};
+		#elif LILYGO_T_SIM7600G
+		Coil _Coils[DO_PINS] = {DO0, DO1};
+		DigitalSensor _DigitalSensors[DI_PINS] = {DI0, DI1};
+		AnalogSensor _AnalogSensors[AI_PINS] = {};
 		#endif
 		CoilData _digitalOutputCoils = CoilData(DO_PINS);
 		CoilData _digitalInputDiscretes = CoilData(DI_PINS);

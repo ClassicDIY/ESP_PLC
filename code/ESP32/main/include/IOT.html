@@ -292,7 +292,7 @@ const char modbus_settings[] PROGMEM = R"rawliteral(
 
 const char network_settings_links[] PROGMEM = R"rawliteral(
     <p><a href='/log' target='_blank'>Web Log</a></p>
-    <a href="/network_config">Configuration</a>
+    <p><a href="/network_config">Configuration</a></p>
     <p><a href='/'>Return to home page.</a></p>
 
 </div>
@@ -302,9 +302,17 @@ const char network_settings_links[] PROGMEM = R"rawliteral(
 
 const char network_config_links[] PROGMEM = R"rawliteral(
         <p><a href='update'>Firmware update</a></p>
-        <a href='/'>Return to home page.</a>
+        <p><a href='/'>Return to home page.</a></p>
         <p><a href='settings'>Return to Settings</a></p>
-        <a href='reboot'>Reboot ESP32</a>
+        <p><a href='reboot'>Reboot ESP32</a></p>
+    </div></div>
+    </body></html>
+)rawliteral";
+
+const char network_config_links_no_ota[] PROGMEM = R"rawliteral(
+        <p><a href='/'>Return to home page.</a></p>
+        <p><a href='settings'>Return to Settings</a></p>
+        <p><a href='reboot'>Reboot ESP32</a></p>
     </div></div>
     </body></html>
 )rawliteral";

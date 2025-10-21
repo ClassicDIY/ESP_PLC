@@ -8,7 +8,6 @@
 #include <ESPAsyncWebServer.h>
 #include <ModbusServerTCPasync.h>
 #include <ModbusClientRTU.h>
-#include "ModbusBridgeEthernet.h"
 #include "mqtt_client.h"
 #include "time.h"
 #include <sstream>

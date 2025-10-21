@@ -35,18 +35,21 @@ namespace ESP_PLC
 	static DNSServer _dnsServer;
 	static WebLog _webLog;
 	static ModbusServerTCPasync _MBserver;
-	static ModbusClientRTU _MBclientRTU(RS485_RTS);
+	#ifdef HasRS485
+	ModbusClientRTU _MBclientRTU(RS485_RTS);
+	#endif
 	static AsyncAuthenticationMiddleware basicAuth;
 
 	void IOT::Init(IOTCallbackInterface *iotCB, AsyncWebServer *pwebServer)
 	{
 		_iotCB = iotCB;
 		_pwebServer = pwebServer;
-		#ifdef EDGEBOX
-		pinMode(FACTORY_RESET_PIN, INPUT_PULLUP);
-#ifndef LOG_TO_SERIAL_PORT
-		pinMode(WIFI_STATUS_PIN, OUTPUT); // use LED if the log level is none (edgeBox shares the LED pin with the serial TX gpio)
+#ifdef WIFI_STATUS_PIN
+		pinMode(WIFI_STATUS_PIN, OUTPUT); // use LED for wifi AP status (note:edgeBox shares the LED pin with the serial TX gpio)
 #endif
+		#ifdef FACTORY_RESET_PIN // use digital input pin for factory reset
+		pinMode(FACTORY_RESET_PIN, INPUT_PULLUP);
+
 		EEPROM.begin(EEPROM_SIZE);
 		if (digitalRead(FACTORY_RESET_PIN) == LOW)
 		{
@@ -54,7 +57,7 @@ namespace ESP_PLC
 			EEPROM.write(0, 0);
 			EEPROM.commit();
 		}
-		#elif NORVI_GSM_AE02
+		#elif BUTTONS // use analog pin for factory reset
 		pinMode(BUTTONS, INPUT);
 		EEPROM.begin(EEPROM_SIZE);
 		if (analogRead(BUTTONS) > 1200)
@@ -160,7 +163,12 @@ namespace ESP_PLC
 			fields.replace("{AP_Pw}", _AP_Password);
 
 			fields.replace("{WIFI}", _NetworkSelection == WiFiMode ? "selected" : "");
+
+			#ifdef HasEthernet
 			fields.replace("{ETH}", _NetworkSelection == EthernetMode ? "selected" : "");
+			#else
+			fields.replace("{ETH}", "class='hidden'");
+			#endif
 			fields.replace("{4G}", _NetworkSelection == ModemMode ? "selected" : "");
 
 			fields.replace("{SSID}", _SSID);
@@ -196,7 +204,11 @@ namespace ESP_PLC
 			_iotCB->addApplicationConfigs(page);
 			String apply_button = network_config_apply_button;
 			page += apply_button;
-			page += network_config_links;
+			#ifdef HasOTA
+			page +=  network_config_links;
+			#else 
+			page += network_config_links_no_ota; 
+			#endif
 			request->send(200, "text/html", page); })
 			.addMiddleware(&basicAuth);
 
@@ -231,7 +243,7 @@ namespace ESP_PLC
 			if (request->hasParam("SIM_PIN", true)) {
 				_SIM_PIN = request->getParam("SIM_PIN", true)->value().c_str();
 			}
-
+			#ifdef HasEthernet
 			_useDHCP =  request->hasParam("dhcpCheckbox", true);
 			if (request->hasParam("ETH_SIP", true)) {
 				_Static_IP = request->getParam("ETH_SIP", true)->value().c_str();
@@ -242,7 +254,7 @@ namespace ESP_PLC
 			if (request->hasParam("ETH_GW", true)) {
 				_Gateway_IP = request->getParam("ETH_GW", true)->value().c_str();
 			}
-
+			#endif
 			_useMQTT =  request->hasParam("mqttCheckbox", true);
 			if (request->hasParam("mqttServer", true)) {
 				_mqttServer = request->getParam("mqttServer", true)->value().c_str();
@@ -536,8 +548,7 @@ namespace ESP_PLC
 		{
 			_webLog.process();
 		}
-#ifdef EDGEBOX
-#ifndef LOG_TO_SERIAL_PORT
+#ifdef WIFI_STATUS_PIN
 		// use LED if the log level is none (edgeBox shares the LED pin with the serial TX gpio)
 		// handle blink led, fast : NotConnected slow: AP connected On: Station connected
 		if (_networkState != OnLine)
@@ -555,7 +566,6 @@ namespace ESP_PLC
 		{
 			digitalWrite(WIFI_STATUS_PIN, HIGH);
 		}
-#endif
 #endif
 
 		vTaskDelay(pdMS_TO_TICKS(20));
@@ -580,6 +590,7 @@ namespace ESP_PLC
 			if (_useModbus && !_MBserver.isRunning())
 			{
 				_MBserver.start(_modbusPort, 5, 0); // listen for modbus requests
+				#ifdef HasRS485
 				_MBclientRTU.setTimeout(2000);
 				_MBclientRTU.begin(Serial2);	 // setup modbus RTU client
 				_MBclientRTU.useModbusRTU();
@@ -592,6 +603,7 @@ namespace ESP_PLC
 					loge("Modbus RTU Client Error: %d Token: %08X", errorCode, token);
 					return true;
 				});
+				#endif
 			}
 			logd("Before xTimerStart _NetworkSelection: %d", _NetworkSelection);
 			xTimerStart(mqttReconnectTimer, 0);
@@ -760,27 +772,32 @@ namespace ESP_PLC
 			logi("MQTT_EVENT_PUBLISHED, msg_id=%d", event->msg_id);
 			break;
 		case MQTT_EVENT_DATA:
-			logd("MQTT Message arrived [%s]  qos: %d len: %d index: %d total: %d", event->topic, event->qos, event->data_len, event->current_data_offset, event->total_data_len);
-			if (deserializeJson(doc, event->data)) // not json!
-			{
-				logd("MQTT payload {%s} is not valid JSON!", event->data);
-			}
-			else
-			{
-				if (doc.containsKey("status"))
-				{
-					doc.clear();
-					doc["sw_version"] = APP_VERSION;
-					// doc["IP"] = WiFi.localIP().toString().c_str();
-					// doc["SSID"] = WiFi.SSID();
-					doc["uptime"] = formatDuration(millis() - _lastBootTimeStamp);
-					Publish("status", doc, true);
-				}
-				else
-				{
-					IOTCB()->onMqttMessage(event->topic, doc);
-				}
-			}
+			char topicBuf[256];
+			snprintf(topicBuf, sizeof(topicBuf), "%.*s", event->topic_len, event->topic);
+			char payloadBuf[256];
+			snprintf(payloadBuf, sizeof(payloadBuf), "%.*s", event->data_len, event->data);
+			logd("MQTT Message arrived [%s] %s", topicBuf, payloadBuf);
+			IOTCB()->onMqttMessage(topicBuf, payloadBuf);
+			// if (deserializeJson(doc, event->data)) // not json!
+			// {
+			// 	logd("MQTT payload {%s} is not valid JSON!", event->data);
+			// }
+			// else
+			// {
+			// 	if (doc.containsKey("status"))
+			// 	{
+			// 		doc.clear();
+			// 		doc["sw_version"] = APP_VERSION;
+			// 		// doc["IP"] = WiFi.localIP().toString().c_str();
+			// 		// doc["SSID"] = WiFi.SSID();
+			// 		doc["uptime"] = formatDuration(millis() - _lastBootTimeStamp);
+			// 		Publish("status", doc, true);
+			// 	}
+			// 	else
+			// 	{
+			// 		IOTCB()->onMqttMessage(topicBuf, doc);
+			// 	}
+			// }
 			break;
 		case MQTT_EVENT_ERROR:
 			loge("MQTT_EVENT_ERROR");
@@ -1105,14 +1122,15 @@ namespace ESP_PLC
 
 	void IOT::wakeup_modem(void)
 	{
-		pinMode(LTE_PWR_KEY, OUTPUT);
-		#ifdef EDGEBOX
-		pinMode(LTE_PWR_EN, OUTPUT); // send power to the A7670G
+		pinMode(LTE_PWR_EN, OUTPUT);
+		#ifdef LTE_AIRPLANE_MODE 
+		pinMode(LTE_AIRPLANE_MODE, OUTPUT); // turn off airplane mode
+		digitalWrite(LTE_AIRPLANE_MODE, HIGH);
 		#endif
-		digitalWrite(LTE_PWR_KEY, LOW);
+		digitalWrite(LTE_PWR_EN, LOW);
 		delay(1000);
 		logd("Power on the modem");
-		digitalWrite(LTE_PWR_KEY, HIGH);
+		digitalWrite(LTE_PWR_EN, HIGH);
 		delay(2000);
 		logd("Modem is powered up and ready");
 	}
@@ -1166,12 +1184,12 @@ namespace ESP_PLC
 
 	void IOT::DisconnectModem()
 	{
-		if (digitalRead(LTE_PWR_KEY) == HIGH)
+		if (digitalRead(LTE_PWR_EN) == HIGH)
 		{
-			digitalWrite(LTE_PWR_KEY, LOW); // turn off power to the modem
-			#ifdef EDGEBOX
-			digitalWrite(LTE_PWR_EN, LOW); // cut power to the A7670G
+			#ifdef LTE_AIRPLANE_MODE
+			digitalWrite(LTE_AIRPLANE_MODE, LOW); // turn on airplane mode
 			#endif
+			digitalWrite(LTE_PWR_EN, LOW); // turn off power to the modem
 			modem_stop_network();
 			modem_deinit_network();
 			if (_netif != NULL)

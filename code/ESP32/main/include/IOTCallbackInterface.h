@@ -8,7 +8,7 @@ class IOTCallbackInterface
 {
 public:
     virtual void onMqttConnect() = 0;
-    virtual void onMqttMessage(char* topic, JsonDocument& doc) = 0;
+    virtual void onMqttMessage(char* topic, char* payload) = 0;
     virtual void onNetworkConnect() = 0;
     virtual void addApplicationSettings(String& page);
     virtual void addApplicationConfigs(String& page);
