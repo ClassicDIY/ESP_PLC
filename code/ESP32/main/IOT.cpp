@@ -749,7 +749,7 @@ namespace ESP_PLC
 		case MQTT_EVENT_CONNECTED:
 			logi("Connected to MQTT.");
 			char buf[128];
-			sprintf(buf, "%s/cmnd/#", _rootTopicPrefix);
+			sprintf(buf, "%s/set/#", _rootTopicPrefix);
 			esp_mqtt_client_subscribe(client, buf, 0);
 			IOTCB()->onMqttConnect();
 			esp_mqtt_client_publish(client, _willTopic, "Offline", 0, 1, 0);

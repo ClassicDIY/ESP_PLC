@@ -463,7 +463,7 @@ namespace ESP_PLC
 				dout["name"] = ss.str();
 				dout["state_on"] = "On";
 				dout["state_off"] = "Off";
-				dout["command_topic"] = _iot.getRootTopicPrefix() + "/cmd/" + ss.str();
+				dout["command_topic"] = _iot.getRootTopicPrefix() + "/set/" + ss.str();
 				sprintf(buffer, "%X_%s", _iot.getUniqueId(), ss.str().c_str());
 				dout["unique_id"] = buffer;
 				sprintf(buffer, "{{ value_json.%s }}", ss.str().c_str());
@@ -485,31 +485,42 @@ namespace ESP_PLC
 
 	void PLC::onMqttMessage(char *topic, char *payload)
 	{
-		logd("onMqttMessage %s", topic);
+		logd("onMqttMessage [%s] %s", topic, payload);
+		std::string cmnd =_iot.getRootTopicPrefix() + "/set/";
 		std::string fullPath = topic;
-		size_t lastSlash = fullPath.find_last_of('/');
-		std::string lastName;
-		if (lastSlash != std::string::npos) {
-			lastName = fullPath.substr(lastSlash + 1);
-			logd("coil: %s: ", lastName.c_str());
-			int coil = atoi(lastName.substr(2).c_str());
-			if (coil >= 0 && coil < DO_PINS)
+		if(strncmp(topic, cmnd.c_str(), cmnd.length()) == 0) 
+		{
+			// Handle set commands
+			size_t lastSlash = fullPath.find_last_of('/');
+			std::string dout;
+			if (lastSlash != std::string::npos) 
 			{
-				String input = payload;
-				input.toLowerCase();
-				if (input == "on" || input == "high" || input == "1")
+				dout = fullPath.substr(lastSlash + 1);
+				logd("coil: %s: ", dout.c_str());
+				for (int i = 0; i < DO_PINS; i++)
 				{
-					_Coils[coil].Set(HIGH);
-					logi("Write Coil %d HIGH", coil);
-				}
-				else if (input == "off" || input == "low" || input == "0")
-				{
-					_Coils[coil].Set(LOW);
-					logi("Write Coil %d LOW", coil);
-				}
-				else
-				{
-					logw("Write Coil %d invalid state", coil);
+					std::stringstream ss;
+					ss << "DO" << i;
+					if (dout == ss.str())
+					{
+						String input = payload;
+						input.toLowerCase();
+						if (input == "on" || input == "high" || input == "1")
+						{
+							_Coils[i].Set(HIGH);
+							logi("Write Coil %d HIGH", i);
+						}
+						else if (input == "off" || input == "low" || input == "0")
+						{
+							_Coils[i].Set(LOW);
+							logi("Write Coil %d LOW", i);
+						}
+						else
+						{
+							logw("Write Coil %d invalid state: %s", i, input.c_str());
+						}
+						break;
+					}
 				}
 			}
 		} 
