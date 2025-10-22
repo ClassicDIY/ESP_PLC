@@ -57,7 +57,7 @@ namespace ESP_PLC
 			EEPROM.write(0, 0);
 			EEPROM.commit();
 		}
-		#elif BUTTONS // use analog pin for factory reset
+		#else // use analog pin for factory reset
 		pinMode(BUTTONS, INPUT);
 		EEPROM.begin(EEPROM_SIZE);
 		if (analogRead(BUTTONS) > 1200)

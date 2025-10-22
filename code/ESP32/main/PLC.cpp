@@ -413,7 +413,7 @@ namespace ESP_PLC
 			JsonObject device = doc["device"].to<JsonObject>();
 			device["sw_version"] = APP_VERSION;
 			device["manufacturer"] = "ClassicDIY";
-			sprintf(buffer, "ESP32-Bit (%X)", _iot.getUniqueId());
+			sprintf(buffer, "%s (%X)",TAG, _iot.getUniqueId());
 			device["model"] = buffer;
 
 			JsonObject origin = doc["origin"].to<JsonObject>();
