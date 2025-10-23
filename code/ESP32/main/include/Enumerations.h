@@ -1,6 +1,6 @@
 #pragma once
 
-namespace ESP_PLC
+namespace CLASSICDIY
 {
     enum NetworkSelection
     {

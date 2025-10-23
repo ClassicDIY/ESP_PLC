@@ -5,7 +5,7 @@
 #include "Log.h"
 #include "Defines.h"
 
-namespace ESP_PLC
+namespace CLASSICDIY
 {
 	class OTA
 	{

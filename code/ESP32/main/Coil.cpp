@@ -2,7 +2,7 @@
 #include "Log.h"
 #include "Coil.h"
 
-namespace ESP_PLC
+namespace CLASSICDIY
 {
 	Coil::Coil(int sensorPin)
 	{
@@ -33,4 +33,4 @@ namespace ESP_PLC
 		digitalWrite(_sensorPin, state);
 	}
 
-} // namespace namespace ESP_PLC
+} // namespace namespace CLASSICDIY

@@ -18,7 +18,7 @@
 #include "IOTServiceInterface.h"
 #include "IOTCallbackInterface.h"
 
-namespace ESP_PLC
+namespace CLASSICDIY
 {
     class IOT : public IOTServiceInterface
     {
@@ -132,4 +132,4 @@ namespace ESP_PLC
         }
     };
 
-} // namespace ESP_PLC
+} // namespace CLASSICDIY

@@ -6,7 +6,7 @@
 
 extern Adafruit_ADS1115 ads;
 
-namespace ESP_PLC
+namespace CLASSICDIY
 {
 	AnalogSensor::AnalogSensor(int channel)
 	{
@@ -64,4 +64,4 @@ namespace ESP_PLC
 	{
 		return roundf(((((_rollingSum / _numberOfSummations) - adcReadingMin) * (_maxT - _minT)) / (adcReadingMax - adcReadingMin) + _minT) * 10.0) / 10.0;
 	}
-} // namespace namespace ESP_PLC
+} // namespace namespace CLASSICDIY

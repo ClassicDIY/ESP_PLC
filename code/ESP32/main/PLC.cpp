@@ -4,7 +4,7 @@
 #include "PLC.h"
 #include "PLC.html"
 
-namespace ESP_PLC
+namespace CLASSICDIY
 {
 	static AsyncWebServer _asyncServer(ASYNC_WEBSERVER_PORT);
 	static AsyncWebSocket _webSocket("/ws_home");

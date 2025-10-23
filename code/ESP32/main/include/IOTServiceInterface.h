@@ -3,7 +3,7 @@
 #include "ArduinoJson.h"
 #include "Enumerations.h"
 
-namespace ESP_PLC
+namespace CLASSICDIY
 {
 class IOTServiceInterface
 {
@@ -21,4 +21,4 @@ public:
     virtual void PublishOnline() = 0;
     virtual std::string getIOTypeDesc(IOTypes type) = 0;
 };
-} // namespace ESP_PLC
+} // namespace CLASSICDIY

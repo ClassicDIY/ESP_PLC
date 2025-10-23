@@ -12,7 +12,7 @@
 #include "Coil.h"
 #include "IOTCallbackInterface.h"
 
-namespace ESP_PLC
+namespace CLASSICDIY
 {
 	class PLC : public IOTCallbackInterface
 	{

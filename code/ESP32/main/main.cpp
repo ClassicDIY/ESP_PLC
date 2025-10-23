@@ -16,7 +16,7 @@
 #include "Log.h"
 #include "PLC.h"
 
-using namespace ESP_PLC;
+using namespace CLASSICDIY;
 
 #ifdef HasRTC
 #include "RTClib.h"

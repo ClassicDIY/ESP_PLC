@@ -3,7 +3,7 @@
 
 #include "GPIO_pins.h"
 
-#define TAG "ESP_PLC"
+#define TAG "CLASSICDIY"
 
 #define WATCHDOG_TIMEOUT 10 // time in seconds to trigger the watchdog reset
 #define STR_LEN 64

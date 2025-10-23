@@ -4,7 +4,7 @@
 #include <string>
 #include "defines.h"
 
-namespace ESP_PLC
+namespace CLASSICDIY
 {
 	class AnalogSensor
 	{

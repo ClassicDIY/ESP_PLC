@@ -2,7 +2,7 @@
 #include "Log.h"
 #include "DigitalSensor.h"
 
-namespace ESP_PLC
+namespace CLASSICDIY
 {
 	DigitalSensor::DigitalSensor(int sensorPin)
 	{
@@ -28,4 +28,4 @@ namespace ESP_PLC
 		return (bool)digitalRead(_sensorPin);
 	}
 
-} // namespace namespace ESP_PLC
+} // namespace namespace CLASSICDIY

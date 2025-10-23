@@ -29,7 +29,7 @@ extern Adafruit_SSD1306 oled_display;
 // extern const uint8_t hivemq_ca_pem_start[] asm("_binary_hivemq_ca_pem_start");
 // extern const uint8_t hivemq_ca_pem_end[] asm("_binary_hivemq_ca_pem_end");
 
-namespace ESP_PLC
+namespace CLASSICDIY
 {
 	TimerHandle_t mqttReconnectTimer;
 	static DNSServer _dnsServer;
@@ -1228,4 +1228,4 @@ namespace ESP_PLC
 	}
 
 
-} // namespace ESP_PLC
+} // namespace CLASSICDIY
