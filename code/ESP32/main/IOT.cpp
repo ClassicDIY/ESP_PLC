@@ -60,9 +60,11 @@ namespace ESP_PLC
 		#else // use analog pin for factory reset
 		pinMode(BUTTONS, INPUT);
 		EEPROM.begin(EEPROM_SIZE);
-		if (analogRead(BUTTONS) > 1200)
+		uint16_t analogValue = analogRead(BUTTONS);
+		logd("button value (%d)", analogValue);
+		if (analogValue > 3000)
 		{
-			logi("Factory Reset");
+			logi("**********************Factory Reset*************************(%d)", analogValue);
 			EEPROM.write(0, 0);
 			EEPROM.commit();
 			// ************** HARD CODE DURING DEBUGGING of 4G modem

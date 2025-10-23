@@ -432,7 +432,7 @@ namespace ESP_PLC
 				JsonObject din = components[ss.str()].to<JsonObject>();
 				din["platform"] = "binary_sensor";
 				din["name"] = ss.str();
-				din["payload_off "] = "Low";
+				din["payload_off"] = "Low";
 				din["payload_on"] = "High";
 				sprintf(buffer, "%X_%s", _iot.getUniqueId(), ss.str().c_str());
 				din["unique_id"] = buffer;
