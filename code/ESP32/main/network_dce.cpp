@@ -7,6 +7,7 @@
 /*
  *  softAP to PPPoS Example (network_dce)
 */
+#ifdef HasLTE
 #include <string.h>
 #include "cxx_include/esp_modem_dte.hpp"
 #include "esp_modem_config.h"
@@ -218,3 +219,5 @@ extern "C" bool modem_check_signal()
 }
 
 }
+
+#endif

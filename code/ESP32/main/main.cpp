@@ -36,8 +36,12 @@ Thread *_workerThread3 = new Thread();
 
 esp_err_t Main::setup()
 {
+	#ifdef Waveshare_Relay_6CH
+	delay(5000);
+	#else
 	Serial.begin(115200);
 	while (!Serial) {}
+	#endif
 	esp_err_t ret = ESP_OK;
  
 	logd("------------ESP32 specifications ---------------");
@@ -51,6 +55,7 @@ esp_err_t Main::setup()
 	logd("Free Heap: %d KB", ESP.getFreeHeap() / 1024);
 	logd("------------ESP32 specifications ---------------");
 
+	GPIO_Init();
 	Wire.begin(I2C_SDA, I2C_SCL);
 	if (!ads.begin(0x48, &Wire))
 	{

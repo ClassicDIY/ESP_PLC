@@ -56,9 +56,13 @@ namespace CLASSICDIY
 		Coil _Coils[DO_PINS] = {DO0, DO1};
 		DigitalSensor _DigitalSensors[DI_PINS] = {DI0, DI1};
 		AnalogSensor _AnalogSensors[AI_PINS] = {};
+		#elif Waveshare_Relay_6CH
+		Coil _Coils[DO_PINS] = {DO0, DO1, DO2, DO3, DO4, DO5};
+		DigitalSensor _DigitalSensors[DI_PINS] = {};
+		AnalogSensor _AnalogSensors[AI_PINS] = {};
 		#endif
 		CoilData _digitalOutputCoils = CoilData(DO_PINS);
-		CoilData _digitalInputDiscretes = CoilData(DI_PINS);
+		CoilData _digitalInputDiscretes = CoilData(DI_PINS, false);
 		unsigned long _lastHeap = 0;
 	};
 }

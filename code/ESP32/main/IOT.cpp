@@ -11,7 +11,9 @@
 #include "esp_eth_mac.h"
 #include "esp_netif_ppp.h"
 #include "driver/spi_master.h"
+#ifdef HasLTE
 #include "network_dce.h"
+#endif
 #include "Log.h"
 #include "WebLog.h"
 #include "IOT.h"
@@ -34,7 +36,8 @@ namespace CLASSICDIY
 	TimerHandle_t mqttReconnectTimer;
 	static DNSServer _dnsServer;
 	static WebLog _webLog;
-	static ModbusServerTCPasync _MBserver;
+	// static ModbusServerTCPasync _MBserver;
+	static ModbusServerRTU _MBserver(2000);
 	#ifdef HasRS485
 	ModbusClientRTU _MBclientRTU(RS485_RTS);
 	#endif
@@ -58,7 +61,7 @@ namespace CLASSICDIY
 			EEPROM.commit();
 		}
 		#else // use analog pin for factory reset
-		pinMode(BUTTONS, INPUT);
+		
 		EEPROM.begin(EEPROM_SIZE);
 		uint16_t analogValue = analogRead(BUTTONS);
 		logd("button value (%d)", analogValue);
@@ -67,10 +70,6 @@ namespace CLASSICDIY
 			logi("**********************Factory Reset*************************(%d)", analogValue);
 			EEPROM.write(0, 0);
 			EEPROM.commit();
-			// ************** HARD CODE DURING DEBUGGING of 4G modem
-			_AP_SSID = TAG;
-			_APN = "staticipeast.telus.com";
-			_NetworkSelection = ModemMode;
 			saveSettings();
 		}
 		#endif
@@ -80,7 +79,10 @@ namespace CLASSICDIY
 			loadSettings();
 		}
 		#ifdef HasRS485
-		pinMode(RS485_RTS, OUTPUT);
+		if (RS485_RTS != -1)
+		{
+			pinMode(RS485_RTS, OUTPUT);
+		}
 		// Set up Serial2 connected to Modbus RTU
 		RTUutils::prepareHardwareSerial(Serial2);
 		Serial2.begin(9600, SERIAL_8N1,RS485_RXD,RS485_TXD);
@@ -198,7 +200,6 @@ namespace CLASSICDIY
 			fields.replace("{coilBase}", String(_coil_base_addr));
 			fields.replace("{discreteBase}", String(_discrete_input_base_addr));
 			fields.replace("{holdingRegBase}", String(_holding_register_base_addr));
-			Serial.println(fields.c_str());
 			String page = network_config_top;
 			page.replace("{n}", _AP_SSID);
 			page.replace("{v}", APP_VERSION);
@@ -381,7 +382,7 @@ namespace CLASSICDIY
 				break; // Stop at the null terminator
 			jsonString += ch;
 		}
-		Serial.println(jsonString.c_str());
+		logd("Settings JSON: %s", jsonString.c_str());
 		JsonDocument doc;
 		DeserializationError error = deserializeJson(doc, jsonString);
 		if (error)
@@ -568,6 +569,22 @@ namespace CLASSICDIY
 		{
 			digitalWrite(WIFI_STATUS_PIN, HIGH);
 		}
+#elif RGB_LED_PIN
+		if (_networkState != OnLine)
+		{
+			unsigned long binkRate = _networkState == ApState ? AP_BLINK_RATE : NC_BLINK_RATE;
+			unsigned long now = millis();
+			if (binkRate < now - _lastBlinkTime)
+			{
+				_blinkStateOn = !_blinkStateOn;
+				_lastBlinkTime = now;
+				RGB_Light(_blinkStateOn ? 60 : 0, _blinkStateOn ? 0 : 60, 0);
+			}
+		}
+		else
+		{
+			RGB_Light(0, 0, 60);
+		}
 #endif
 
 		vTaskDelay(pdMS_TO_TICKS(20));
@@ -579,7 +596,9 @@ namespace CLASSICDIY
 		logd("GoOnline called");
 		_pwebServer->begin();
 		_webLog.begin(_pwebServer);
+		#ifdef HasOTA
 		_OTA.begin(_pwebServer);
+		#endif
 		if (_networkState > ApState)
 		{
 			if (_NetworkSelection == EthernetMode || _NetworkSelection == WiFiMode)
@@ -589,22 +608,25 @@ namespace CLASSICDIY
 				logd("Active mDNS services: %d", MDNS.queryService("http", "tcp"));
 			}
 			this->IOTCB()->onNetworkConnect();
-			if (_useModbus && !_MBserver.isRunning())
+			if (_useModbus /*&& !_MBserver.isRunning()*/)
 			{
-				_MBserver.start(_modbusPort, 5, 0); // listen for modbus requests
+				
+				_MBserver.begin(Serial2);
+				_MBserver.useModbusRTU();
+				// _MBserver.start(_modbusPort, 5, 0); // listen for modbus requests
 				#ifdef HasRS485
-				_MBclientRTU.setTimeout(2000);
-				_MBclientRTU.begin(Serial2);	 // setup modbus RTU client
-				_MBclientRTU.useModbusRTU();
-				_MBclientRTU.onDataHandler([this](ModbusMessage response, uint32_t token)
-				{
-					logd("RTU Response: serverID=%d, FC=%d, Token=%08X, length=%d:\n", response.getServerID(), response.getFunctionCode(), token, response.size());
-				});
-				_MBclientRTU.onErrorHandler([this](Modbus::Error errorCode, uint32_t token)
-				{
-					loge("Modbus RTU Client Error: %d Token: %08X", errorCode, token);
-					return true;
-				});
+				// _MBclientRTU.setTimeout(2000);
+				// _MBclientRTU.begin(Serial2);	 // setup modbus RTU client
+				// _MBclientRTU.useModbusRTU();
+				// _MBclientRTU.onDataHandler([this](ModbusMessage response, uint32_t token)
+				// {
+				// 	logd("RTU Response: serverID=%d, FC=%d, Token=%08X, length=%d:\n", response.getServerID(), response.getFunctionCode(), token, response.size());
+				// });
+				// _MBclientRTU.onErrorHandler([this](Modbus::Error errorCode, uint32_t token)
+				// {
+				// 	loge("Modbus RTU Client Error: %d Token: %08X", errorCode, token);
+				// 	return true;
+				// });
 				#endif
 			}
 			logd("Before xTimerStart _NetworkSelection: %d", _NetworkSelection);
@@ -659,6 +681,7 @@ namespace CLASSICDIY
 		xTimerStop(mqttReconnectTimer, 0); // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
 		_webLog.end();
 		_dnsServer.stop();
+		_MBserver.end();
 		MDNS.end();
 		if (_networkState == OnLine)
 		{
@@ -1124,6 +1147,7 @@ namespace CLASSICDIY
 
 	void IOT::wakeup_modem(void)
 	{
+		#ifdef HasLTE
 		pinMode(LTE_PWR_EN, OUTPUT);
 		#ifdef LTE_AIRPLANE_MODE 
 		pinMode(LTE_AIRPLANE_MODE, OUTPUT); // turn off airplane mode
@@ -1135,10 +1159,12 @@ namespace CLASSICDIY
 		digitalWrite(LTE_PWR_EN, HIGH);
 		delay(2000);
 		logd("Modem is powered up and ready");
+		#endif
 	}
 
 	esp_err_t IOT::ConnectModem()
 	{
+		#ifdef HasLTE
 		logd("ConnectModem");
 		esp_err_t ret = ESP_OK;
 		wakeup_modem();
@@ -1182,10 +1208,15 @@ namespace CLASSICDIY
 		}
 		logi("Modem has acquired network");
 		return ret;
+		#else
+		loge("LTE not supported on this device");
+		return ESP_ERR_NOT_SUPPORTED;
+		#endif
 	}
 
 	void IOT::DisconnectModem()
 	{
+		#ifdef HasLTE
 		if (digitalRead(LTE_PWR_EN) == HIGH)
 		{
 			#ifdef LTE_AIRPLANE_MODE
@@ -1201,6 +1232,7 @@ namespace CLASSICDIY
 			}
 			ESP_ERROR_CHECK(esp_event_handler_unregister(IP_EVENT, ESP_EVENT_ANY_ID, on_ip_event));
 		}
+		#endif
 	}
 
 	void IOT::DisconnectEthernet()
@@ -1222,8 +1254,6 @@ namespace CLASSICDIY
 			}
 			ESP_ERROR_CHECK(esp_event_handler_unregister(IP_EVENT, ESP_EVENT_ANY_ID, on_ip_event));
 		}
-		#else
-		loge("Ethernet not supported on this device");
 		#endif
 	}
 

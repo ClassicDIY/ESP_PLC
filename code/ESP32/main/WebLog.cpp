@@ -26,7 +26,7 @@ int weblog_log_printfv(const char *format, va_list arg)
         _webSocket.textAll(loc_buf);
     }
     #ifdef LOG_TO_SERIAL_PORT
-    ets_printf("%s", loc_buf);
+    ets_printf("%s\r", loc_buf);
     #endif
     return len;
 }

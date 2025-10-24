@@ -171,6 +171,7 @@ namespace CLASSICDIY
 
 	void PLC::onNetworkConnect()
 	{
+		
 		// READ_INPUT_REGISTER
 		auto modbusFC04 = [this](ModbusMessage request) -> ModbusMessage
 		{
@@ -188,15 +189,18 @@ namespace CLASSICDIY
 			}
 			else
 			{
+				#if AO_PINS > 0
 				response.add(request.getServerID(), request.getFunctionCode(), (uint8_t)(words * 2));
 				for (int i = addr; i < (addr + words); i++)
 				{
 					response.add((uint16_t)_AnalogSensors[i].Level());
 				}
+				#endif
 			}
 			return response;
 		};
 
+		
 		// READ_COIL
 		auto modbusFC01 = [this](ModbusMessage request) -> ModbusMessage
 		{
@@ -212,10 +216,12 @@ namespace CLASSICDIY
 				logw("READ_COIL error: %d", (start + numCoils));
 				response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_ADDRESS);
 			}
+			#if DO_PINS > 0
 			for (int i = 0; i < DO_PINS; i++)
 			{
 				_digitalOutputCoils.set(i, _Coils[i].Level());
 			}
+			#endif
 			vector<uint8_t> coilset = _digitalOutputCoils.slice(start, numCoils);
 			response.add(request.getServerID(), request.getFunctionCode(), (uint8_t)coilset.size(), coilset);
 			return response;
@@ -236,10 +242,12 @@ namespace CLASSICDIY
 				logw("READ_DISCR_INPUT error: %d", (start + numDiscretes));
 				response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_ADDRESS);
 			}
+			#if DI_PINS > 0
 			for (int i = 0; i < DI_PINS; i++)
 			{
 				_digitalInputDiscretes.set(i, _DigitalSensors[i].Level());
 			}
+			#endif
 			vector<uint8_t> coilset = _digitalInputDiscretes.slice(start, numDiscretes);
 			response.add(request.getServerID(), request.getFunctionCode(), (uint8_t)coilset.size(), coilset);
 			return response;
@@ -258,6 +266,7 @@ namespace CLASSICDIY
 			// Is the coil number within the range of the coils?
 			if (start <= DO_PINS)
 			{
+				#if DO_PINS > 0
 				// Looks like it. Is the ON/OFF parameter correct?
 				if (state == 0x0000 || state == 0xFF00)
 				{
@@ -279,6 +288,7 @@ namespace CLASSICDIY
 					// Wrong data parameter
 					response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_VALUE);
 				}
+				#endif
 			}
 			else
 			{
@@ -304,6 +314,7 @@ namespace CLASSICDIY
 			// Check the parameters so far
 			if (start + numCoils <= DO_PINS)
 			{
+				#ifdef DO_PINS > 0
 				// Packed coils will fit in our storage
 				if (numBytes == ((numCoils - 1) >> 3) + 1)
 				{
@@ -331,6 +342,7 @@ namespace CLASSICDIY
 					// numBytes had a wrong value
 					response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_VALUE);
 				}
+				#endif
 			}
 			else
 			{

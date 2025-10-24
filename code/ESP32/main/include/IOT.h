@@ -7,6 +7,7 @@
 #include <DNSServer.h>
 #include <ESPAsyncWebServer.h>
 #include <ModbusServerTCPasync.h>
+#include <ModbusServerRTU.h>
 #include <ModbusClientRTU.h>
 #include "mqtt_client.h"
 #include "time.h"
