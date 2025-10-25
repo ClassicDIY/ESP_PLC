@@ -161,8 +161,7 @@ namespace CLASSICDIY
 		basicAuth.setAuthType(AsyncAuthType::AUTH_BASIC);
 		basicAuth.generateHash();
 		_pwebServer->on("/network_config", HTTP_GET, [this](AsyncWebServerRequest *request)
-						{
-			logd("config");
+		{
 			String fields = network_config_fields;
 			fields.replace("{n}", _AP_SSID);
 			fields.replace("{v}", APP_VERSION);
@@ -217,8 +216,8 @@ namespace CLASSICDIY
 			#else 
 			page += network_config_links_no_ota; 
 			#endif
-			request->send(200, "text/html", page); })
-			.addMiddleware(&basicAuth);
+			request->send(200, "text/html", page); 
+		}).addMiddleware(&basicAuth);
 
 		_pwebServer->on("/submit", HTTP_POST, [this](AsyncWebServerRequest *request)
 						{

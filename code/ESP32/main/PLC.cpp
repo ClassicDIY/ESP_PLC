@@ -12,6 +12,7 @@ namespace CLASSICDIY
 
 	void PLC::addApplicationSettings(String &page)
 	{
+		#if AI_PINS > 0
 		String appFields = app_settings_fields;
 		String appConvs;
 		for (int i = 0; i < AI_PINS; i++)
@@ -26,10 +27,12 @@ namespace CLASSICDIY
 		}
 		appFields.replace("{aconv}", appConvs);
 		page += appFields;
+		#endif
 	}
 
 	void PLC::addApplicationConfigs(String &page)
 	{
+		#if AI_PINS > 0
 		String appFields = app_config_fields;
 		String appConvs;
 		String scriptConvs;
@@ -49,6 +52,7 @@ namespace CLASSICDIY
 		appFields.replace("{aconv}", appConvs);
 		page += appFields;
 		page.replace("{validateInputs}", scriptConvs);
+		#endif
 	}
 
 	void PLC::onSubmitForm(AsyncWebServerRequest *request)
@@ -314,7 +318,7 @@ namespace CLASSICDIY
 			// Check the parameters so far
 			if (start + numCoils <= DO_PINS)
 			{
-				#ifdef DO_PINS > 0
+				#if DO_PINS > 0
 				// Packed coils will fit in our storage
 				if (numBytes == ((numCoils - 1) >> 3) + 1)
 				{

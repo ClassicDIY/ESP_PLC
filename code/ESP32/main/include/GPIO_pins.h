@@ -1,4 +1,5 @@
 #pragma once
+#include <Arduino.h>
 
 #ifdef EDGEBOX
 #define DI_PINS 4	// Number of digital input pins
