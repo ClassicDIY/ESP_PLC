@@ -72,7 +72,9 @@ namespace CLASSICDIY
         String _mqttUserName;
         String _mqttUserPassword;
         bool _useModbus = false;
+        ModbusMode _ModbusMode = TCP;
         int16_t _modbusPort = 502;
+        int16_t _modbusBaudRate = 9600;
         int16_t _modbusID = 1;
         uint16_t _input_register_base_addr = INPUT_REGISTER_BASE_ADDRESS;
 		uint16_t _coil_base_addr = COIL_BASE_ADDRESS;

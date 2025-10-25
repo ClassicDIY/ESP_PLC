@@ -27,4 +27,10 @@ namespace CLASSICDIY
       DigitalOutputs,
       AnalogOutputs
     };
+
+    enum ModbusMode  
+    {
+      TCP,
+      RTU
+    };
 }

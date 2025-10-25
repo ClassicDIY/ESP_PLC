@@ -36,8 +36,8 @@ namespace CLASSICDIY
 	TimerHandle_t mqttReconnectTimer;
 	static DNSServer _dnsServer;
 	static WebLog _webLog;
-	// static ModbusServerTCPasync _MBserver;
-	static ModbusServerRTU _MBserver(2000);
+	static ModbusServerTCPasync _MBserver;
+	static ModbusServerRTU _MBRTUserver(2000);
 	#ifdef HasRS485
 	ModbusClientRTU _MBclientRTU(RS485_RTS);
 	#endif
@@ -83,11 +83,14 @@ namespace CLASSICDIY
 		{
 			pinMode(RS485_RTS, OUTPUT);
 		}
-		// Set up Serial2 connected to Modbus RTU
-		RTUutils::prepareHardwareSerial(Serial2);
-		Serial2.begin(9600, SERIAL_8N1,RS485_RXD,RS485_TXD);
-		while (!Serial2) {}
-		#endif
+		if (_ModbusMode == RTU)
+		{
+			// Set up Serial2 connected to Modbus RTU
+			RTUutils::prepareHardwareSerial(Serial2);
+			Serial2.begin(9600, SERIAL_8N1,RS485_RXD,RS485_TXD);
+			while (!Serial2) {}
+			#endif
+		}
 		mqttReconnectTimer = xTimerCreate("mqttTimer", pdMS_TO_TICKS(8000), pdFALSE, this, mqttReconnectTimerCF);
 
 		WiFi.onEvent([this](WiFiEvent_t event, WiFiEventInfo_t info)
@@ -194,6 +197,8 @@ namespace CLASSICDIY
 			fields.replace("{mqttUser}", _mqttUserName);
 			fields.replace("{mqttPw}", _mqttUserPassword);
 			fields.replace("{modbuschecked}", _useModbus ? "checked" : "unchecked");
+			fields.replace("{TCP}", _ModbusMode == TCP ? "selected" : "");
+			fields.replace("{RTU}", _ModbusMode == RTU ? "selected" : "");
 			fields.replace("{modbusPort}", String(_modbusPort));
 			fields.replace("{modbusID}", String(_modbusID));
 			fields.replace("{inputRegBase}", String(_input_register_base_addr));
@@ -272,6 +277,10 @@ namespace CLASSICDIY
 				_mqttUserPassword = request->getParam("mqttPw", true)->value().c_str();
 			}
 			_useModbus = request->hasParam("modbusCheckbox", true);
+			if (request->hasParam("modbusModeSelector", true)) {
+				String sel =  request->getParam("modbusModeSelector", true)->value();
+				_ModbusMode = sel == "tcp" ? TCP : RTU;
+			}
 			if (request->hasParam("modbusPort", true)) {
 				_modbusPort = request->getParam("modbusPort", true)->value().toInt();
 			}
@@ -382,7 +391,8 @@ namespace CLASSICDIY
 				break; // Stop at the null terminator
 			jsonString += ch;
 		}
-		logd("Settings JSON: %s", jsonString.c_str());
+		logd("Settings JSON: " );
+		ets_printf("%s\r", jsonString.c_str());
 		JsonDocument doc;
 		DeserializationError error = deserializeJson(doc, jsonString);
 		if (error)
@@ -414,6 +424,7 @@ namespace CLASSICDIY
 			_mqttUserName = iot["mqttUser"].isNull() ? "" : iot["mqttUser"].as<String>();
 			_mqttUserPassword = iot["mqttPw"].isNull() ? "" : iot["mqttPw"].as<String>();
 			_useModbus = iot["useModbus"].isNull() ? false : iot["useModbus"].as<bool>();
+			_ModbusMode = iot["modbusMode"].isNull() ? TCP : iot["modbusMode"].as<ModbusMode>();
 			_modbusPort = iot["modbusPort"].isNull() ? 502 : iot["modbusPort"].as<uint16_t>();
 			_modbusID = iot["modbusID"].isNull() ? 1 : iot["modbusID"].as<uint16_t>();
 			_input_register_base_addr = iot["inputRegBase"].isNull() ? INPUT_REGISTER_BASE_ADDRESS : iot["inputRegBase"].as<uint16_t>();
@@ -449,6 +460,7 @@ namespace CLASSICDIY
 		iot["mqttUser"] = _mqttUserName;
 		iot["mqttPw"] = _mqttUserPassword;
 		iot["useModbus"] = _useModbus;
+		iot["modbusMode"] = _ModbusMode;
 		iot["modbusPort"] = _modbusPort;
 		iot["modbusID"] = _modbusID;
 		iot["inputRegBase"] = _input_register_base_addr;
@@ -608,12 +620,22 @@ namespace CLASSICDIY
 				logd("Active mDNS services: %d", MDNS.queryService("http", "tcp"));
 			}
 			this->IOTCB()->onNetworkConnect();
-			if (_useModbus /*&& !_MBserver.isRunning()*/)
+			if (_useModbus && !_MBserver.isRunning())
 			{
-				
-				_MBserver.begin(Serial2);
-				_MBserver.useModbusRTU();
-				// _MBserver.start(_modbusPort, 5, 0); // listen for modbus requests
+				if (_ModbusMode == TCP)
+				{
+					if (!_MBserver.isRunning())
+					{
+						_MBserver.start(_modbusPort, 5, 0); // listen for modbus requests
+						logd("Modbus TCP started");
+					}
+				}
+				else
+				{
+					_MBRTUserver.begin(Serial2);
+					_MBRTUserver.useModbusRTU();
+					logd("Modbus RTU started");					
+				}
 				#ifdef HasRS485
 				// _MBclientRTU.setTimeout(2000);
 				// _MBclientRTU.begin(Serial2);	 // setup modbus RTU client
@@ -681,7 +703,10 @@ namespace CLASSICDIY
 		xTimerStop(mqttReconnectTimer, 0); // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
 		_webLog.end();
 		_dnsServer.stop();
-		_MBserver.end();
+		if (_ModbusMode == RTU)
+		{
+			_MBRTUserver.end();
+		}
 		MDNS.end();
 		if (_networkState == OnLine)
 		{
