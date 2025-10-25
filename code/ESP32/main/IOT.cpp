@@ -376,7 +376,14 @@ namespace CLASSICDIY
 	}
 	void IOT::registerMBTCPWorkers(FunctionCode fc, MBSworker worker)
 	{
-		_MBserver.registerWorker(_modbusID, fc, worker);
+		if (_ModbusMode == TCP)
+		{
+			_MBserver.registerWorker(_modbusID, fc, worker);
+		}
+		else
+		{
+			_MBRTUserver.registerWorker(_modbusID, fc, worker);					
+		}
 	}
 
 	void IOT::loadSettings()
