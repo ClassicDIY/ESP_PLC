@@ -10,26 +10,6 @@ namespace CLASSICDIY
 	static AsyncWebSocket _webSocket("/ws_home");
 	IOT _iot = IOT();
 
-	void PLC::addApplicationSettings(String &page)
-	{
-		#if AI_PINS > 0
-		String appFields = app_settings_fields;
-		String appConvs;
-		for (int i = 0; i < AI_PINS; i++)
-		{
-			String conv_flds(analog_conv_val);
-			conv_flds.replace("{An}", "A" + String(i));
-			conv_flds.replace("{minV}", String(_AnalogSensors[i].minV(), 1));
-			conv_flds.replace("{minT}", String(_AnalogSensors[i].minT(), 1));
-			conv_flds.replace("{maxV}", String(_AnalogSensors[i].maxV(), 1));
-			conv_flds.replace("{maxT}", String(_AnalogSensors[i].maxT(), 1));
-			appConvs += conv_flds;	
-		}
-		appFields.replace("{aconv}", appConvs);
-		page += appFields;
-		#endif
-	}
-
 	void PLC::addApplicationConfigs(String &page)
 	{
 		#if AI_PINS > 0

@@ -94,7 +94,7 @@ namespace CLASSICDIY
 		mqttReconnectTimer = xTimerCreate("mqttTimer", pdMS_TO_TICKS(8000), pdFALSE, this, mqttReconnectTimerCF);
 
 		WiFi.onEvent([this](WiFiEvent_t event, WiFiEventInfo_t info)
-					 {
+		{
 			String s;
 			JsonDocument doc;
 			switch (event)
@@ -137,7 +137,7 @@ namespace CLASSICDIY
 		_uniqueId += chipid[5];
 		_lastBootTimeStamp = millis();
 		_pwebServer->on("/reboot", [this](AsyncWebServerRequest *request)
-						{ 
+		{ 
 			logd("resetModule");
 			String page = reboot_html;
 			request->send(200, "text/html", page.c_str());
@@ -145,22 +145,15 @@ namespace CLASSICDIY
 			esp_restart(); });
 
 		_pwebServer->onNotFound([this](AsyncWebServerRequest *request)
-								{
-			logd("Redirecting from: %s", request->url().c_str());
-			String page = redirect_html;
-			page.replace("{n}", _SSID);
-			IPAddress IP = WiFi.softAPIP();
-			String home = IP.toString();
-			home += "/settings";
-			page.replace("{ip}", home.c_str()); // go directly to settings
-			request->send(200, "text/html", page); });
+		{
+			RedirectToHome(request); });
 
 		basicAuth.setUsername("admin");
 		basicAuth.setPassword(_AP_Password.c_str());
 		basicAuth.setAuthFailureMessage("Authentication failed");
 		basicAuth.setAuthType(AsyncAuthType::AUTH_BASIC);
 		basicAuth.generateHash();
-		_pwebServer->on("/network_config", HTTP_GET, [this](AsyncWebServerRequest *request)
+		_pwebServer->on("/settings", HTTP_GET, [this](AsyncWebServerRequest *request)
 		{
 			String fields = network_config_fields;
 			fields.replace("{n}", _AP_SSID);
@@ -299,81 +292,18 @@ namespace CLASSICDIY
 				_holding_register_base_addr = request->getParam("holdingRegBase", true)->value().toInt();
 			}
 			_iotCB->onSubmitForm(request);
-			saveSettings();
-			SendNetworkSettings(request); });
-		_pwebServer->on("/settings", HTTP_GET, [this](AsyncWebServerRequest *request)
-						{ SendNetworkSettings(request); });
+			saveSettings(); 
+			RedirectToHome(request);});
 	}
-
-	void IOT::SendNetworkSettings(AsyncWebServerRequest *request)
+	void IOT::RedirectToHome(AsyncWebServerRequest* request)
 	{
-		String page = network_config_top;
-		page.replace("{n}", _AP_SSID);
-		page.replace("{v}", APP_VERSION);
-		String network = network_settings_fs;
-		network.replace("{AP_SSID}", _AP_SSID);
-		network.replace("{AP_Pw}", _AP_Password.length() > 0 ? "******" : "");
-		if (_NetworkSelection == WiFiMode)
-		{
-			String wifi = network_settings_wifi;
-			wifi.replace("{SSID}", _AP_SSID);
-			wifi.replace("{WiFi_Pw}", _AP_Password.length() > 0 ? "******" : "");
-			network.replace("{NET}", wifi);
-		}
-		else if (_NetworkSelection == EthernetMode)
-		{
-			String eth;
-			if (_useDHCP)
-			{
-				eth = network_settings_eth_dhcp;
-			}
-			else
-			{
-				eth = network_settings_eth_st;
-				eth.replace("{ETH_SIP}", _Static_IP);
-				eth.replace("{ETH_SM}", _Subnet_Mask);
-				eth.replace("{ETH_GW}", _Gateway_IP);
-			}
-			network.replace("{NET}", eth);
-		}
-		else if (_NetworkSelection == ModemMode)
-		{
-			String modem = network_settings_modem;
-			modem.replace("{APN}", _APN);
-			modem.replace("{SIM_USERNAME}", _SIM_Username);
-			modem.replace("{SIM_PASSWORD}", _SIM_Password.length() > 0 ? "******" : "");
-			modem.replace("{SIM_PIN}", _SIM_PIN);
-			network.replace("{NET}", modem);
-		}
-		else
-		{
-			network.replace("{NET}", "No network selected");
-		}
-		page += network;
-		if (_useMQTT)
-		{
-			String mqtt = mqtt_settings;
-			mqtt.replace("{mqttServer}", _mqttServer);
-			mqtt.replace("{mqttPort}", String(_mqttPort));
-			mqtt.replace("{mqttUser}", _mqttUserName);
-			mqtt.replace("{mqttPw}", _mqttUserPassword.length() > 0 ? "******" : "");
-			page += mqtt;
-		}
-		if (_useModbus)
-		{
-			String modbus = modbus_settings;
-			modbus.replace("{modbusPort}", String(_modbusPort));
-			modbus.replace("{modbusID}", String(_modbusID));
-			modbus.replace("{inputRegBase}", String(_input_register_base_addr));
-			modbus.replace("{coilBase}", String(_coil_base_addr));
-			modbus.replace("{discreteBase}", String(_discrete_input_base_addr));
-			modbus.replace("{holdingRegBase}", String(_holding_register_base_addr));
-			page += modbus;
-		}
-		_iotCB->addApplicationSettings(page);
-		page += network_settings_links;
+		logd("Redirecting from: %s", request->url().c_str());
+		String page = redirect_html;
+		page.replace("{n}", _SSID);
+		page.replace("{ip}", _Current_IP);
 		request->send(200, "text/html", page);
 	}
+
 	void IOT::registerMBTCPWorkers(FunctionCode fc, MBSworker worker)
 	{
 		if (_ModbusMode == TCP)

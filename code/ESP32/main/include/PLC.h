@@ -16,7 +16,6 @@ namespace CLASSICDIY
 {
 	class PLC : public IOTCallbackInterface
 	{
-	
 	public:
 		PLC() {};
 		void setup();
@@ -26,7 +25,6 @@ namespace CLASSICDIY
 		void onMqttConnect();
 		void onMqttMessage(char* topic, char *payload);
 		void onNetworkConnect();
-		void addApplicationSettings(String& page);
 		void addApplicationConfigs(String& page);
 		void onSubmitForm(AsyncWebServerRequest *request);
 	    void onSaveSetting(JsonDocument& doc);
@@ -40,7 +38,6 @@ namespace CLASSICDIY
 
 	private:
 		boolean _discoveryPublished = false;
-		
 		String _lastMessagePublished;
 		unsigned long _lastPublishTimeStamp = 0;
 

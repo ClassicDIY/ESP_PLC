@@ -26,7 +26,6 @@ namespace CLASSICDIY
     public:
         IOT() {};
         void Init(IOTCallbackInterface *iotCB, AsyncWebServer *pwebServer);
-
         void Run();
         boolean Publish(const char *subtopic, const char *value, boolean retained = false);
         boolean Publish(const char *subtopic, JsonDocument &payload, boolean retained = false);
@@ -92,11 +91,11 @@ namespace CLASSICDIY
         char _willTopic[STR_LEN*2];
         char _rootTopicPrefix[STR_LEN];
         esp_mqtt_client_handle_t _mqtt_client_handle = 0;
+        void RedirectToHome(AsyncWebServerRequest* request);
         void UpdateOledDisplay();
         void GoOffline();
         void saveSettings();
         void loadSettings();
-        void SendNetworkSettings(AsyncWebServerRequest *request);
         void ConnectToMQTTServer();
         void HandleMQTT(int32_t event_id, void *event_data);
         void setState(NetworkState newState);

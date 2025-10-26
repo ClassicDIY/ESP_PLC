@@ -7,7 +7,7 @@ const char redirect_html[] PROGMEM = R"rawliteral(
         <title>{n}</title>
         <script>
             window.onload = function() {
-                window.location.href = "http://{ip}/";
+                window.location.href = "http://{ip}";
             };
         </script>
     </head>
@@ -22,7 +22,7 @@ const char reboot_html[] PROGMEM = R"rawliteral(
     <title>ESP32 Reboot</title>
     </head><body>
     <h1>Rebooting ESP32</h1>
-    <a href='settings'>Return to  Settings after reboot has completed.</a>
+    <a href='/'>Return home after reboot has completed.</a>
     </body></html>
 )rawliteral";
 
@@ -385,68 +385,9 @@ const char network_config_apply_button[] PROGMEM = R"rawliteral(
     </form>
 )rawliteral";
 
-const char network_settings_fs[] PROGMEM = R"rawliteral(  
-    <fieldset id="network" class="fs"><legend>Network</legend>
-        <div class="fld">AP SSID/Device Name: {AP_SSID}</div>
-        <div class="fld">AP/admin Password: {AP_Pw}</div>
-        {NET}
-    </fieldset>
-    )rawliteral";
-
-    const char network_settings_wifi[] PROGMEM = R"rawliteral(  
-        <div class="fld">WiFi SSID: {SSID}</div>
-        <div class="fld">WiFi Password: {WiFi_Pw}</div>
-    )rawliteral";
-    const char network_settings_eth_st[] PROGMEM = R"rawliteral(  
-        <div class="fld">Ethernet</div>
-        <div class="fld">Static IP: {ETH_SIP}</div>
-        <div class="fld">Subnet Mask: {ETH_SM}</div>
-        <div class="fld">Gateway: {ETH_GW}</div>
-    )rawliteral";
-    const char network_settings_eth_dhcp[] PROGMEM = R"rawliteral(  
-        <div class="fld">Ethernet Using DHCP</div>
-    )rawliteral";
-    const char network_settings_modem[] PROGMEM = R"rawliteral(
-        <div class="fld">4G Modem</div>  
-        <div class="fld">APN: {APN}</div>
-        <div class="fld">Username: {SIM_USERNAME}</div>
-        <div class="fld">Password: {SIM_PASSWORD}</div>
-        <div class="fld">PIN: {SIM_PIN}</div>
-    )rawliteral";
-
-const char mqtt_settings[] PROGMEM = R"rawliteral(
-    <fieldset id="mqtt" class="fs"><legend>MQTT</legend>
-        <div class="fld">MQTT server: {mqttServer}</div>
-        <div class="fld">MQTT port: {mqttPort}</div>
-        <div class="fld">MQTT user: {mqttUser}</div>
-        <div class="fld">MQTT password: {mqttPw}</div>
-    </fieldset>
-    )rawliteral";
-const char modbus_settings[] PROGMEM = R"rawliteral(
-<fieldset id="Modbus" class="fs"><legend>Modbus</legend>
-    <div class="fld">Modbus Port: {modbusPort}</div>
-    <div class="fld">Modbus ID: {modbusID}</div>
-    <div class="fld">Input Register Base Addess: {inputRegBase}</div>
-    <div class="fld">Coil Base Address: {coilBase}</div>
-    <div class="fld">Discrete Base Address: {discreteBase}</div>
-    <div class="fld">Holding Register Base Address: {holdingRegBase}</div>
-</fieldset>
-)rawliteral";
-
-const char network_settings_links[] PROGMEM = R"rawliteral(
-    <a href='/log' target='_blank'>Web Log</a>
-    <a href="/network_config">Configuration</a>
-    <a href='/'>Return to home page.</a>
-
-</div>
-</div>
-</body></html>
-)rawliteral";
-
 const char network_config_links[] PROGMEM = R"rawliteral(
         <a href='update'>Firmware update</a>
         <a href='/'>Return to home page.</a>
-        <a href='settings'>Return to Settings</a>
         <a href='reboot'>Reboot ESP32</a>
     </div></div>
     </body></html>
@@ -454,7 +395,6 @@ const char network_config_links[] PROGMEM = R"rawliteral(
 
 const char network_config_links_no_ota[] PROGMEM = R"rawliteral(
         <a href='/'>Return to home page.</a>
-        <a href='settings'>Return to Settings</a>
         <a href='reboot'>Reboot ESP32</a>
     </div></div>
     </body></html>
