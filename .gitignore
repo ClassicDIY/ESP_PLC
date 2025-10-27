@@ -31,3 +31,4 @@
 *.out
 *.app
 /code/ESP32/.vscode
+code/ESP32/.vscode/settings.json

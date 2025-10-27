@@ -67,14 +67,22 @@ namespace CLASSICDIY
         String _Gateway_IP;
         bool _useMQTT = false;
         String _mqttServer;
-        int16_t _mqttPort = 1883;
+        uint16_t _mqttPort = 1883;
         String _mqttUserName;
         String _mqttUserPassword;
         bool _useModbus = false;
         ModbusMode _ModbusMode = TCP;
-        int16_t _modbusPort = 502;
-        int16_t _modbusBaudRate = 9600;
-        int16_t _modbusID = 1;
+        uint16_t _modbusPort = 502;
+        unsigned long _modbusBaudRate = 9600;
+        uart_parity_t _modbusParity = UART_PARITY_DISABLE;
+        uart_stop_bits_t _modbusStopBits = UART_STOP_BITS_1;
+        uint16_t _modbusID = 1;
+
+        bool _useModbusBridge = false;
+        unsigned long _modbusClientBaudRate = 9600;
+        uart_parity_t _modbusClientParity = UART_PARITY_DISABLE;
+        uart_stop_bits_t _modbusClientStopBits = UART_STOP_BITS_1;
+
         uint16_t _input_register_base_addr = INPUT_REGISTER_BASE_ADDRESS;
 		uint16_t _coil_base_addr = COIL_BASE_ADDRESS;
 		uint16_t _discrete_input_base_addr = DISCRETE_BASE_ADDRESS;

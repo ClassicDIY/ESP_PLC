@@ -1,5 +1,6 @@
 #pragma once
 #include <Arduino.h>
+#include "hal/uart_types.h"
 #include "Defines.h"
 
 
@@ -49,4 +50,22 @@ void inline light_sleep(uint32_t sec )
 {
   esp_sleep_enable_timer_wakeup(sec * 1000000ULL);
   esp_light_sleep_start();
+}
+
+SerialConfig inline getSerialConfig(uart_parity_t parity, uart_stop_bits_t stopBits) {
+  uint32_t config = SERIAL_8N1;
+
+  // Stop bits
+  switch (stopBits) {
+    case UART_STOP_BITS_1: config |= 0x00000000; break;
+    case UART_STOP_BITS_2: config |= 0x00000020; break;
+    default: config |= 0x00000020; break;
+  }
+  // Parity
+  switch (parity) {
+    case UART_PARITY_DISABLE: config |= 0x00000000; break;
+    case UART_PARITY_EVEN:    config |= 0x00000002; break;
+    case UART_PARITY_ODD:     config |= 0x00000003; break;
+  }
+  return static_cast<SerialConfig>(config);
 }

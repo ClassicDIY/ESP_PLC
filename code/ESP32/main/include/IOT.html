@@ -117,7 +117,7 @@ const char network_config_top[] PROGMEM = R"rawliteral(
         }
         .form-grid {
             display: grid;
-            grid-template-columns: 180px 1fr;
+            grid-template-columns: 200px 1fr;
             gap: 6px 12px;
             align-items: center;
             margin-bottom: 8px;
@@ -142,13 +142,13 @@ const char network_config_top[] PROGMEM = R"rawliteral(
             display: flex;
             flex-direction: column;
             height: 100%; 
-			width:100%;
+			      width:100%;
         }
         .fs {
             display: inline-block;
             border-radius:0.3rem;
             margin: 0px;
-            width:92%; 
+            width:95%; 
             color: #000080;
         }
         .app-range-row {
@@ -171,16 +171,32 @@ const char network_config_top[] PROGMEM = R"rawliteral(
             font-size:1.2rem;
             width:100%;
             margin-top: 10px;
-		} 
+            margin-bottom: 20px;
+		    } 
         .hidden{display: none;}
         .ver {
             font-size: .6em;
         }
         #config {
-			width: 530px;
-			margin: 0 auto;
-            align: center;
-		}
+          width: 530px;
+          margin: 0 auto;
+          align: center;
+        }
+        .link-row {
+          display: flex;
+          justify-content: space-between;
+          padding: 10px;
+        }
+
+        .link-row a {
+          text-decoration: none;
+          font-weight: bold;
+          color: #0055aa;
+        }
+
+        .link-row a:hover {
+          text-decoration: underline;
+        }
     </style>
 
     </head><body>
@@ -315,26 +331,27 @@ const char network_config_fields[] PROGMEM = R"rawliteral(
 
       <div id="rtu-fields" class="hidden">
         <div class="form-grid">
-          <label for="baudSelector">RTU Baud Rate</label>
-          <select id="baudSelector" name="baudSelector">
-            <option value="9600">9600</option>
-            <option value="19200">19200</option>
-            <option value="38400">38400</option>
+          <label for="svrRTUBaud">RTU Baud Rate</label>
+          <select id="svrRTUBaud" name="svrRTUBaud">
+            <option value="9600" {RTU_SVR_9600} >9600</option>
+            <option value="19200" {RTU_SVR_19200} >19200</option>
+            <option value="38400" {RTU_SVR_38400} >38400</option>
+            <option value="115200" {RTU_SVR_115200} >115200</option>
           </select>
         </div>
         <div class="form-grid">
-          <label for="paritySelector">RTU Parity</label>
-          <select id="paritySelector" name="paritySelector">
-            <option value="none">None</option>
-            <option value="even">Even</option>
-            <option value="odd">Odd</option>
+          <label for="svrRTUParity">RTU Parity</label>
+          <select id="svrRTUParity" name="svrRTUParity">
+            <option value="none" {RTU_SVR_Parity_None}>None</option>
+            <option value="even" {RTU_SVR_Parity_Even}>Even</option>
+            <option value="odd" {RTU_SVR_Parity_Odd}>Odd</option>
           </select>
         </div>
         <div class="form-grid">
-          <label for="stopbitsSelector">RTU Stop Bits</label>
-          <select id="stopbitsSelector" name="stopbitsSelector">
-            <option value="1">1</option>
-            <option value="2">2</option>
+          <label for="svrRTUStopBits">RTU Stop Bits</label>
+          <select id="svrRTUStopBits" name="svrRTUStopBits">
+            <option value="1" {RTU_SVR_1Stop}>1</option>
+            <option value="2" {RTU_SVR_2Stop}>2</option>
           </select>
         </div>
       </div>
@@ -348,7 +365,30 @@ const char network_config_fields[] PROGMEM = R"rawliteral(
 
   <fieldset id="modbusBridge" class="fs">
     <legend><label><input type="checkbox" id="modbusBridgeCheckbox" name="modbusBridgeCheckbox" onclick="modbusBridgeFieldset(this)" {modbusBridgechecked}> Modbus Bridge</label></legend>
-
+    <div class="form-grid">
+      <label for="clientRTUBaud">RTU Baud Rate</label>
+      <select id="clientRTUBaud" name="clientRTUBaud">
+        <option value="9600" {RTU_CLIENT_9600} >9600</option>
+        <option value="19200" {RTU_CLIENT_19200} >19200</option>
+        <option value="38400" {RTU_CLIENT_38400} >38400</option>
+        <option value="115200" {RTU_CLIENT_115200} >115200</option>
+      </select>
+    </div>
+    <div class="form-grid">
+      <label for="clientRTUParity">RTU Parity</label>
+      <select id="clientRTUParity" name="clientRTUParity">
+        <option value="none" {RTU_CLIENT_Parity_None}>None</option>
+        <option value="even" {RTU_CLIENT_Parity_Even}>Even</option>
+        <option value="odd" {RTU_CLIENT_Parity_Odd}>Odd</option>
+      </select>
+    </div>
+    <div class="form-grid">
+      <label for="clientRTUStopBits">RTU Stop Bits</label>
+      <select id="clientRTUStopBits" name="clientRTUStopBits">
+        <option value="1" {RTU_CLIENT_1Stop}>1</option>
+        <option value="2" {RTU_CLIENT_2Stop}>2</option>
+      </select>
+    </div>
     <label>Input Registers</label>
     <div class="inline-group">
       <div><label for="modbusBridgeInputID">ID</label><input type="number" id="modbusBridgeInputID" name="modbusBridgeInputID" value="{modbusBridgeInputID}" step="1"></div>
@@ -386,16 +426,20 @@ const char network_config_apply_button[] PROGMEM = R"rawliteral(
 )rawliteral";
 
 const char network_config_links[] PROGMEM = R"rawliteral(
-        <a href='update'>Firmware update</a>
-        <a href='/'>Return to home page.</a>
-        <a href='reboot'>Reboot ESP32</a>
+        <div class="link-row">
+          <a href='/'>Home page</a>
+          <a href='/update'>Firmware update</a>
+          <a href='/reboot'>Reboot</a>
+        </div>
     </div></div>
     </body></html>
 )rawliteral";
 
 const char network_config_links_no_ota[] PROGMEM = R"rawliteral(
-        <a href='/'>Return to home page.</a>
-        <a href='reboot'>Reboot ESP32</a>
+        <div class="link-row">
+          <a href='/'>Home page</a>  
+          <a href='/reboot'>Reboot</a>
+        </div>
     </div></div>
     </body></html>
 )rawliteral";

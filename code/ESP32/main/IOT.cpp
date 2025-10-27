@@ -52,7 +52,6 @@ namespace CLASSICDIY
 #endif
 		#ifdef FACTORY_RESET_PIN // use digital input pin for factory reset
 		pinMode(FACTORY_RESET_PIN, INPUT_PULLUP);
-
 		EEPROM.begin(EEPROM_SIZE);
 		if (digitalRead(FACTORY_RESET_PIN) == LOW)
 		{
@@ -61,7 +60,6 @@ namespace CLASSICDIY
 			EEPROM.commit();
 		}
 		#else // use analog pin for factory reset
-		
 		EEPROM.begin(EEPROM_SIZE);
 		uint16_t analogValue = analogRead(BUTTONS);
 		logd("button value (%d)", analogValue);
@@ -87,10 +85,12 @@ namespace CLASSICDIY
 		{
 			// Set up Serial2 connected to Modbus RTU
 			RTUutils::prepareHardwareSerial(Serial2);
-			Serial2.begin(9600, SERIAL_8N1,RS485_RXD,RS485_TXD);
+			SerialConfig conf = getSerialConfig(_modbusParity, _modbusStopBits);
+			logd("Serial baud: %d conf: 0x%x", _modbusBaudRate, conf);
+			Serial2.begin(_modbusBaudRate, conf, RS485_RXD, RS485_TXD);
 			while (!Serial2) {}
-			#endif
 		}
+		#endif
 		mqttReconnectTimer = xTimerCreate("mqttTimer", pdMS_TO_TICKS(8000), pdFALSE, this, mqttReconnectTimerCF);
 
 		WiFi.onEvent([this](WiFiEvent_t event, WiFiEventInfo_t info)
@@ -128,7 +128,8 @@ namespace CLASSICDIY
 			default:
 				logd("[WiFi-event] event: %d", event);
 				break;
-			} });
+			} 
+		});
 		// generate unique id from mac address NIC segment
 		uint8_t chipid[6];
 		esp_efuse_mac_get_default(chipid);
@@ -142,12 +143,12 @@ namespace CLASSICDIY
 			String page = reboot_html;
 			request->send(200, "text/html", page.c_str());
 			delay(3000);
-			esp_restart(); });
-
+			esp_restart(); 
+		});
 		_pwebServer->onNotFound([this](AsyncWebServerRequest *request)
 		{
-			RedirectToHome(request); });
-
+			RedirectToHome(request); 
+		});
 		basicAuth.setUsername("admin");
 		basicAuth.setPassword(_AP_Password.c_str());
 		basicAuth.setAuthFailureMessage("Authentication failed");
@@ -160,29 +161,23 @@ namespace CLASSICDIY
 			fields.replace("{v}", APP_VERSION);
 			fields.replace("{AP_SSID}", _AP_SSID);
 			fields.replace("{AP_Pw}", _AP_Password);
-
 			fields.replace("{WIFI}", _NetworkSelection == WiFiMode ? "selected" : "");
-
 			#ifdef HasEthernet
 			fields.replace("{ETH}", _NetworkSelection == EthernetMode ? "selected" : "");
 			#else
 			fields.replace("{ETH}", "class='hidden'");
 			#endif
 			fields.replace("{4G}", _NetworkSelection == ModemMode ? "selected" : "");
-
 			fields.replace("{SSID}", _SSID);
 			fields.replace("{WiFi_Pw}", _WiFi_Password);
 			fields.replace("{dhcpChecked}", _useDHCP ? "checked" : "unchecked");
-
 			fields.replace("{ETH_SIP}", _Static_IP);
 			fields.replace("{ETH_SM}", _Subnet_Mask);
 			fields.replace("{ETH_GW}", _Gateway_IP);
-
 			fields.replace("{APN}", _APN);
 			fields.replace("{SIM_USERNAME}", _SIM_Username);
 			fields.replace("{SIM_PASSWORD}", _SIM_Password);
 			fields.replace("{SIM_PIN}", _SIM_PIN);
-
 			fields.replace("{mqttchecked}", _useMQTT ? "checked" : "unchecked");
 			fields.replace("{mqttServer}", _mqttServer);
 			fields.replace("{mqttPort}", String(_mqttPort));
@@ -191,12 +186,31 @@ namespace CLASSICDIY
 			fields.replace("{modbuschecked}", _useModbus ? "checked" : "unchecked");
 			fields.replace("{TCP}", _ModbusMode == TCP ? "selected" : "");
 			fields.replace("{RTU}", _ModbusMode == RTU ? "selected" : "");
+			fields.replace("{RTU_SVR_9600}", _modbusBaudRate == 9600 ? "selected" : "");
+			fields.replace("{RTU_SVR_19200}", _modbusBaudRate == 19200 ? "selected" : "");
+			fields.replace("{RTU_SVR_38400}", _modbusBaudRate == 38400 ? "selected" : "");
+			fields.replace("{RTU_SVR_115200}", _modbusBaudRate == 115200 ? "selected" : "");
+			fields.replace("{RTU_SVR_Parity_None}", _modbusParity == UART_PARITY_DISABLE ? "selected" : "");
+			fields.replace("{RTU_SVR_Parity_Even}", _modbusParity == UART_PARITY_EVEN ? "selected" : "");
+			fields.replace("{RTU_SVR_Parity_Odd}", _modbusParity == UART_PARITY_ODD ? "selected" : "");
+			fields.replace("{RTU_SVR_1Stop}", _modbusStopBits == UART_STOP_BITS_1 ? "selected" : "");
+			fields.replace("{RTU_SVR_2Stop}", _modbusStopBits == UART_STOP_BITS_2 ? "selected" : "");
 			fields.replace("{modbusPort}", String(_modbusPort));
 			fields.replace("{modbusID}", String(_modbusID));
 			fields.replace("{inputRegBase}", String(_input_register_base_addr));
 			fields.replace("{coilBase}", String(_coil_base_addr));
 			fields.replace("{discreteBase}", String(_discrete_input_base_addr));
 			fields.replace("{holdingRegBase}", String(_holding_register_base_addr));
+			fields.replace("{modbusBridgechecked}", _useModbusBridge ? "checked" : "unchecked");
+			fields.replace("{RTU_CLIENT_9600}", _modbusClientBaudRate == 9600 ? "selected" : "");
+			fields.replace("{RTU_CLIENT_19200}", _modbusClientBaudRate == 19200 ? "selected" : "");
+			fields.replace("{RTU_CLIENT_38400}", _modbusClientBaudRate == 38400 ? "selected" : "");
+			fields.replace("{RTU_CLIENT_115200}", _modbusClientBaudRate == 115200 ? "selected" : "");
+			fields.replace("{RTU_CLIENT_Parity_None}", _modbusClientParity == UART_PARITY_DISABLE ? "selected" : "");
+			fields.replace("{RTU_CLIENT_Parity_Even}", _modbusClientParity == UART_PARITY_EVEN ? "selected" : "");
+			fields.replace("{RTU_CLIENT_Parity_Odd}", _modbusClientParity == UART_PARITY_ODD ? "selected" : "");
+			fields.replace("{RTU_CLIENT_1Stop}", _modbusClientStopBits == UART_STOP_BITS_1 ? "selected" : "");
+			fields.replace("{RTU_CLIENT_2Stop}", _modbusClientStopBits == UART_STOP_BITS_2 ? "selected" : "");
 			String page = network_config_top;
 			page.replace("{n}", _AP_SSID);
 			page.replace("{v}", APP_VERSION);
@@ -273,6 +287,17 @@ namespace CLASSICDIY
 				String sel =  request->getParam("modbusModeSelector", true)->value();
 				_ModbusMode = sel == "tcp" ? TCP : RTU;
 			}
+			if (request->hasParam("svrRTUBaud", true)) {
+				_modbusBaudRate =  request->getParam("svrRTUBaud", true)->value().toInt();
+			}
+			if (request->hasParam("svrRTUParity", true)) {
+				String sel =  request->getParam("svrRTUParity", true)->value().c_str();
+				_modbusParity = sel == "none" ? UART_PARITY_DISABLE : sel == "even" ? UART_PARITY_EVEN : UART_PARITY_ODD;
+			}
+			if (request->hasParam("svrRTUStopBits", true)) {
+				String sel =  request->getParam("svrRTUStopBits", true)->value().c_str();
+				_modbusStopBits = sel == "1" ? UART_STOP_BITS_1 : UART_STOP_BITS_2;
+			}
 			if (request->hasParam("modbusPort", true)) {
 				_modbusPort = request->getParam("modbusPort", true)->value().toInt();
 			}
@@ -290,6 +315,18 @@ namespace CLASSICDIY
 			}
 			if (request->hasParam("holdingRegBase", true)) {
 				_holding_register_base_addr = request->getParam("holdingRegBase", true)->value().toInt();
+			}
+			_useModbusBridge = request->hasParam("modbusBridgeCheckbox", true);
+			if (request->hasParam("clientRTUBaud", true)) {
+				_modbusClientBaudRate =  request->getParam("clientRTUBaud", true)->value().toInt();
+			}
+			if (request->hasParam("clientRTUParity", true)) {
+				String sel =  request->getParam("clientRTUParity", true)->value().c_str();
+				_modbusClientParity = sel == "none" ? UART_PARITY_DISABLE : sel == "even" ? UART_PARITY_EVEN : UART_PARITY_ODD;
+			}
+			if (request->hasParam("clientRTUStopBits", true)) {
+				String sel =  request->getParam("clientRTUStopBits", true)->value().c_str();
+				_modbusClientStopBits = sel == "1" ? UART_STOP_BITS_1 : UART_STOP_BITS_2;
 			}
 			_iotCB->onSubmitForm(request);
 			saveSettings(); 
@@ -353,7 +390,6 @@ namespace CLASSICDIY
 			_Static_IP = iot["ETH_SIP"].isNull() ? "" : iot["ETH_SIP"].as<String>();
 			_Subnet_Mask = iot["ETH_SM"].isNull() ? "" : iot["ETH_SM"].as<String>();
 			_Gateway_IP = iot["ETH_GW"].isNull() ? "" : iot["ETH_GW"].as<String>();
-
 			_useMQTT = iot["useMQTT"].isNull() ? false : iot["useMQTT"].as<bool>();
 			_mqttServer = iot["mqttServer"].isNull() ? "" : iot["mqttServer"].as<String>();
 			_mqttPort = iot["mqttPort"].isNull() ? 1883 : iot["mqttPort"].as<uint16_t>();
@@ -361,12 +397,19 @@ namespace CLASSICDIY
 			_mqttUserPassword = iot["mqttPw"].isNull() ? "" : iot["mqttPw"].as<String>();
 			_useModbus = iot["useModbus"].isNull() ? false : iot["useModbus"].as<bool>();
 			_ModbusMode = iot["modbusMode"].isNull() ? TCP : iot["modbusMode"].as<ModbusMode>();
+			_modbusBaudRate = iot["svrRTUBaud"].isNull() ? 9600 : iot["svrRTUBaud"].as<uint32_t>();
+			_modbusParity = iot["svrRTUParity"].isNull() ? UART_PARITY_DISABLE : iot["svrRTUParity"].as<uart_parity_t>();
+			_modbusStopBits = iot["svrRTUStopBits"].isNull() ? UART_STOP_BITS_1 : iot["svrRTUStopBits"].as<uart_stop_bits_t>();
 			_modbusPort = iot["modbusPort"].isNull() ? 502 : iot["modbusPort"].as<uint16_t>();
 			_modbusID = iot["modbusID"].isNull() ? 1 : iot["modbusID"].as<uint16_t>();
 			_input_register_base_addr = iot["inputRegBase"].isNull() ? INPUT_REGISTER_BASE_ADDRESS : iot["inputRegBase"].as<uint16_t>();
 			_coil_base_addr = iot["coilBase"].isNull() ? COIL_BASE_ADDRESS : iot["coilBase"].as<uint16_t>();
 			_discrete_input_base_addr = iot["discreteBase"].isNull() ? DISCRETE_BASE_ADDRESS : iot["discreteBase"].as<uint16_t>();
 			_holding_register_base_addr = iot["holdingRegBase"].isNull() ? HOLDING_REGISTER_BASE_ADDRESS : iot["holdingRegBase"].as<uint16_t>();
+			_useModbusBridge = iot["useModbusBridge"].isNull() ? false : iot["useModbusBridge"].as<bool>();
+			_modbusClientBaudRate = iot["modbusClientBaudRate"].isNull() ? 9600 : iot["modbusClientBaudRate"].as<uint32_t>();
+			_modbusClientParity = iot["modbusClientParity"].isNull() ? UART_PARITY_DISABLE : iot["modbusClientParity"].as<uart_parity_t>();
+			_modbusClientStopBits = iot["modbusClientStopBits"].isNull() ? UART_STOP_BITS_1 : iot["modbusClientStopBits"].as<uart_stop_bits_t>();
 			_iotCB->onLoadSetting(doc);
 		}
 	}
@@ -389,7 +432,6 @@ namespace CLASSICDIY
 		iot["ETH_SIP"] = _Static_IP;
 		iot["ETH_SM"] = _Subnet_Mask;
 		iot["ETH_GW"] = _Gateway_IP;
-
 		iot["useMQTT"] = _useMQTT;
 		iot["mqttServer"] = _mqttServer;
 		iot["mqttPort"] = _mqttPort;
@@ -397,12 +439,19 @@ namespace CLASSICDIY
 		iot["mqttPw"] = _mqttUserPassword;
 		iot["useModbus"] = _useModbus;
 		iot["modbusMode"] = _ModbusMode;
+		iot["svrRTUBaud"] = _modbusBaudRate;
+		iot["svrRTUParity"] = _modbusParity;
+		iot["svrRTUStopBits"] = _modbusStopBits;
 		iot["modbusPort"] = _modbusPort;
 		iot["modbusID"] = _modbusID;
 		iot["inputRegBase"] = _input_register_base_addr;
 		iot["coilBase"] = _coil_base_addr;
 		iot["discreteBase"] = _discrete_input_base_addr;
 		iot["holdingRegBase"] = _holding_register_base_addr;
+		iot["useModbusBridge"] = _useModbusBridge;
+		iot["modbusClientBaudRate"] = _modbusClientBaudRate;
+		iot["modbusClientParity"] = _modbusClientParity;
+		iot["modbusClientStopBits"] = _modbusClientStopBits;
 		_iotCB->onSaveSetting(doc);
 		String jsonString;
 		serializeJson(doc, jsonString);
