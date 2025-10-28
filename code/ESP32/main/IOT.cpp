@@ -42,7 +42,7 @@ namespace CLASSICDIY
 	ModbusClientRTU _MBclientRTU(RS485_RTS);
 	#endif
 	static AsyncAuthenticationMiddleware basicAuth;
-
+  	uint32_t Token = 1111;
 	void IOT::Init(IOTCallbackInterface *iotCB, AsyncWebServer *pwebServer)
 	{
 		_iotCB = iotCB;
@@ -83,11 +83,20 @@ namespace CLASSICDIY
 		}
 		if (_ModbusMode == RTU)
 		{
-			// Set up Serial2 connected to Modbus RTU
+			// Set up Serial2 connected to Modbus RTU server
 			RTUutils::prepareHardwareSerial(Serial2);
 			SerialConfig conf = getSerialConfig(_modbusParity, _modbusStopBits);
 			logd("Serial baud: %d conf: 0x%x", _modbusBaudRate, conf);
 			Serial2.begin(_modbusBaudRate, conf, RS485_RXD, RS485_TXD);
+			while (!Serial2) {}
+		} 
+		else if (_useModbusBridge)
+		{
+			// Set up Serial2 connected to Modbus RTU Client
+			RTUutils::prepareHardwareSerial(Serial2);
+			SerialConfig conf = getSerialConfig(_modbusClientParity, _modbusClientStopBits);
+			logd("Serial baud: %d conf: 0x%x", _modbusClientBaudRate, conf);
+			Serial2.begin(_modbusClientBaudRate, conf, RS485_RXD, RS485_TXD);
 			while (!Serial2) {}
 		}
 		#endif
@@ -353,6 +362,20 @@ namespace CLASSICDIY
 		}
 	}
 
+	ModbusMessage IOT::ForwardToModbusBridge(ModbusMessage request)
+	{
+		#ifdef HasRS485
+		if (_useModbusBridge)
+		{
+			logd("ForwardToModbusBridge token: %d", Token);
+			return _MBclientRTU.syncRequest(request, Token++);
+		}
+		#endif
+		ModbusMessage response;
+		response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_ADDRESS);
+		return response;
+	}
+
 	void IOT::loadSettings()
 	{
 		String jsonString;
@@ -614,6 +637,23 @@ namespace CLASSICDIY
 						_MBserver.start(_modbusPort, 5, 0); // listen for modbus requests
 						logd("Modbus TCP started");
 					}
+					#ifdef HasRS485
+					if (_useModbusBridge)
+					{
+						_MBclientRTU.setTimeout(2000);
+						_MBclientRTU.begin(Serial2);
+						_MBclientRTU.useModbusRTU();
+						_MBclientRTU.onDataHandler([this](ModbusMessage response, uint32_t token)
+						{
+							logd("RTU Response: serverID=%d, FC=%d, Token=%08X, length=%d:\n", response.getServerID(), response.getFunctionCode(), token, response.size());
+						});
+						_MBclientRTU.onErrorHandler([this](Modbus::Error errorCode, uint32_t token)
+						{
+							loge("Modbus RTU Client Error: %d Token: %08X", errorCode, token);
+							return true;
+						});
+					}
+					#endif
 				}
 				else
 				{
@@ -621,20 +661,7 @@ namespace CLASSICDIY
 					_MBRTUserver.useModbusRTU();
 					logd("Modbus RTU started");					
 				}
-				#ifdef HasRS485
-				// _MBclientRTU.setTimeout(2000);
-				// _MBclientRTU.begin(Serial2);	 // setup modbus RTU client
-				// _MBclientRTU.useModbusRTU();
-				// _MBclientRTU.onDataHandler([this](ModbusMessage response, uint32_t token)
-				// {
-				// 	logd("RTU Response: serverID=%d, FC=%d, Token=%08X, length=%d:\n", response.getServerID(), response.getFunctionCode(), token, response.size());
-				// });
-				// _MBclientRTU.onErrorHandler([this](Modbus::Error errorCode, uint32_t token)
-				// {
-				// 	loge("Modbus RTU Client Error: %d Token: %08X", errorCode, token);
-				// 	return true;
-				// });
-				#endif
+
 			}
 			logd("Before xTimerStart _NetworkSelection: %d", _NetworkSelection);
 			xTimerStart(mqttReconnectTimer, 0);
@@ -988,6 +1015,11 @@ namespace CLASSICDIY
 		}	
 		s += "</div>";
 		return s;
+	}
+
+	boolean IOT::ModbusBridgeEnabled()
+	{
+		return _useModbusBridge;
 	}
 
 	void IOT::PublishOnline()

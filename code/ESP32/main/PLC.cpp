@@ -33,6 +33,21 @@ namespace CLASSICDIY
 		page += appFields;
 		page.replace("{validateInputs}", scriptConvs);
 		#endif
+		// Bridge app settings
+		String appBridgeFields = app_modbusBridge;
+		appBridgeFields.replace("{inputBridgeID}",  String(_inputID));
+		appBridgeFields.replace("{inputRegBridge}",  String(_inputAddress));
+		appBridgeFields.replace("{inputRegBridgeCount}",  String(_inputCount));
+		appBridgeFields.replace("{coilBridgeID}",  String(_coilID));
+		appBridgeFields.replace("{coilBridge}",  String(_coilAddress));
+		appBridgeFields.replace("{coilBridgeCount}",  String(_coilCount));
+		appBridgeFields.replace("{discreteBridgeID}",  String(_discreteID));
+		appBridgeFields.replace("{discreteBridge}",  String(_discreteAddress));
+		appBridgeFields.replace("{discreteBridgeCount}",  String(_discreteCount));
+		appBridgeFields.replace("{holdingBridgeID}",  String(_holdingID));
+		appBridgeFields.replace("{holdingRegBridge}",  String(_holdingAddress));
+		appBridgeFields.replace("{holdingRegBridgeCount}",  String(_holdingCount));
+		page.replace("{modbusBridgeAppSettings}", appBridgeFields);
 	}
 
 	void PLC::onSubmitForm(AsyncWebServerRequest *request)
@@ -57,6 +72,19 @@ namespace CLASSICDIY
 				_AnalogSensors[i].SetMaxT(request->getParam(ain + "_max_t", true)->value().toFloat());
 			}		
 		}
+		// Bridge app settings
+		if (request->hasParam("inputBridgeID", true)) { _inputID = request->getParam("inputBridgeID", true)->value().toInt(); }
+		if (request->hasParam("inputRegBridge", true)) { _inputAddress = request->getParam("inputRegBridge", true)->value().toInt(); }
+		if (request->hasParam("inputRegBridgeCount", true)) { _inputCount = request->getParam("inputRegBridgeCount", true)->value().toInt(); }
+		if (request->hasParam("coilBridgeID", true)) { _coilID = request->getParam("coilBridgeID", true)->value().toInt(); }
+		if (request->hasParam("coilBridge", true)) { _coilAddress = request->getParam("coilBridge", true)->value().toInt(); }
+		if (request->hasParam("coilBridgeCount", true)) { _coilCount = request->getParam("coilBridgeCount", true)->value().toInt(); }
+		if (request->hasParam("discreteBridgeID", true)) { _discreteID = request->getParam("discreteBridgeID", true)->value().toInt(); }
+		if (request->hasParam("discreteBridge", true)) { _discreteAddress = request->getParam("discreteBridge", true)->value().toInt(); }
+		if (request->hasParam("discreteBridgeCount", true)) { _discreteCount = request->getParam("discreteBridgeCount", true)->value().toInt(); }
+		if (request->hasParam("holdingBridgeID", true)) { _holdingID = request->getParam("holdingBridgeID", true)->value().toInt(); }
+		if (request->hasParam("holdingRegBridge", true)) { _holdingAddress = request->getParam("holdingRegBridge", true)->value().toInt(); }
+		if (request->hasParam("holdingRegBridgeCount", true)) { _holdingCount = request->getParam("holdingRegBridgeCount", true)->value().toInt(); }
 	}
 
 	void PLC::onSaveSetting(JsonDocument &doc)
@@ -70,6 +98,19 @@ namespace CLASSICDIY
 			plc[ain + "_maxV"] = _AnalogSensors[i].maxV();
 			plc[ain + "_maxT"] = _AnalogSensors[i].maxT();
 		}
+		// Bridge app settings
+		plc["inputBridgeID"] = _inputID;
+		plc["inputRegBridge"] = _inputAddress;
+		plc["inputRegBridgeCount"] = _inputCount;
+		plc["coilBridgeID"] = _coilID;
+		plc["coilBridge"] = _coilAddress;
+		plc["coilBridgeCount"] = _coilCount;
+		plc["discreteBridgeID"] = _discreteID;
+		plc["discreteBridge"] = _discreteAddress;
+		plc["discreteBridgeCount"] = _discreteCount;
+		plc["holdingBridgeID"] = _holdingID;
+		plc["holdingRegBridge"] = _holdingAddress;
+		plc["holdingRegBridgeCount"] = _holdingCount;
 	}
 
 	void PLC::onLoadSetting(JsonDocument &doc)
@@ -83,12 +124,30 @@ namespace CLASSICDIY
 			plc[ain + "_maxV"].isNull() ? _AnalogSensors[i].SetMaxV(5.0) : _AnalogSensors[i].SetMaxV(plc[ain + "_maxV"].as<float>());
 			plc[ain + "_maxT"].isNull() ? _AnalogSensors[i].SetMaxT(100.0) : _AnalogSensors[i].SetMaxT(plc[ain + "_maxT"].as<float>());
 		}
+		_inputID = plc["inputBridgeID"].isNull() ? 0 : plc["inputBridgeID"].as<uint8_t>();
+		_inputAddress = plc["inputRegBridge"].isNull() ? 0 : plc["inputRegBridge"].as<uint16_t>();
+		_inputCount = plc["inputRegBridgeCount"].isNull() ? 0 : plc["inputRegBridgeCount"].as<uint8_t>();
+		_coilID = plc["coilBridgeID"].isNull() ? 0 : plc["coilBridgeID"].as<uint8_t>();
+		_coilAddress = plc["coilBridge"].isNull() ? 0 : plc["coilBridge"].as<uint16_t>();
+		_coilCount = plc["coilBridgeCount"].isNull() ? 0 : plc["coilBridgeCount"].as<uint8_t>();
+		_discreteID = plc["discreteBridgeID"].isNull() ? 0 : plc["discreteBridgeID"].as<uint8_t>();
+		_discreteAddress = plc["discreteBridge"].isNull() ? 0 : plc["discreteBridge"].as<uint16_t>();
+		_discreteCount = plc["discreteBridgeCount"].isNull() ? 0 : plc["discreteBridgeCount"].as<uint8_t>();
+		_holdingID = plc["holdingBridgeID"].isNull() ? 0 : plc["holdingBridgeID"].as<uint8_t>();
+		_holdingAddress = plc["holdingRegBridge"].isNull() ? 0 : plc["holdingRegBridge"].as<uint16_t>();
+		_holdingCount = plc["holdingRegBridgeCount"].isNull() ? 0 : plc["holdingRegBridgeCount"].as<uint8_t>();
 	}
 
 	void PLC::setup()
 	{
 		logd("setup");
 		_iot.Init(this, &_asyncServer);
+		uint16_t coilCount = _iot.ModbusBridgeEnabled() ? _coilCount : 0;
+		coilCount += DO_PINS;
+		_digitalOutputCoils = CoilData(coilCount);
+		uint16_t discreteCount = _iot.ModbusBridgeEnabled() ? _discreteCount : 0;
+		discreteCount += DI_PINS;
+		_digitalInputDiscretes = CoilData(discreteCount, false);
 		_asyncServer.on("/", HTTP_GET, [this](AsyncWebServerRequest *request)
 						{
 			String page = home_html;
@@ -248,7 +307,7 @@ namespace CLASSICDIY
 			logd("WRITE_COIL %d %d:%d", request.getFunctionCode(), start, state);
 			start -= _iot.CoilBaseAddr();
 			// Is the coil number within the range of the coils?
-			if (start <= DO_PINS)
+			if (start < DO_PINS)
 			{
 				#if DO_PINS > 0
 				// Looks like it. Is the ON/OFF parameter correct?
@@ -276,8 +335,11 @@ namespace CLASSICDIY
 			}
 			else
 			{
-				// Something was wrong with the coil number
-				response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_ADDRESS);
+				// response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_ADDRESS);
+				// Not one of the native coils, try the modbusBridge
+				start -= DO_PINS;
+				request.setMessage(request.getServerID(), request.getFunctionCode(), start, state);
+				response = ForwardToModbusBridge(request);
 			}
 			// Return the response
 			return response;
@@ -295,41 +357,66 @@ namespace CLASSICDIY
 			offset = request.get(offset, start, numCoils, numBytes);
 			logd("WRITE_MULT_COILS %d %d[%d]", request.getFunctionCode(), start, numCoils);
 			start -= _iot.CoilBaseAddr();
-			// Check the parameters so far
-			if (start + numCoils <= DO_PINS)
+			if ((start + numCoils) <= (DO_PINS + (_iot.ModbusBridgeEnabled() ? _coilCount : 0)))
 			{
-				#if DO_PINS > 0
 				// Packed coils will fit in our storage
 				if (numBytes == ((numCoils - 1) >> 3) + 1)
 				{
 					// Byte count seems okay, so get the packed coil bytes now
 					vector<uint8_t> coilset;
 					request.get(offset, coilset, numBytes);
+					logd("offset: %d coilset: %d numCoils: %d numBytes: %d start: %d", offset, coilset.size(), numCoils, numBytes, start);
 					// Now set the coils
 					if (_digitalOutputCoils.set(start, numCoils, coilset))
 					{
+						#if DO_PINS > 0 
+						// set native DO pins
 						for (int i = 0; i < DO_PINS; i++)
 						{
 							_Coils[i].Set(_digitalOutputCoils[i]);
 						}
-						// All fine, return shortened echo response, like the standard says
-						response.add(request.getServerID(), request.getFunctionCode(), start, numCoils);
+						#endif
+						CoilData bridgeCoilset = _digitalOutputCoils.slice(DO_PINS); // remaining coils are forwarded to the modbus bridge
+						if (numCoils > DO_PINS) //any coils to forward to RS485 device?
+						{
+							ModbusMessage forward;
+							uint8_t err = forward.setMessage(_coilID, request.getFunctionCode(), _coilAddress, bridgeCoilset.coils(), bridgeCoilset.size(), bridgeCoilset.data());
+							logd("setMessage: 0X%x", err);
+							ModbusMessage forwardedresponse = ForwardToModbusBridge(forward);
+							if (forwardedresponse.getError() != SUCCESS)
+							{
+								logd("Error forwarding FC0F to modbus bridge device Id:%d Error: 0X%x", _coilID, forwardedresponse.getError());
+								response.setError(request.getServerID(), request.getFunctionCode(), forwardedresponse.getError());
+							}
+							else
+							{
+								// All fine, return shortened echo response, like the standard says
+								response.add(request.getServerID(), request.getFunctionCode(), start, numCoils); 
+							}
+						}
+						else
+						{
+							response.add(request.getServerID(), request.getFunctionCode(), start, numCoils);
+						}
 					}
 					else
 					{
+						logd("SERVER_DEVICE_FAILURE");
 						// Oops! Setting the coils seems to have failed
 						response.setError(request.getServerID(), request.getFunctionCode(), SERVER_DEVICE_FAILURE);
 					}
 				}
 				else
 				{
+					logd("ILLEGAL_DATA_VALUE_1");
 					// numBytes had a wrong value
 					response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_VALUE);
 				}
-				#endif
+				
 			}
 			else
 			{
+				logd("ILLEGAL_DATA_VALUE_2");
 				// The given set will not fit to our coil storage
 				response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_ADDRESS);
 			}
@@ -340,6 +427,43 @@ namespace CLASSICDIY
 		_iot.registerMBTCPWorkers(READ_DISCR_INPUT, modbusFC02);
 		_iot.registerMBTCPWorkers(WRITE_COIL, modbusFC05);
 		_iot.registerMBTCPWorkers(WRITE_MULT_COILS, modbusFC0F);
+	}
+
+	ModbusMessage PLC::ForwardToModbusBridge(ModbusMessage request)
+	{
+		ModbusMessage response;
+		uint8_t origId = request.getServerID();
+		switch (request.getFunctionCode())
+		{
+			case READ_COIL:
+				request.setServerID(_coilID);
+			break;
+			case READ_DISCR_INPUT:
+				request.setServerID(_discreteID);
+			break;
+			case READ_HOLD_REGISTER:
+				request.setServerID(_holdingID);
+			break;
+			case READ_INPUT_REGISTER:
+				request.setServerID(_inputID);
+			break;
+			case WRITE_COIL:
+				request.setServerID(_coilID);
+			break;
+			case WRITE_HOLD_REGISTER:
+				request.setServerID(_holdingID);
+			break;
+			case WRITE_MULT_COILS:
+				request.setServerID(_coilID);
+			break;
+			case WRITE_MULT_REGISTERS:
+				request.setServerID(_holdingID);
+			break;
+		}
+		logd("ForwardModbusMessage to Id: %d", request.getServerID());
+		response = _iot.ForwardToModbusBridge(request);
+		response.setServerID(origId); // respond with original id
+		return response;
 	}
 
 	void PLC::CleanUp()

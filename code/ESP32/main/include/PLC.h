@@ -58,8 +58,26 @@ namespace CLASSICDIY
 		DigitalSensor _DigitalSensors[DI_PINS] = {};
 		AnalogSensor _AnalogSensors[AI_PINS] = {};
 		#endif
-		CoilData _digitalOutputCoils = CoilData(DO_PINS);
-		CoilData _digitalInputDiscretes = CoilData(DI_PINS, false);
-		unsigned long _lastHeap = 0;
+		CoilData _digitalOutputCoils;
+		CoilData _digitalInputDiscretes;
+
+		// modbus bridge 
+		ModbusMessage ForwardToModbusBridge(ModbusMessage request);
+
+		uint8_t _inputID = 0;
+        uint16_t _inputAddress = 0;
+        uint8_t _inputCount = 0;
+
+        uint8_t _coilID = 0;
+        uint16_t _coilAddress = 0;
+        uint8_t _coilCount = 0;
+
+        uint8_t _discreteID = 0;
+        uint16_t _discreteAddress = 0;
+        uint8_t _discreteCount = 0;
+
+        uint8_t _holdingID = 0;
+        uint16_t _holdingAddress = 0;
+        uint8_t _holdingCount = 0;
 	};
 }

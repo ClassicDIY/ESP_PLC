@@ -15,10 +15,11 @@ public:
     virtual boolean PublishHADiscovery(JsonDocument& payload) = 0;
     virtual std::string getRootTopicPrefix() = 0;
     virtual void registerMBTCPWorkers(FunctionCode fc, MBSworker worker);
-
+    virtual ModbusMessage ForwardToModbusBridge(ModbusMessage msg);
     // virtual u_int getUniqueId() = 0;
     virtual std::string getThingName() = 0;
     virtual void PublishOnline() = 0;
     virtual std::string getIOTypeDesc(IOTypes type) = 0;
+    virtual boolean ModbusBridgeEnabled();
 };
 } // namespace CLASSICDIY

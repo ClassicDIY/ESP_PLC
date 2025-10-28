@@ -37,9 +37,11 @@ namespace CLASSICDIY
         std::string getThingName();
         void PublishOnline();
         std::string getIOTypeDesc(IOTypes type);
+        boolean ModbusBridgeEnabled();
         NetworkState getNetworkState() { return _networkState; }
         IOTCallbackInterface *IOTCB() { return _iotCB; }
         void registerMBTCPWorkers(FunctionCode fc, MBSworker worker);
+        ModbusMessage ForwardToModbusBridge(ModbusMessage msg);
         uint16_t InputRegisterBaseAddr() { return _input_register_base_addr; }
         uint16_t CoilBaseAddr() { return _coil_base_addr; }
         uint16_t DiscreteBaseAddr() { return _discrete_input_base_addr; }
