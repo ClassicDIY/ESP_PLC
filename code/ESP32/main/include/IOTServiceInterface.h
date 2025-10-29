@@ -21,8 +21,9 @@ public:
 
     // Modbus related methods
     virtual std::string getIOTypeDesc(IOTypes type) = 0;
-    virtual boolean ModbusBridgeEnabled();
-    virtual void registerMBTCPWorkers(FunctionCode fc, MBSworker worker);
-    virtual ModbusMessage ForwardToModbusBridge(ModbusMessage msg);
+    virtual boolean ModbusBridgeEnabled() = 0;
+    virtual void registerMBTCPWorkers(FunctionCode fc, MBSworker worker) = 0;
+    virtual Modbus::Error SendToModbusBridgeAsync(ModbusMessage request);
+    virtual ModbusMessage SendToModbusBridgeSync(ModbusMessage request);
 };
 } // namespace CLASSICDIY

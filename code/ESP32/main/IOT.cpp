@@ -42,7 +42,6 @@ namespace CLASSICDIY
 	ModbusClientRTU _MBclientRTU(RS485_RTS);
 	#endif
 	static AsyncAuthenticationMiddleware basicAuth;
-  	uint32_t Token = 1111;
 	void IOT::Init(IOTCallbackInterface *iotCB, AsyncWebServer *pwebServer)
 	{
 		_iotCB = iotCB;
@@ -341,7 +340,7 @@ namespace CLASSICDIY
 			saveSettings(); 
 			RedirectToHome(request);});
 	}
-	
+
 	void IOT::RedirectToHome(AsyncWebServerRequest* request)
 	{
 		logd("Redirecting from: %s", request->url().c_str());
@@ -362,14 +361,33 @@ namespace CLASSICDIY
 			_MBRTUserver.registerWorker(_modbusID, fc, worker);					
 		}
 	}
+	
+	boolean IOT::ModbusBridgeEnabled()
+	{
+		return _useModbusBridge;
+	}
 
-	ModbusMessage IOT::ForwardToModbusBridge(ModbusMessage request)
+	Modbus::Error IOT::SendToModbusBridgeAsync(ModbusMessage request)
+	{
+		Modbus::Error mbError = INVALID_SERVER;
+		#ifdef HasRS485
+		if (_useModbusBridge)
+		{
+			//logd("SendToModbusBridge Token=%08X", Token);
+			mbError = _MBclientRTU.addRequest(request, nextToken());
+		}
+		#endif
+		return mbError;
+	}
+
+	ModbusMessage IOT::SendToModbusBridgeSync(ModbusMessage request)
 	{
 		#ifdef HasRS485
 		if (_useModbusBridge)
 		{
-			logd("ForwardToModbusBridge token: %d", Token);
-			return _MBclientRTU.syncRequest(request, Token++);
+			uint32_t token = nextToken();
+			logd("ForwardToModbusBridge token: %08X", token);
+			return _MBclientRTU.syncRequest(request, token);
 		}
 		#endif
 		ModbusMessage response;
@@ -646,11 +664,12 @@ namespace CLASSICDIY
 						_MBclientRTU.useModbusRTU();
 						_MBclientRTU.onDataHandler([this](ModbusMessage response, uint32_t token)
 						{
-							logd("RTU Response: serverID=%d, FC=%d, Token=%08X, length=%d:\n", response.getServerID(), response.getFunctionCode(), token, response.size());
+							//logd("RTU Response: serverID=%d, FC=%d, Token=%08X, length=%d:\n", response.getServerID(), response.getFunctionCode(), token, response.size());
+							IOTCB()->onModbusMessage(response);
 						});
-						_MBclientRTU.onErrorHandler([this](Modbus::Error errorCode, uint32_t token)
+						_MBclientRTU.onErrorHandler([this](Modbus::Error mbError, uint32_t token)
 						{
-							loge("Modbus RTU Client Error: %d Token: %08X", errorCode, token);
+							loge("Modbus RTU (Token: %d) Error response: %02X - %s\n", token, (int)mbError, (const char *)mbError);
 							return true;
 						});
 					}
@@ -1016,11 +1035,6 @@ namespace CLASSICDIY
 		}	
 		s += "</div>";
 		return s;
-	}
-
-	boolean IOT::ModbusBridgeEnabled()
-	{
-		return _useModbusBridge;
 	}
 
 	void IOT::PublishOnline()

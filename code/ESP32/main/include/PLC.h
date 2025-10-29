@@ -29,6 +29,7 @@ namespace CLASSICDIY
 		void onSubmitForm(AsyncWebServerRequest *request);
 	    void onSaveSetting(JsonDocument& doc);
     	void onLoadSetting(JsonDocument& doc);
+		void onModbusMessage(ModbusMessage& msg);
 
 	protected:
 		boolean PublishDiscoverySub(const char *component, const char *entityName, const char *jsonElement, const char *device_class, const char *unit_of_meas, const char *icon = "");
@@ -60,9 +61,6 @@ namespace CLASSICDIY
 		#endif
 		CoilData _digitalOutputCoils;
 		CoilData _digitalInputDiscretes;
-
-		// modbus bridge 
-		ModbusMessage ForwardToModbusBridge(ModbusMessage request);
 
 		uint8_t _inputID = 0;
         uint16_t _inputAddress = 0;

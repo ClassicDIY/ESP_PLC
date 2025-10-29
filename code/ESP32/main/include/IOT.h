@@ -41,7 +41,8 @@ namespace CLASSICDIY
         NetworkState getNetworkState() { return _networkState; }
         IOTCallbackInterface *IOTCB() { return _iotCB; }
         void registerMBTCPWorkers(FunctionCode fc, MBSworker worker);
-        ModbusMessage ForwardToModbusBridge(ModbusMessage msg);
+        Modbus::Error SendToModbusBridgeAsync(ModbusMessage request);
+        ModbusMessage SendToModbusBridgeSync(ModbusMessage request);
         uint16_t InputRegisterBaseAddr() { return _input_register_base_addr; }
         uint16_t CoilBaseAddr() { return _coil_base_addr; }
         uint16_t DiscreteBaseAddr() { return _discrete_input_base_addr; }
@@ -84,6 +85,11 @@ namespace CLASSICDIY
         unsigned long _modbusClientBaudRate = 9600;
         uart_parity_t _modbusClientParity = UART_PARITY_DISABLE;
         uart_stop_bits_t _modbusClientStopBits = UART_STOP_BITS_1;
+        uint32_t _Token = 1000;
+        uint32_t nextToken() 
+        {
+            return _Token++ % 65535;
+        }
 
         uint16_t _input_register_base_addr = INPUT_REGISTER_BASE_ADDRESS;
 		uint16_t _coil_base_addr = COIL_BASE_ADDRESS;
