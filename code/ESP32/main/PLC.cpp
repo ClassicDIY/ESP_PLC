@@ -176,7 +176,7 @@ namespace CLASSICDIY
 			page.replace("{analogInputs}", s.c_str());
 			s.clear();
 			s = _iot.getIOTypeDesc(IOTypes::DigitalOutputs);
-			for (int i = 0; i < DO_PINS; i++)
+			for (int i = 0; i < _digitalOutputCoils.coils(); i++)
 			{
 				s += "<div class='box' id=DO";
 				s += std::to_string(i);
@@ -254,19 +254,41 @@ namespace CLASSICDIY
 			logd("READ_COIL %d %d[%d]", request.getFunctionCode(), start, numCoils);
 			// Address overflow?
 			start -= _iot.CoilBaseAddr();
-			if ((start + numCoils) > DO_PINS)
+			if ((start + numCoils) <= _digitalOutputCoils.coils())
+			{
+				#if DO_PINS > 0
+				for (int i = 0; i < DO_PINS; i++)
+				{
+					_digitalOutputCoils.set(i, _Coils[i].Level());
+				}
+				#endif
+				if ((start + numCoils) >= DO_PINS) // query bridge device?
+				{
+					uint16_t index = start >= DO_PINS ? start - DO_PINS : 0; // number and address of bridge coils
+					uint16_t count = start >= DO_PINS ? numCoils : (start + numCoils) - DO_PINS;
+					logd("count: %d index: %d", count, index);
+					ModbusMessage forward;
+					uint8_t err = forward.setMessage(_coilID, request.getFunctionCode(), index, count);
+					logd("setMessage: 0X%x", err);
+					ModbusMessage forwardedresponse = ForwardToModbusBridge(forward);
+					if (forwardedresponse.getError() != SUCCESS)
+					{
+						logd("Error forwarding FC05 to modbus bridge device Id:%d Error: 0X%x", _coilID, forwardedresponse.getError());
+						response.setError(request.getServerID(), request.getFunctionCode(), forwardedresponse.getError());
+					}
+					else
+					{
+						_digitalOutputCoils.set(index + DO_PINS, count, (uint8_t *)forwardedresponse.data() + 3);
+					}
+				}
+				vector<uint8_t> coilset = _digitalOutputCoils.slice(start, numCoils);
+				response.add(request.getServerID(), request.getFunctionCode(), (uint8_t)coilset.size(), coilset);
+			}
+			else
 			{
 				logw("READ_COIL error: %d", (start + numCoils));
 				response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_ADDRESS);
 			}
-			#if DO_PINS > 0
-			for (int i = 0; i < DO_PINS; i++)
-			{
-				_digitalOutputCoils.set(i, _Coils[i].Level());
-			}
-			#endif
-			vector<uint8_t> coilset = _digitalOutputCoils.slice(start, numCoils);
-			response.add(request.getServerID(), request.getFunctionCode(), (uint8_t)coilset.size(), coilset);
 			return response;
 		};
 
@@ -301,22 +323,40 @@ namespace CLASSICDIY
 		{
 			ModbusMessage response;
 			// Request parameters are coil number and 0x0000 (OFF) or 0xFF00 (ON)
-			uint16_t start = 0;
+			uint16_t coilAddr = 0;
 			uint16_t state = 0;
-			request.get(2, start, state);
-			logd("WRITE_COIL %d %d:%d", request.getFunctionCode(), start, state);
-			start -= _iot.CoilBaseAddr();
+			request.get(2, coilAddr, state);
+			logd("WRITE_COIL %d %d:%d", request.getFunctionCode(), coilAddr, state);
+			uint16_t index = coilAddr -_iot.CoilBaseAddr();
 			// Is the coil number within the range of the coils?
-			if (start < DO_PINS)
+			if (index <= _digitalOutputCoils.coils())
 			{
 				#if DO_PINS > 0
 				// Looks like it. Is the ON/OFF parameter correct?
 				if (state == 0x0000 || state == 0xFF00)
 				{
-					// Yes. We can set the coil
-					if (_digitalOutputCoils.set(start, state))
+					if (index >= DO_PINS)
 					{
-						_Coils[start].Set(state == 0xFF00 ? HIGH : LOW);
+						coilAddr -= DO_PINS; // start of bridge coils
+						ModbusMessage forward;
+						uint8_t err = forward.setMessage(_coilID, request.getFunctionCode(), coilAddr, state);
+						logd("setMessage: 0X%x", err);
+						ModbusMessage forwardedresponse = ForwardToModbusBridge(forward);
+						if (forwardedresponse.getError() != SUCCESS)
+						{
+							logd("Error forwarding FC05 to modbus bridge device Id:%d Error: 0X%x", _coilID, forwardedresponse.getError());
+							response.setError(request.getServerID(), request.getFunctionCode(), forwardedresponse.getError());
+						}
+						else
+						{
+							// All fine, return shortened echo response, like the standard says
+							response = ECHO_RESPONSE; 
+						}
+					}
+					// Yes. We can set the native coil
+					else if (_digitalOutputCoils.set(index, state))
+					{
+						_Coils[index].Set(state == 0xFF00 ? HIGH : LOW);
 						// All fine, coil was set.
 						response = ECHO_RESPONSE;
 					}
@@ -332,14 +372,6 @@ namespace CLASSICDIY
 					response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_VALUE);
 				}
 				#endif
-			}
-			else
-			{
-				// response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_ADDRESS);
-				// Not one of the native coils, try the modbusBridge
-				start -= DO_PINS;
-				request.setMessage(request.getServerID(), request.getFunctionCode(), start, state);
-				response = ForwardToModbusBridge(request);
 			}
 			// Return the response
 			return response;
@@ -357,7 +389,7 @@ namespace CLASSICDIY
 			offset = request.get(offset, start, numCoils, numBytes);
 			logd("WRITE_MULT_COILS %d %d[%d]", request.getFunctionCode(), start, numCoils);
 			start -= _iot.CoilBaseAddr();
-			if ((start + numCoils) <= (DO_PINS + (_iot.ModbusBridgeEnabled() ? _coilCount : 0)))
+			if ((start + numCoils) <= _digitalOutputCoils.coils())
 			{
 				// Packed coils will fit in our storage
 				if (numBytes == ((numCoils - 1) >> 3) + 1)
@@ -376,11 +408,15 @@ namespace CLASSICDIY
 							_Coils[i].Set(_digitalOutputCoils[i]);
 						}
 						#endif
-						CoilData bridgeCoilset = _digitalOutputCoils.slice(DO_PINS); // remaining coils are forwarded to the modbus bridge
-						if (numCoils > DO_PINS) //any coils to forward to RS485 device?
+						uint16_t count = start >= DO_PINS ? numCoils : (start + numCoils) - DO_PINS;
+						if (count > 0) //any coils to forward to RS485 device?
 						{
+							uint16_t index = start >= DO_PINS ? start : DO_PINS; // number and address of bridge coils
+							logd("count: %d index: %d", count, index);
+							CoilData bridgeCoilset = _digitalOutputCoils.slice(index, count); // remaining coils are forwarded to the modbus bridge
 							ModbusMessage forward;
-							uint8_t err = forward.setMessage(_coilID, request.getFunctionCode(), _coilAddress, bridgeCoilset.coils(), bridgeCoilset.size(), bridgeCoilset.data());
+							uint16_t p1 = _coilAddress + index - DO_PINS;
+							uint8_t err = forward.setMessage(_coilID, request.getFunctionCode(), p1, bridgeCoilset.coils(), bridgeCoilset.size(), bridgeCoilset.data());
 							logd("setMessage: 0X%x", err);
 							ModbusMessage forwardedresponse = ForwardToModbusBridge(forward);
 							if (forwardedresponse.getError() != SUCCESS)
@@ -391,12 +427,12 @@ namespace CLASSICDIY
 							else
 							{
 								// All fine, return shortened echo response, like the standard says
-								response.add(request.getServerID(), request.getFunctionCode(), start, numCoils); 
+								response = ECHO_RESPONSE; 
 							}
 						}
 						else
 						{
-							response.add(request.getServerID(), request.getFunctionCode(), start, numCoils);
+							response = ECHO_RESPONSE;
 						}
 					}
 					else
@@ -498,11 +534,11 @@ namespace CLASSICDIY
 				ss << "AI" << i;
 				doc[ss.str()] = _AnalogSensors[i].Level();
 			}
-			for (int i = 0; i < DO_PINS; i++)
+			for (int i = 0; i < _digitalOutputCoils.coils(); i++)
 			{
 				std::stringstream ss;
 				ss << "DO" << i;
-				doc[ss.str()] = _Coils[i].Level() ? "On" : "Off";
+				doc[ss.str()] = _digitalOutputCoils[i] ? "On" : "Off";
 			}
 			String s;
 			serializeJson(doc, s);
@@ -574,7 +610,7 @@ namespace CLASSICDIY
 				ain["value_template"] = buffer;
 				ain["icon"] = "mdi:lightning-bolt";
 			}
-			for (int i = 0; i < DO_PINS; i++)
+			for (int i = 0; i < _digitalOutputCoils.coils(); i++)
 			{
 				std::stringstream ss;
 				ss << "DO" << i;
@@ -617,7 +653,7 @@ namespace CLASSICDIY
 			{
 				dout = fullPath.substr(lastSlash + 1);
 				logd("coil: %s: ", dout.c_str());
-				for (int i = 0; i < DO_PINS; i++)
+				for (int i = 0; i < DO_PINS; i++) //ToDo
 				{
 					std::stringstream ss;
 					ss << "DO" << i;

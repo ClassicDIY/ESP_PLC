@@ -341,6 +341,7 @@ namespace CLASSICDIY
 			saveSettings(); 
 			RedirectToHome(request);});
 	}
+	
 	void IOT::RedirectToHome(AsyncWebServerRequest* request)
 	{
 		logd("Redirecting from: %s", request->url().c_str());
