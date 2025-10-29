@@ -141,17 +141,6 @@ const char analog_conv_flds[] PROGMEM = R"rawliteral(
   </div>
 )rawliteral";
 
-const char analog_conv_val[] PROGMEM = R"rawliteral(
-	<div class="mfld">
-		<div class="mfldmin">
-			<div> {An} min V: {minV} => {minT} </div>
-		</div>
-		<div class="mfldmax">
-			<div> {An} max V: {maxV} => {maxT} </div>
-		</div>
-	</div>
-)rawliteral";
-
 const char app_validateInputs[] PROGMEM = R"rawliteral(
 	const {An}_minval = parseFloat(document.getElementById('{An}_min').value);
 	const {An}_maxval = parseFloat(document.getElementById('{An}_max').value);
@@ -168,31 +157,28 @@ const char app_validateInputs[] PROGMEM = R"rawliteral(
 )rawliteral";
 
 const char app_modbusBridge[] PROGMEM = R"rawliteral(
-    <label>Input Registers</label>
-    <div class="inline-group">
-      <div><label for="inputBridgeID">ID</label><input type="number" id="inputBridgeID" name="inputBridgeID" value="{inputBridgeID}" step="1"></div>
-      <div><label for="inputRegBridge">Address</label><input type="number" id="inputRegBridge" name="inputRegBridge" value="{inputRegBridge}" step="1" min="0" max="65531"></div>
-      <div><label for="inputRegBridgeCount">Count</label><input type="number" id="inputRegBridgeCount" name="inputRegBridgeCount" value="{inputRegBridgeCount}" step="1" min="0" max="16"></div>
-    </div>
-
-    <label>Coils</label>
-    <div class="inline-group">
-      <div><label for="coilBridgeID">ID</label><input type="number" id="coilBridgeID" name="coilBridgeID" value="{coilBridgeID}" step="1"></div>
-      <div><label for="coilBridge">Address</label><input type="number" id="coilBridge" name="coilBridge" value="{coilBridge}" step="1" min="0" max="65529"></div>
-      <div><label for="coilBridgeCount">Count</label><input type="number" id="coilBridgeCount" name="coilBridgeCount" value="{coilBridgeCount}" step="1" min="0" max="16"></div>
-    </div>
-
-    <label>Discrete Registers</label>
-    <div class="inline-group">
-      <div><label for="discreteBridgeID">ID</label><input type="number" id="discreteBridgeID" name="discreteBridgeID" value="{discreteBridgeID}" step="1"></div>
-      <div><label for="discreteBridge">Address</label><input type="number" id="discreteBridge" name="discreteBridge" value="{discreteBridge}" step="1" min="0" max="65531"></div>
-      <div><label for="discreteBridgeCount">Count</label><input type="number" id="discreteBridgeCount" name="discreteBridgeCount" value="{discreteBridgeCount}" step="1" min="0" max="16"></div>
-    </div>
-
-    <label>Holding Registers</label>
-    <div class="inline-group">
-      <div><label for="holdingBridgeID">ID</label><input type="number" id="holdingBridgeID" name="holdingBridgeID" value="{holdingBridgeID}" step="1"></div>
-      <div><label for="holdingRegBridge">Address</label><input type="number" id="holdingRegBridge" name="holdingRegBridge" value="{holdingRegBridge}" step="1" min="0" max="65531"></div>
-      <div><label for="holdingRegBridgeCount">Count</label><input type="number" id="holdingRegBridgeCount" name="holdingRegBridgeCount" value="{holdingRegBridgeCount}" step="1" min="0" max="16"></div>
-    </div>
+	<div class="modbus-bridge-row">
+		<label>Input</label>
+		<label for="inputBridgeID">ID</label><input type="number" id="inputBridgeID" name="inputBridgeID" value="{inputBridgeID}" step="1">
+		<label for="inputRegBridge">Address</label><input type="number" id="inputRegBridge" name="inputRegBridge" value="{inputRegBridge}" step="1" min="0" max="65531">
+		<label for="inputRegBridgeCount">Count</label><input type="number" id="inputRegBridgeCount" name="inputRegBridgeCount" value="{inputRegBridgeCount}" step="1" min="0" max="16">
+	</div>
+	<div class="modbus-bridge-row">
+    	<label>Coil</label>
+		<label for="coilBridgeID">ID</label><input type="number" id="coilBridgeID" name="coilBridgeID" value="{coilBridgeID}" step="1">
+		<label for="coilBridge">Address</label><input type="number" id="coilBridge" name="coilBridge" value="{coilBridge}" step="1" min="0" max="65529">
+		<label for="coilBridgeCount">Count</label><input type="number" id="coilBridgeCount" name="coilBridgeCount" value="{coilBridgeCount}" step="1" min="0" max="16">
+	</div>
+	<div class="modbus-bridge-row">
+    	<label>Discrete</label>
+		<label for="discreteBridgeID">ID</label><input type="number" id="discreteBridgeID" name="discreteBridgeID" value="{discreteBridgeID}" step="1">
+		<label for="discreteBridge">Address</label><input type="number" id="discreteBridge" name="discreteBridge" value="{discreteBridge}" step="1" min="0" max="65531">
+		<label for="discreteBridgeCount">Count</label><input type="number" id="discreteBridgeCount" name="discreteBridgeCount" value="{discreteBridgeCount}" step="1" min="0" max="16">
+	</div>
+	<div class="modbus-bridge-row">
+		<label>Holding</label>
+		<label for="holdingBridgeID">ID</label><input type="number" id="holdingBridgeID" name="holdingBridgeID" value="{holdingBridgeID}" step="1">
+		<label for="holdingRegBridge">Address</label><input type="number" id="holdingRegBridge" name="holdingRegBridge" value="{holdingRegBridge}" step="1" min="0" max="65531">
+		<label for="holdingRegBridgeCount">Count</label><input type="number" id="holdingRegBridgeCount" name="holdingRegBridgeCount" value="{holdingRegBridgeCount}" step="1" min="0" max="16">
+	</div>
 )rawliteral";

@@ -151,6 +151,17 @@ const char network_config_top[] PROGMEM = R"rawliteral(
             width:95%; 
             color: #000080;
         }
+        .modbus-bridge-row {
+            display: grid;
+            grid-template-columns: 80px 40px 50px 60px 80px 60px 40px;
+            gap: 6px 10px;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .modbus-bridge-row label{
+            font-size: 0.9em;
+            text-align: right;
+        }
         .app-range-row {
             display: grid;
             grid-template-columns: 80px 50px 20px 50px 80px 50px 20px 50px;
