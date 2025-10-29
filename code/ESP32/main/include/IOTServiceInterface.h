@@ -9,17 +9,20 @@ class IOTServiceInterface
 {
 public:
 
+    // MQTT related methods
     virtual boolean Publish(const char *subtopic, const char *value, boolean retained) = 0;
     virtual boolean Publish(const char *subtopic, float value, boolean retained) = 0;
     virtual boolean PublishMessage(const char* topic, JsonDocument& payload, boolean retained) = 0;
     virtual boolean PublishHADiscovery(JsonDocument& payload) = 0;
     virtual std::string getRootTopicPrefix() = 0;
-    virtual void registerMBTCPWorkers(FunctionCode fc, MBSworker worker);
-    virtual ModbusMessage ForwardToModbusBridge(ModbusMessage msg);
-    // virtual u_int getUniqueId() = 0;
+    virtual u_int getUniqueId() = 0;
     virtual std::string getThingName() = 0;
     virtual void PublishOnline() = 0;
+
+    // Modbus related methods
     virtual std::string getIOTypeDesc(IOTypes type) = 0;
     virtual boolean ModbusBridgeEnabled();
+    virtual void registerMBTCPWorkers(FunctionCode fc, MBSworker worker);
+    virtual ModbusMessage ForwardToModbusBridge(ModbusMessage msg);
 };
 } // namespace CLASSICDIY
