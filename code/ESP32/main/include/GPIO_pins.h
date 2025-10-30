@@ -173,7 +173,7 @@ static const uint8_t DI1 = 13;
 #define DI_PINS 0	// Number of digital input pins
 #define DO_PINS 6	// Number of digital output pins
 #define AI_PINS 0	// Number of analog input pins
-#define AO_PINS 0   // Number of analog output pins
+#define AO_PINS 4 // Number of analog output pins
 
 #define RGB_LED_PIN 38
 #define GPIO_PIN_Buzzer   21    // Buzzer Control GPIO
@@ -224,6 +224,12 @@ static const uint8_t DO2 = 41;
 static const uint8_t DO3 = 42;
 static const uint8_t DO4 = 45;
 static const uint8_t DO5 = 46;
+
+// analog outputs
+static const uint8_t AO0 = 7;
+static const uint8_t AO1 = 8;
+static const uint8_t AO2 = 9;
+static const uint8_t AO3 = 10;
 
 #endif
 

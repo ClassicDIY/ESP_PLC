@@ -9,6 +9,7 @@
 #include "CoilData.h"
 #include "AnalogSensor.h"
 #include "DigitalSensor.h"
+#include "PWMOutput.h"
 #include "Coil.h"
 #include "IOTCallbackInterface.h"
 
@@ -58,6 +59,7 @@ namespace CLASSICDIY
 		Coil _Coils[DO_PINS] = {DO0, DO1, DO2, DO3, DO4, DO5};
 		DigitalSensor _DigitalSensors[DI_PINS] = {};
 		AnalogSensor _AnalogSensors[AI_PINS] = {};
+		PWMOutput _PWMOutputs[AO_PINS] = {AO0, AO1, AO2, AO3};
 		#endif
 		CoilData _digitalOutputCoils;
 		CoilData _digitalInputDiscretes;

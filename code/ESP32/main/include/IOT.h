@@ -46,6 +46,7 @@ namespace CLASSICDIY
         uint16_t InputRegisterBaseAddr() { return _input_register_base_addr; }
         uint16_t CoilBaseAddr() { return _coil_base_addr; }
         uint16_t DiscreteBaseAddr() { return _discrete_input_base_addr; }
+        uint16_t HoldingBaseAddr() { return _holding_register_base_addr; }
         void GoOnline();
         
     private:
