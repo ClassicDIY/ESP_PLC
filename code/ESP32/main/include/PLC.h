@@ -47,6 +47,7 @@ namespace CLASSICDIY
 		Coil _Coils[DO_PINS] = {DO0, DO1, DO2, DO3, DO4, DO5};
 		DigitalSensor _DigitalSensors[DI_PINS] = {DI0, DI1, DI2, DI3};
 		AnalogSensor _AnalogSensors[AI_PINS] = {AI0, AI1, AI2, AI3};
+		PWMOutput _PWMOutputs[AO_PINS] = {AO0, AO1, AO2, AO3};
 		#elif NORVI_GSM_AE02
 		Coil _Coils[DO_PINS] = {DO0, DO1};
 		DigitalSensor _DigitalSensors[DI_PINS] = {DI0, DI1, DI2, DI3, DI4, DI5, DI6, DI7};

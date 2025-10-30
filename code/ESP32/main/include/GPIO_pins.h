@@ -81,7 +81,7 @@ static const uint8_t AO1 = 41;
 #define DI_PINS 8	// Number of digital input pins
 #define DO_PINS 2	// Number of digital output pins
 #define AI_PINS 4	// Number of analog input pins
-#define AO_PINS 2   // Number of analog output pins
+#define AO_PINS 0 // Number of analog output pins
 
 static const uint8_t BUTTONS = 36; //Analog pin to read buttons
 

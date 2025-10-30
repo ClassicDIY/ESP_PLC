@@ -755,12 +755,14 @@ namespace CLASSICDIY
 				ss << "DO" << i;
 				doc[ss.str()] = _digitalOutputCoils[i] ? "On" : "Off";
 			}
+			#if AO_PINS > 0
 			for (int i = 0; i < AO_PINS; i++)
 			{
 				std::stringstream ss;
 				ss << "AO" << i;
 				doc[ss.str()] = _PWMOutputs[i].GetDutyCycle();
 			}
+			#endif
 			String s;
 			serializeJson(doc, s);
 			DeserializationError err = deserializeJson(doc, s);
