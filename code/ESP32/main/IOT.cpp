@@ -114,6 +114,8 @@ namespace CLASSICDIY
 			break;
 			case ARDUINO_EVENT_WIFI_AP_STAIPASSIGNED:
 				logd("AP_STAIPASSIGNED");
+				sprintf(_Current_IP, "%s", WiFi.softAPIP().toString().c_str());
+				logd("Current_IP: %s", _Current_IP);
 				_AP_Connected = true;
 				GoOnline();
 			break;
@@ -407,7 +409,7 @@ namespace CLASSICDIY
 			jsonString += ch;
 		}
 		logd("Settings JSON: " );
-		ets_printf("%s\r", jsonString.c_str());
+		ets_printf("%s\r\n", jsonString.c_str());
 		JsonDocument doc;
 		DeserializationError error = deserializeJson(doc, jsonString);
 		if (error)
@@ -732,9 +734,11 @@ namespace CLASSICDIY
 
 	void IOT::GoOffline()
 	{
+		logd("GoOffline");
 		xTimerStop(mqttReconnectTimer, 0); // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
 		_webLog.end();
 		_dnsServer.stop();
+		logd("GoOffline RTU");
 		if (_ModbusMode == RTU)
 		{
 			_MBRTUserver.end();

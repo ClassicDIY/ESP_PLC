@@ -89,7 +89,7 @@ esp_err_t Main::setup()
 	_workerThread1->setInterval(5000);
 	_controller.add(_workerThread1);
 	_workerThread2->onRun([]() { _plc.Monitor(); });
-	_workerThread2->setInterval(2000);
+	_workerThread2->setInterval(200);
 	_controller.add(_workerThread2);
 	_workerThread3->onRun([]() { _plc.Process(); });
 	_workerThread3->setInterval(200);

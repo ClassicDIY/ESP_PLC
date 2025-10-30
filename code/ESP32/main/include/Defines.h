@@ -7,11 +7,11 @@
 
 #define WATCHDOG_TIMEOUT 10 // time in seconds to trigger the watchdog reset
 #define STR_LEN 64
-#define EEPROM_SIZE 1024
+#define EEPROM_SIZE 2048
 #define AP_BLINK_RATE 600
 #define NC_BLINK_RATE 100
 #define AP_TIMEOUT 1000
-// #define AP_TIMEOUT 30000 
+// #define AP_TIMEOUT 30000 //set back to 1000 in production
 #define FLASHER_TIMEOUT 10000
 #define WS_CLIENT_CLEANUP 5000
 #define WIFI_CONNECTION_TIMEOUT 120000

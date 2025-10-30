@@ -506,7 +506,6 @@ namespace CLASSICDIY
 					logd("ILLEGAL_DATA_VALUE numBytes had a wrong value");
 					response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_VALUE);
 				}
-				
 			}
 			else
 			{
@@ -710,7 +709,6 @@ namespace CLASSICDIY
 		{
 			_AnalogSensors[i].Run();
 		}
-
 		if (_iot.getNetworkState() == OnLine && _iot.ModbusBridgeEnabled())
 		{
 			ModbusMessage forward;
@@ -737,6 +735,12 @@ namespace CLASSICDIY
 		{
 			JsonDocument doc;
 			doc.clear();
+			#if DI_PINS > 0
+			for (int i = 0; i < DI_PINS; i++)
+			{
+				_digitalInputDiscretes.set(i, _DigitalSensors[i].Level());
+			}
+			#endif
 			for (int i = 0; i < _digitalInputDiscretes.coils(); i++)
 			{
 				std::stringstream ss;
@@ -749,6 +753,12 @@ namespace CLASSICDIY
 				ss << "AI" << i;
 				doc[ss.str()] = _AnalogSensors[i].Level();
 			}
+			#if DO_PINS > 0
+			for (int i = 0; i < DO_PINS; i++)
+			{
+				_digitalOutputCoils.set(i, _Coils[i].Level());
+			}
+			#endif
 			for (int i = 0; i < _digitalOutputCoils.coils(); i++)
 			{
 				std::stringstream ss;
