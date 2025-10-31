@@ -30,4 +30,4 @@
 *.exe
 *.out
 *.app
-
+./code/ESP32/managed_components
