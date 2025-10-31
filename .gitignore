@@ -30,4 +30,7 @@
 *.exe
 *.out
 *.app
+
 ./code/ESP32/managed_components
+./code/ESP32/.vscode
+./code/ESP32/.pio
