@@ -20,7 +20,7 @@
 #define ADC_Resolution 65536.0
 #define SAMPLESIZE 5
 #define MQTT_PUBLISH_RATE_LIMIT 500 // delay between MQTT publishes
-
+#define MODBUS_RTU_REQUEST_QUEUE_SIZE 64
 #define ASYNC_WEBSERVER_PORT 80
 #define DNS_PORT 53
 

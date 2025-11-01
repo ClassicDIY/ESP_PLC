@@ -1,4 +1,4 @@
-const char redirect_html[] PROGMEM = R"rawliteral(
+const char* redirect_html PROGMEM = R"rawliteral(
     <!DOCTYPE html>
     <html lang="en">
     <head>
@@ -35,7 +35,6 @@ const char update_html[] PROGMEM = R"rawliteral(
     <form method='POST' action='/doupdate' enctype='multipart/form-data'>
     <input type='file' name='firmware'>
     </form>
-
     <div>
         Copyright (c) 2025. ClassicDIY</br>
         The source code is hosted and available on Github at <a href="https://github.com/classicdiy/ESP_PLC" target="_blank">https://github.com/classicdiy/ESP_PLC</a>.</br>
@@ -103,122 +102,17 @@ const char network_config_top[] PROGMEM = R"rawliteral(
             return true;
         }
     </script>
-    <style>
-
-        body {
-            font-family: apercu-pro, -apple-system, system-ui, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
-            font-weight: 550;
-        }
-        .container {
-            display: flex;
-            justify-content: center; 
-            align-items: center; 
-            height: 100vh; 
-        }
-        .form-grid {
-            display: grid;
-            grid-template-columns: 200px 1fr;
-            gap: 6px 12px;
-            align-items: center;
-            margin-bottom: 8px;
-        }
-        .inline-group {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 18px;
-        }
-        .inline-group div {
-            display: flex;
-            flex-direction: column;
-            flex: 1;
-        }
-        .inline-group label {
-            font-size: 0.85em;
-            margin-bottom: 2px;
-        }
-        .form-group {
-            margin-bottom: 10px;
-            margin-top: 10px;
-            display: flex;
-            flex-direction: column;
-            height: 100%; 
-			      width:100%;
-        }
-        .fs {
-            display: inline-block;
-            border-radius:0.3rem;
-            margin: 0px;
-            width:95%; 
-            color: #000080;
-        }
-        .modbus-bridge-row {
-            display: grid;
-            grid-template-columns: 80px 40px 50px 60px 80px 60px 40px;
-            gap: 6px 10px;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        .modbus-bridge-row label{
-            font-size: 0.9em;
-            text-align: right;
-        }
-        .app-range-row {
-            display: grid;
-            grid-template-columns: 80px 50px 20px 50px 80px 50px 20px 50px;
-            gap: 6px 10px;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        .app-range-row label {
-            font-size: 0.9em;
-            text-align: left;
-        }
-        button{
-            border:0;
-            border-radius:0.3rem;
-            background-color:#16A1E7;
-            color:#fff;
-            line-height:2.4rem;
-            font-size:1.2rem;
-            width:100%;
-            margin-top: 10px;
-            margin-bottom: 20px;
-		    } 
-        .hidden{display: none;}
-        .ver {
-            font-size: .6em;
-        }
-        #config {
-          width: 530px;
-          margin: 0 auto;
-          align: center;
-        }
-        .link-row {
-          display: flex;
-          justify-content: space-between;
-          padding: 10px;
-        }
-
-        .link-row a {
-          text-decoration: none;
-          font-weight: bold;
-          color: #0055aa;
-        }
-
-        .link-row a:hover {
-          text-decoration: underline;
-        }
-    </style>
-
-    </head><body>
-        <div id="config">
-        <div>
-            <h2>{n}</h2>
-            <div class="ver">Firmware version '{v}'</div>
-            <hr>
-        </div>
-    <div class="container">
-    <div class="form-group">
+    {style}
+    </head>
+    <body>
+      <div id="config">
+      <div>
+          <h2>{n}</h2>
+          <div class="ver">Firmware version '{v}'</div>
+          <hr>
+      </div>
+      <div class="container">
+      <div class="form-group">
 )rawliteral";
 
 const char network_config_fields[] PROGMEM = R"rawliteral(

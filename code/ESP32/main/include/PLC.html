@@ -6,7 +6,6 @@ const char home_html[] PROGMEM = R"rawliteral(
 	<title>{n}</title>
 
 	<script>
-
 		function initWebSocket() {
 		  const socket = new WebSocket('ws://' + window.location.hostname + '/ws_home');
 		  socket.onmessage = function(event) {
@@ -44,78 +43,38 @@ const char home_html[] PROGMEM = R"rawliteral(
 		window.onload = function() {
 		  initWebSocket();
 		}
-
 	</script>
+	{style}
 	</head>
-	
-    <style>
-	    .container {
-            display: flex;
-            justify-content: center; 
-            align-items: center; 
-            height: 100vh; 
-        }
-        .form-group {
-            margin-bottom: 10px;
-            display: flex;
-            flex-direction: column;
-            height: 100%; 
-            width:300px;
-        }
-
-        .fs {
-            display: inline-block;
-            border-radius:0.3rem;
-            margin: 0px;
-            width:100%; 
-        }
-        .fld {
-            color: #000080;
-            clear: both;
-            display: flex;
-            text-align: left; /* Align text and inputs properly */
-        }
-		.desc {
-            color: #4207e4ff;
-            font-size: .8em;
-        }
-        .box {
-            width: 120px;
-            height: 25px;
-            margin: 5px;
-			background-color:grey;
-			display: inline-flex; /* Changed to inline-flex to allow the use of Flexbox */
-			align-items: center;  /* Vertically center the content */
-			justify-content: center; /* Horizontally center the content */
-			border: 1px solid #000; /* Added a border for better visibility */
-        }
-		body{text-align: center;font-family:verdana;} 
-    </style>
-	<body>
+  	<body>
 	<h2>{n}</h2>
 	<div style='font-size: .6em;'>Firmware version '{v}'</div>
 	<hr>
-	
 	<div class="container">
-    <div class="form-group">
+    <div class="home-group">
     <div id="boxes-container">
 		<fieldset class="fs"><legend>Digital Inputs</legend>
+		<div class="desc">{digitalInputDesc}</div>
 		{digitalInputs}
 		</fieldset>
 		<fieldset class="fs"><legend>Digital Outputs</legend>
+		<div class="desc">{digitalOutputDesc}</div>
 		{digitalOutputs}
 		</fieldset>
 		<fieldset class="fs"><legend>Analog Inputs</legend>
+		<div class="desc">{analogInputDesc}</div>
 		{analogInputs}
 		</fieldset>
 		<fieldset class="fs"><legend>Analog Outputs</legend>
+		<div class="desc">{analogOutputDesc}</div>
 		{analogOutputs}
 		</fieldset>
-
     </div>
-	<div>
-	<p><a href='settings'>Settings</a></p>
-	</div></div></div></body></html>
+	<div class="link-row">
+		<p><a href='settings'>Settings</a></p>
+		<p><a href='/log' target='_blank'>Web Log</a></p>
+	</div>
+	</div></div></body></html>
 	)rawliteral";
 
 const char app_config_fields[] PROGMEM = R"rawliteral(

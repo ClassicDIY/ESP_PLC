@@ -62,9 +62,13 @@ namespace CLASSICDIY
 		AnalogSensor _AnalogSensors[AI_PINS] = {};
 		PWMOutput _PWMOutputs[AO_PINS] = {AO0, AO1, AO2, AO3};
 		#endif
+
 		CoilData _digitalOutputCoils;
 		CoilData _digitalInputDiscretes;
+		uint8_t _analogInputCount;
+		uint8_t _analogOutputCount;
 
+		// Modbus Bridge settings
 		uint8_t _inputID = 0;
         uint16_t _inputAddress = 0;
         uint8_t _inputCount = 0;

@@ -17,6 +17,7 @@
 #include "Log.h"
 #include "WebLog.h"
 #include "IOT.h"
+#include "style.html"
 #include "IOT.html"
 #include "HelperFunctions.h"
 
@@ -39,7 +40,7 @@ namespace CLASSICDIY
 	static ModbusServerTCPasync _MBserver;
 	static ModbusServerRTU _MBRTUserver(2000);
 	#ifdef HasRS485
-	ModbusClientRTU _MBclientRTU(RS485_RTS);
+	ModbusClientRTU _MBclientRTU(RS485_RTS, MODBUS_RTU_REQUEST_QUEUE_SIZE);
 	#endif
 	static AsyncAuthenticationMiddleware basicAuth;
 	void IOT::Init(IOTCallbackInterface *iotCB, AsyncWebServer *pwebServer)
@@ -123,6 +124,12 @@ namespace CLASSICDIY
 				logd("STA_GOT_IP");
 				doc["IP"] = WiFi.localIP().toString().c_str();
 				sprintf(_Current_IP, "%s", WiFi.localIP().toString().c_str());
+				logi("Got IP Address");
+				logi("~~~~~~~~~~~");
+				logi("IP: %s", _Current_IP);
+				logi("IPMASK: %s", WiFi.subnetMask().toString().c_str());
+				logi("Gateway: %s", WiFi.gatewayIP().toString().c_str());
+				logi("~~~~~~~~~~~");
 				doc["ApPassword"] = DEFAULT_AP_PASSWORD;
 				serializeJson(doc, s);
 				s += '\n';
@@ -222,6 +229,7 @@ namespace CLASSICDIY
 			fields.replace("{RTU_CLIENT_1Stop}", _modbusClientStopBits == UART_STOP_BITS_1 ? "selected" : "");
 			fields.replace("{RTU_CLIENT_2Stop}", _modbusClientStopBits == UART_STOP_BITS_2 ? "selected" : "");
 			String page = network_config_top;
+			page.replace("{style}", style);
 			page.replace("{n}", _AP_SSID);
 			page.replace("{v}", APP_VERSION);
 			page += fields;
@@ -340,7 +348,8 @@ namespace CLASSICDIY
 			}
 			_iotCB->onSubmitForm(request);
 			saveSettings(); 
-			RedirectToHome(request);});
+			RedirectToHome(request);
+		});
 	}
 
 	void IOT::RedirectToHome(AsyncWebServerRequest* request)
@@ -366,17 +375,26 @@ namespace CLASSICDIY
 	
 	boolean IOT::ModbusBridgeEnabled()
 	{
-		return _useModbusBridge;
+		return _useModbusBridge && (_ModbusMode == TCP);
 	}
 
-	Modbus::Error IOT::SendToModbusBridgeAsync(ModbusMessage request)
+	Modbus::Error IOT::SendToModbusBridgeAsync(ModbusMessage& request)
 	{
 		Modbus::Error mbError = INVALID_SERVER;
 		#ifdef HasRS485
-		if (_useModbusBridge)
+		if (ModbusBridgeEnabled())
 		{
-			//logd("SendToModbusBridge Token=%08X", Token);
-			mbError = _MBclientRTU.addRequest(request, nextToken());
+			logv("SendToModbusBridge Token=%08X", Token);
+			if (_MBclientRTU.pendingRequests() < MODBUS_RTU_REQUEST_QUEUE_SIZE)
+			{
+				mbError = _MBclientRTU.addRequest(request, nextToken());
+				uint32_t nextToken();
+				mbError = SUCCESS;
+			}
+			else
+			{
+				mbError = REQUEST_QUEUE_FULL;
+			}
 		}
 		#endif
 		return mbError;
@@ -385,7 +403,7 @@ namespace CLASSICDIY
 	ModbusMessage IOT::SendToModbusBridgeSync(ModbusMessage request)
 	{
 		#ifdef HasRS485
-		if (_useModbusBridge)
+		if (ModbusBridgeEnabled())
 		{
 			uint32_t token = nextToken();
 			logd("ForwardToModbusBridge token: %08X", token);
@@ -648,7 +666,7 @@ namespace CLASSICDIY
 				MDNS.addService("http", "tcp", ASYNC_WEBSERVER_PORT);
 				logd("Active mDNS services: %d", MDNS.queryService("http", "tcp"));
 			}
-			this->IOTCB()->onNetworkConnect();
+			_iotCB->onNetworkConnect();
 			if (_useModbus && !_MBserver.isRunning())
 			{
 				if (_ModbusMode == TCP)
@@ -659,19 +677,21 @@ namespace CLASSICDIY
 						logd("Modbus TCP started");
 					}
 					#ifdef HasRS485
-					if (_useModbusBridge)
+					if (ModbusBridgeEnabled())
 					{
 						_MBclientRTU.setTimeout(2000);
 						_MBclientRTU.begin(Serial2);
 						_MBclientRTU.useModbusRTU();
 						_MBclientRTU.onDataHandler([this](ModbusMessage response, uint32_t token)
 						{
-							//logd("RTU Response: serverID=%d, FC=%d, Token=%08X, length=%d:\n", response.getServerID(), response.getFunctionCode(), token, response.size());
-							IOTCB()->onModbusMessage(response);
+							logd("RTU Response: serverID=%d, FC=%d, Token=%08X, length=%d:\n", response.getServerID(), response.getFunctionCode(), token, response.size());
+							_iotCB->onModbusMessage(response);
+							return true;
 						});
 						_MBclientRTU.onErrorHandler([this](Modbus::Error mbError, uint32_t token)
 						{
-							loge("Modbus RTU (Token: %d) Error response: %02X - %s\n", token, (int)mbError, (const char *)mbError);
+							loge("Modbus RTU Error!!!");
+							loge("Modbus RTU (Token: %d) Error response: %02X - %s", token, (int)mbError, (const char *)ModbusError(mbError));
 							return true;
 						});
 					}
@@ -837,7 +857,7 @@ namespace CLASSICDIY
 			char buf[128];
 			sprintf(buf, "%s/set/#", _rootTopicPrefix);
 			esp_mqtt_client_subscribe(client, buf, 0);
-			IOTCB()->onMqttConnect();
+			_iotCB->onMqttConnect();
 			esp_mqtt_client_publish(client, _willTopic, "Offline", 0, 1, 0);
 			break;
 		case MQTT_EVENT_DISCONNECTED:
@@ -863,7 +883,7 @@ namespace CLASSICDIY
 			char payloadBuf[256];
 			snprintf(payloadBuf, sizeof(payloadBuf), "%.*s", event->data_len, event->data);
 			logd("MQTT Message arrived [%s] %s", topicBuf, payloadBuf);
-			IOTCB()->onMqttMessage(topicBuf, payloadBuf);
+			_iotCB->onMqttMessage(topicBuf, payloadBuf);
 			// if (deserializeJson(doc, event->data)) // not json!
 			// {
 			// 	logd("MQTT payload {%s} is not valid JSON!", event->data);
@@ -881,7 +901,7 @@ namespace CLASSICDIY
 			// 	}
 			// 	else
 			// 	{
-			// 		IOTCB()->onMqttMessage(topicBuf, doc);
+			// 		_iotCB->onMqttMessage(topicBuf, doc);
 			// 	}
 			// }
 			break;
@@ -1000,45 +1020,26 @@ namespace CLASSICDIY
 		return s;
 	}
 
-	std::string IOT::getIOTypeDesc(IOTypes type)
+	uint16_t IOT::getMBBaseAddress(IOTypes type)
 	{
-		std::string s = "<div class='desc'> ";
-		char addr_buf[64];
 		switch(type)
 		{
 			case DigitalInputs:
-				if (_useModbus)
-				{
-					sprintf(addr_buf, "Modbus Discretes: %d-%d", _discrete_input_base_addr, _discrete_input_base_addr + DI_PINS);
-					s += addr_buf;
-				}
+				return _discrete_input_base_addr;
 				break;
 			case DigitalOutputs:
-				if (_useModbus)
-				{
-					sprintf(addr_buf, "Modbus Coils: %d-%d", _coil_base_addr, _coil_base_addr + DO_PINS);
-					s += addr_buf;
-				}
+				return _coil_base_addr;
 				break;
 				
 			case AnalogInputs:
-				if (_useModbus)
-				{
-					sprintf(addr_buf, "Modbus Input Registers: %d-%d", _input_register_base_addr, _input_register_base_addr + AI_PINS);
-					s += addr_buf;
-				}
+				return _input_register_base_addr;
 				break;
 				
 			case AnalogOutputs:
-				if (_useModbus)
-				{
-					sprintf(addr_buf, "Modbus Holding Registers: %d-%d", _holding_register_base_addr, _holding_register_base_addr + AO_PINS);
-					s += addr_buf;
-				}
+				return _holding_register_base_addr;
 				break;
 		}	
-		s += "</div>";
-		return s;
+		return 0;
 	}
 
 	void IOT::PublishOnline()

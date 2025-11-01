@@ -27,28 +27,27 @@ namespace CLASSICDIY
         IOT() {};
         void Init(IOTCallbackInterface *iotCB, AsyncWebServer *pwebServer);
         void Run();
+        u_int getUniqueId() { return _uniqueId; };
+        std::string getThingName();
+        NetworkState getNetworkState() { return _networkState; }
+        void GoOnline();
+
+        // MQTT
+        std::string getRootTopicPrefix();
         boolean Publish(const char *subtopic, const char *value, boolean retained = false);
         boolean Publish(const char *subtopic, JsonDocument &payload, boolean retained = false);
         boolean Publish(const char *subtopic, float value, boolean retained = false);
         boolean PublishMessage(const char *topic, JsonDocument &payload, boolean retained);
         boolean PublishHADiscovery(JsonDocument &payload);
-        std::string getRootTopicPrefix();
-        u_int getUniqueId() { return _uniqueId; };
-        std::string getThingName();
         void PublishOnline();
-        std::string getIOTypeDesc(IOTypes type);
+
+        // Modbus
         boolean ModbusBridgeEnabled();
-        NetworkState getNetworkState() { return _networkState; }
-        IOTCallbackInterface *IOTCB() { return _iotCB; }
         void registerMBTCPWorkers(FunctionCode fc, MBSworker worker);
-        Modbus::Error SendToModbusBridgeAsync(ModbusMessage request);
+        Modbus::Error SendToModbusBridgeAsync(ModbusMessage& request);
         ModbusMessage SendToModbusBridgeSync(ModbusMessage request);
-        uint16_t InputRegisterBaseAddr() { return _input_register_base_addr; }
-        uint16_t CoilBaseAddr() { return _coil_base_addr; }
-        uint16_t DiscreteBaseAddr() { return _discrete_input_base_addr; }
-        uint16_t HoldingBaseAddr() { return _holding_register_base_addr; }
-        void GoOnline();
-        
+        uint16_t getMBBaseAddress(IOTypes type);
+
     private:
         OTA _OTA = OTA();
         AsyncWebServer *_pwebServer;
@@ -89,7 +88,9 @@ namespace CLASSICDIY
         uint32_t _Token = 1000;
         uint32_t nextToken() 
         {
-            return _Token++ % 65535;
+            _Token++;
+            _Token %= 65535;
+            return _Token;
         }
 
         uint16_t _input_register_base_addr = INPUT_REGISTER_BASE_ADDRESS;

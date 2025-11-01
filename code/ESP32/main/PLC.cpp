@@ -2,6 +2,7 @@
 #include "Log.h"
 #include "IOT.h"
 #include "PLC.h"
+#include "style.html"
 #include "PLC.html"
 
 namespace CLASSICDIY
@@ -142,18 +143,23 @@ namespace CLASSICDIY
 	{
 		logd("setup");
 		_iot.Init(this, &_asyncServer);
-		uint16_t coilCount = _iot.ModbusBridgeEnabled() ? _coilCount : 0;
-		coilCount += DO_PINS;
+		uint16_t coilCount = _iot.ModbusBridgeEnabled() ? _coilCount + DO_PINS : DO_PINS;
 		_digitalOutputCoils = CoilData(coilCount);
 		uint16_t discreteCount = _iot.ModbusBridgeEnabled() ? _discreteCount : 0;
 		discreteCount += DI_PINS;
 		_digitalInputDiscretes = CoilData(discreteCount, false);
+		_analogInputCount = _iot.ModbusBridgeEnabled() ? _inputCount + AI_PINS : AI_PINS;
+		_analogOutputCount = _iot.ModbusBridgeEnabled() ? _holdingCount + AO_PINS : AO_PINS;
 		_asyncServer.on("/", HTTP_GET, [this](AsyncWebServerRequest *request)
-						{
+		{
 			String page = home_html;
+			page.replace("{style}", style);
 			page.replace("{n}", _iot.getThingName().c_str());
 			page.replace("{v}", APP_VERSION);
-			std::string s = _iot.getIOTypeDesc(IOTypes::DigitalInputs);
+			char desc_buf[64];
+			sprintf(desc_buf, "Modbus Discretes: %d-%d", _iot.getMBBaseAddress(IOTypes::DigitalInputs), _iot.getMBBaseAddress(IOTypes::DigitalInputs) + _digitalInputDiscretes.coils());
+			page.replace("{digitalInputDesc}", desc_buf);
+			std::string s;
 			for (int i = 0; i < _digitalInputDiscretes.coils(); i++)
 			{
 				s += "<div class='box' id=DI";
@@ -164,18 +170,8 @@ namespace CLASSICDIY
 			}
 			page.replace("{digitalInputs}", s.c_str());
 			s.clear();
-			s = _iot.getIOTypeDesc(IOTypes::AnalogInputs);
-			for (int i = 0; i < AI_PINS; i++)
-			{
-				s += "<div class='box' id=AI";
-				s += std::to_string(i);
-				s += "> AI";
-				s += std::to_string(i);
-				s += "</div>";
-			}
-			page.replace("{analogInputs}", s.c_str());
-			s.clear();
-			s = _iot.getIOTypeDesc(IOTypes::DigitalOutputs);
+			sprintf(desc_buf, "Modbus Coils: %d-%d", _iot.getMBBaseAddress(IOTypes::DigitalOutputs), _iot.getMBBaseAddress(IOTypes::DigitalOutputs) + _digitalOutputCoils.coils());
+			page.replace("{digitalOutputDesc}", desc_buf);
 			for (int i = 0; i < _digitalOutputCoils.coils(); i++)
 			{
 				s += "<div class='box' id=DO";
@@ -186,7 +182,20 @@ namespace CLASSICDIY
 			}
 			page.replace("{digitalOutputs}", s.c_str());
 			s.clear();
-			s = _iot.getIOTypeDesc(IOTypes::AnalogOutputs);
+			sprintf(desc_buf, "Modbus Input Registers: %d-%d", _iot.getMBBaseAddress(IOTypes::AnalogInputs), _iot.getMBBaseAddress(IOTypes::AnalogInputs) + _analogInputCount);
+			page.replace("{analogInputDesc}", desc_buf);
+			for (int i = 0; i < AI_PINS; i++)
+			{
+				s += "<div class='box' id=AI";
+				s += std::to_string(i);
+				s += "> AI";
+				s += std::to_string(i);
+				s += "</div>";
+			}
+			page.replace("{analogInputs}", s.c_str());
+			s.clear();
+			sprintf(desc_buf, "Modbus Holding Registers: %d-%d", _iot.getMBBaseAddress(IOTypes::AnalogOutputs), _iot.getMBBaseAddress(IOTypes::AnalogOutputs) + _analogOutputCount);
+			page.replace("{analogOutputDesc}", desc_buf);
 			for (int i = 0; i < AO_PINS; i++)
 			{
 				s += "<div class='box' id=AO";
@@ -196,19 +205,23 @@ namespace CLASSICDIY
 				s += "</div>";
 			}
 			page.replace("{analogOutputs}", s.c_str());
-			request->send(200, "text/html", page); });
+			request->send(200, "text/html", page); 
+		});
 		_asyncServer.addHandler(&_webSocket).addMiddleware([this](AsyncWebServerRequest *request, ArMiddlewareNext next)
-														   {
+		{
 			// ws.count() is the current count of WS clients: this one is trying to upgrade its HTTP connection
-			if (_webSocket.count() > 1) {
-			// if we have 2 clients or more, prevent the next one to connect
-			request->send(503, "text/plain", "Server is busy");
-			} else {
-			// process next middleware and at the end the handler
-			next();
-		} });
+			if (_webSocket.count() > 1) 
+			{
+				// if we have 2 clients or more, prevent the next one to connect
+				request->send(503, "text/plain", "Server is busy");
+			} else 
+			{
+				// process next middleware and at the end the handler
+				next();
+			}
+		});
 		_webSocket.onEvent([this](AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len)
-						   {
+		{
 			(void)len;
 			if (type == WS_EVT_CONNECT) {
 				_lastMessagePublished.clear(); //force a broadcast
@@ -220,9 +233,8 @@ namespace CLASSICDIY
 				loge("ws error");
 			// } else if (type == WS_EVT_PONG) {
             // 	logd("ws pong");
-        	} });
-		// ToDo Initialize bridge digital output coils
-		// ToDo Initialize bridge analog output registers
+        	} 
+		});
 	}
 
 	void PLC::onNetworkConnect()
@@ -236,7 +248,7 @@ namespace CLASSICDIY
 			request.get(2, addr);
 			request.get(4, words);
 			// logd("READ_INPUT_REGISTER %d %d[%d]", request.getFunctionCode(), addr, words);
-			addr -= _iot.InputRegisterBaseAddr();
+			addr -= _iot.getMBBaseAddress(AnalogInputs);
 			if ((addr + words) > AI_PINS)
 			{
 				logw("READ_INPUT_REGISTER error: %d", (addr + words));
@@ -254,62 +266,6 @@ namespace CLASSICDIY
 			}
 			return response;
 		};
-		
-		// READ_COIL
-		auto modbusFC01 = [this](ModbusMessage request) -> ModbusMessage
-		{
-			ModbusMessage response; // The Modbus message we are going to give back
-			uint16_t start = 0;
-			uint16_t numCoils = 0;
-			request.get(2, start, numCoils);
-			logd("READ_COIL %d %d[%d]", request.getFunctionCode(), start, numCoils);
-			// Address overflow?
-			start -= _iot.CoilBaseAddr();
-			if ((start + numCoils) <= _digitalOutputCoils.coils())
-			{
-				#if DO_PINS > 0
-				for (int i = 0; i < DO_PINS; i++)
-				{
-					_digitalOutputCoils.set(i, _Coils[i].Level());
-				}
-				#endif
-				if ((start + numCoils) >= DO_PINS) // query bridge device?
-				{
-					uint16_t index = start >= DO_PINS ? start - DO_PINS : 0; // number and address of bridge coils
-					uint16_t count = start >= DO_PINS ? numCoils : (start + numCoils) - DO_PINS;
-					logd("Bridge Coil: %d[%d]", index, count);
-					ModbusMessage forward;
-					uint8_t err = forward.setMessage(_coilID, request.getFunctionCode(), index, count);
-					if (err != SUCCESS)
-					{
-						loge("ModbusMessage Read coil error: 0X%x", err);
-						response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_VALUE);
-					}
-					else
-					{
-						ModbusMessage forwardedresponse = _iot.SendToModbusBridgeSync(forward);
-						if (forwardedresponse.getError() != SUCCESS)
-						{
-							ModbusError e(forwardedresponse.getError());
-							logd("Error forwarding FC%d to modbus bridge device Id:%d Error:  %02X - %s", forwardedresponse.getFunctionCode(), _coilID, (int)e, (const char *)e);
-							response.setError(request.getServerID(), request.getFunctionCode(), (Error)e);
-						}
-						else
-						{
-							_digitalOutputCoils.set(index + DO_PINS, count, (uint8_t *)forwardedresponse.data() + 3);
-						}
-					}
-				}
-				vector<uint8_t> coilset = _digitalOutputCoils.slice(start, numCoils);
-				response.add(request.getServerID(), request.getFunctionCode(), (uint8_t)coilset.size(), coilset);
-			}
-			else
-			{
-				logw("READ_COIL error: %d", (start + numCoils));
-				response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_ADDRESS);
-			}
-			return response;
-		};
 
 		// READ_DISCR_INPUT
 		auto modbusFC02 = [this](ModbusMessage request) -> ModbusMessage
@@ -319,7 +275,7 @@ namespace CLASSICDIY
 			uint16_t numregs = 0;
 			request.get(2, start, numregs);
 			logd("READ_DISCR_INPUT FC%d %d[%d]", request.getFunctionCode(), start, numregs);
-			start -= _iot.DiscreteBaseAddr();
+			start -= _iot.getMBBaseAddress(DigitalInputs);
 			if ((start + numregs) <= _digitalInputDiscretes.coils())
 			{
 				#if DI_PINS > 0
@@ -366,6 +322,62 @@ namespace CLASSICDIY
 			return response;
 		};
 
+		// READ_COIL
+		auto modbusFC01 = [this](ModbusMessage request) -> ModbusMessage
+		{
+			ModbusMessage response; // The Modbus message we are going to give back
+			uint16_t start = 0;
+			uint16_t numCoils = 0;
+			request.get(2, start, numCoils);
+			logd("READ_COIL %d %d[%d]", request.getFunctionCode(), start, numCoils);
+			// Address overflow?
+			start -= _iot.getMBBaseAddress(DigitalOutputs);
+			if ((start + numCoils) <= _digitalOutputCoils.coils())
+			{
+				#if DO_PINS > 0
+				for (int i = 0; i < DO_PINS; i++)
+				{
+					_digitalOutputCoils.set(i, _Coils[i].Level());
+				}
+				#endif
+				if ((start + numCoils) > DO_PINS) // query bridge device?
+				{
+					uint16_t index = start >= DO_PINS ? start - DO_PINS : 0; // number and address of bridge coils
+					uint16_t count = start >= DO_PINS ? numCoils : (start + numCoils) - DO_PINS;
+					logd("Bridge Coil: %d[%d]", index, count);
+					ModbusMessage forward;
+					uint8_t err = forward.setMessage(_coilID, request.getFunctionCode(), index, count);
+					if (err != SUCCESS)
+					{
+						loge("ModbusMessage Read coil error: 0X%x", err);
+						response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_VALUE);
+					}
+					else
+					{
+						ModbusMessage forwardedresponse = _iot.SendToModbusBridgeSync(forward);
+						if (forwardedresponse.getError() != SUCCESS)
+						{
+							ModbusError e(forwardedresponse.getError());
+							logd("Error forwarding FC%d to modbus bridge device Id:%d Error:  %02X - %s", forwardedresponse.getFunctionCode(), _coilID, (int)e, (const char *)e);
+							response.setError(request.getServerID(), request.getFunctionCode(), (Error)e);
+						}
+						else
+						{
+							_digitalOutputCoils.set(index + DO_PINS, count, (uint8_t *)forwardedresponse.data() + 3);
+						}
+					}
+				}
+				vector<uint8_t> coilset = _digitalOutputCoils.slice(start, numCoils);
+				response.add(request.getServerID(), request.getFunctionCode(), (uint8_t)coilset.size(), coilset);
+			}
+			else
+			{
+				logw("READ_COIL error: %d", (start + numCoils));
+				response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_ADDRESS);
+			}
+			return response;
+		};
+
 		// WRITE_COIL
 		auto modbusFC05 = [this](ModbusMessage request) -> ModbusMessage
 		{
@@ -375,7 +387,7 @@ namespace CLASSICDIY
 			uint16_t state = 0;
 			request.get(2, coilAddr, state);
 			logd("WRITE_COIL %d %d:%d", request.getFunctionCode(), coilAddr, state);
-			uint16_t index = coilAddr -_iot.CoilBaseAddr();
+			uint16_t index = coilAddr - _iot.getMBBaseAddress(DigitalOutputs);
 			// Is the coil number within the range of the coils?
 			if (index < _digitalOutputCoils.coils())
 			{
@@ -441,7 +453,7 @@ namespace CLASSICDIY
 			uint16_t offset = 2; // Parameters start after serverID and FC
 			offset = request.get(offset, start, numCoils, numBytes);
 			logd("WRITE_MULT_COILS %d %d[%d]", request.getFunctionCode(), start, numCoils);
-			start -= _iot.CoilBaseAddr();
+			start -= _iot.getMBBaseAddress(DigitalOutputs);
 			if ((start + numCoils) <= _digitalOutputCoils.coils())
 			{
 				// Packed coils will fit in our storage
@@ -523,10 +535,9 @@ namespace CLASSICDIY
 			uint16_t words = 0;          // # of words requested
 			request.get(2, addr);        // read address from request
 			request.get(4, words);       // read # of words from request
-
 			logd("READ_HOLD_REGISTER FC%d %d[%d]", request.getFunctionCode(), addr, words);
-			addr -= _iot.InputRegisterBaseAddr();
-			if ((addr + words) <= (_iot.ModbusBridgeEnabled() ? _holdingCount + AO_PINS : AO_PINS))
+			addr -= _iot.getMBBaseAddress(AnalogOutputs);
+			if ((addr + words) <= _analogOutputCount)
 			{
 				response.add(request.getServerID(), request.getFunctionCode(), (uint8_t)(words * 2));
 				#if AO_PINS > 0
@@ -581,8 +592,8 @@ namespace CLASSICDIY
 			uint16_t value = 0; // register value
 			request.get(2, addr, value);
 			logd("WRITE_HOLD_REGISTER FC%d %d[%d]", request.getFunctionCode(), addr, value);
-			addr -= _iot.HoldingBaseAddr();
-			if (addr < (_iot.ModbusBridgeEnabled() ? _holdingCount + AO_PINS : AO_PINS))
+			addr -= _iot.getMBBaseAddress(AnalogOutputs);
+			if (addr < _analogOutputCount)
 			{
 				#if AO_PINS > 0
 				_PWMOutputs[addr].SetDutyCycle(value);
@@ -628,8 +639,8 @@ namespace CLASSICDIY
 			uint16_t offset = 2; // Parameters start after serverID and FC
 			offset = request.get(offset, addr, numRegs, numBytes);
 			logd("WRITE_MULT_REGISTERS %d %d[%d] (%d bytes)", request.getFunctionCode(), addr, numRegs, numBytes);
-			addr -= _iot.HoldingBaseAddr();
-			if (addr < (_iot.ModbusBridgeEnabled() ? _holdingCount + AO_PINS : AO_PINS))
+			addr -= _iot.getMBBaseAddress(AnalogOutputs);
+			if (addr < _analogOutputCount)
 			{
 				if (numRegs == numBytes/2)
 				{
@@ -682,14 +693,13 @@ namespace CLASSICDIY
 		};
 
 		_iot.registerMBTCPWorkers(READ_INPUT_REGISTER, modbusFC04);
-		_iot.registerMBTCPWorkers(READ_COIL, modbusFC01);
 		_iot.registerMBTCPWorkers(READ_DISCR_INPUT, modbusFC02);
+		_iot.registerMBTCPWorkers(READ_COIL, modbusFC01);
 		_iot.registerMBTCPWorkers(WRITE_COIL, modbusFC05);
 		_iot.registerMBTCPWorkers(WRITE_MULT_COILS, modbusFC0F);
 		_iot.registerMBTCPWorkers(READ_HOLD_REGISTER, modbusFC03);
 		_iot.registerMBTCPWorkers(WRITE_HOLD_REGISTER, modbusFC06);
 		_iot.registerMBTCPWorkers(WRITE_MULT_REGISTERS, modbusFC16);
-
 
 	}
 	

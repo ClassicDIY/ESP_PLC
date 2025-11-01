@@ -20,10 +20,10 @@ public:
     virtual void PublishOnline() = 0;
 
     // Modbus related methods
-    virtual std::string getIOTypeDesc(IOTypes type) = 0;
+    virtual uint16_t getMBBaseAddress(IOTypes type) = 0;
     virtual boolean ModbusBridgeEnabled() = 0;
     virtual void registerMBTCPWorkers(FunctionCode fc, MBSworker worker) = 0;
-    virtual Modbus::Error SendToModbusBridgeAsync(ModbusMessage request);
+    virtual Modbus::Error SendToModbusBridgeAsync(ModbusMessage& request);
     virtual ModbusMessage SendToModbusBridgeSync(ModbusMessage request);
 };
 } // namespace CLASSICDIY
