@@ -11,6 +11,8 @@ namespace CLASSICDIY
 	static AsyncWebSocket _webSocket("/ws_home");
 	IOT _iot = IOT();
 
+// #region Setup
+
 	void PLC::addApplicationConfigs(String &page)
 	{
 		#if AI_PINS > 0
@@ -237,6 +239,106 @@ namespace CLASSICDIY
 		});
 	}
 
+	void PLC::CleanUp()
+	{
+		_webSocket.cleanupClients(); // cleanup disconnected clients or too many clients
+	}
+
+	void PLC::Monitor()
+	{
+		for (int i = 0; i < AI_PINS; i++)
+		{
+			_AnalogSensors[i].Run();
+		}
+		if (_iot.getNetworkState() == OnLine && _iot.ModbusBridgeEnabled())
+		{
+			ModbusMessage forward;
+			if (_discreteCount > 0)
+			{
+				uint8_t err = forward.setMessage(_discreteID, READ_DISCR_INPUT, _discreteAddress, _discreteCount);
+				if (err == SUCCESS)
+				{
+					Modbus::Error error = _iot.SendToModbusBridgeAsync(forward);
+					if (error != SUCCESS)
+					{
+						logd("Error forwarding FC02 to modbus bridge device Id:%d Error: 0X%x", _discreteID, error);
+					}
+				}
+				else
+				{
+					loge("poll discrete error: 0X%x", err);
+				}
+			}
+		}
+	}
+
+	void PLC::Process()
+	{
+		_iot.Run();
+		if (_iot.getNetworkState() == OnLine)
+		{
+			JsonDocument doc;
+			doc.clear();
+			#if DI_PINS > 0
+			for (int i = 0; i < DI_PINS; i++)
+			{
+				_digitalInputDiscretes.set(i, _DigitalSensors[i].Level());
+			}
+			#endif
+			for (int i = 0; i < _digitalInputDiscretes.coils(); i++)
+			{
+				std::stringstream ss;
+				ss << "DI" << i;
+				doc[ss.str()] = _digitalInputDiscretes[i] ? "High" : "Low";
+			}
+			for (int i = 0; i < AI_PINS; i++)
+			{
+				std::stringstream ss;
+				ss << "AI" << i;
+				doc[ss.str()] = _AnalogSensors[i].Level();
+			}
+			#if DO_PINS > 0
+			for (int i = 0; i < DO_PINS; i++)
+			{
+				_digitalOutputCoils.set(i, _Coils[i].Level());
+			}
+			#endif
+			for (int i = 0; i < _digitalOutputCoils.coils(); i++)
+			{
+				std::stringstream ss;
+				ss << "DO" << i;
+				doc[ss.str()] = _digitalOutputCoils[i] ? "On" : "Off";
+			}
+			#if AO_PINS > 0
+			for (int i = 0; i < AO_PINS; i++)
+			{
+				std::stringstream ss;
+				ss << "AO" << i;
+				doc[ss.str()] = _PWMOutputs[i].GetDutyCycle();
+			}
+			#endif
+			String s;
+			serializeJson(doc, s);
+			DeserializationError err = deserializeJson(doc, s);
+			if (err)
+			{
+				loge("deserializeJson() failed: %s", err.c_str());
+			}
+			if (_lastMessagePublished == s) // anything changed?
+			{
+				return;
+			}
+			_iot.PublishOnline();
+			_iot.Publish("readings", s.c_str(), false);
+			_lastMessagePublished = s;
+			_webSocket.textAll(s);
+			logv("Published readings: %s", s.c_str());
+		}
+	}
+
+// #endregion
+
+// #pragma region Modbus
 	void PLC::onNetworkConnect()
 	{
 		// READ_INPUT_REGISTER
@@ -708,99 +810,9 @@ namespace CLASSICDIY
 		_digitalInputDiscretes.set(DI_PINS, _discreteCount, (uint8_t *)msg.data() + 3);
 	}
 
-	void PLC::CleanUp()
-	{
-		_webSocket.cleanupClients(); // cleanup disconnected clients or too many clients
-	}
+// #pragma endregion Modbus
 
-	void PLC::Monitor()
-	{
-		for (int i = 0; i < AI_PINS; i++)
-		{
-			_AnalogSensors[i].Run();
-		}
-		if (_iot.getNetworkState() == OnLine && _iot.ModbusBridgeEnabled())
-		{
-			ModbusMessage forward;
-			uint8_t err = forward.setMessage(_discreteID, READ_DISCR_INPUT, _discreteAddress, _discreteCount);
-			if (err == SUCCESS)
-			{
-				Modbus::Error error = _iot.SendToModbusBridgeAsync(forward);
-				if (error != SUCCESS)
-				{
-					logd("Error forwarding FC02 to modbus bridge device Id:%d Error: 0X%x", _discreteID, error);
-				}
-			}
-			else
-			{
-				loge("poll discrete error: 0X%x", err);
-			}
-		}
-	}
-
-	void PLC::Process()
-	{
-		_iot.Run();
-		if (_iot.getNetworkState() == OnLine)
-		{
-			JsonDocument doc;
-			doc.clear();
-			#if DI_PINS > 0
-			for (int i = 0; i < DI_PINS; i++)
-			{
-				_digitalInputDiscretes.set(i, _DigitalSensors[i].Level());
-			}
-			#endif
-			for (int i = 0; i < _digitalInputDiscretes.coils(); i++)
-			{
-				std::stringstream ss;
-				ss << "DI" << i;
-				doc[ss.str()] = _digitalInputDiscretes[i] ? "High" : "Low";
-			}
-			for (int i = 0; i < AI_PINS; i++)
-			{
-				std::stringstream ss;
-				ss << "AI" << i;
-				doc[ss.str()] = _AnalogSensors[i].Level();
-			}
-			#if DO_PINS > 0
-			for (int i = 0; i < DO_PINS; i++)
-			{
-				_digitalOutputCoils.set(i, _Coils[i].Level());
-			}
-			#endif
-			for (int i = 0; i < _digitalOutputCoils.coils(); i++)
-			{
-				std::stringstream ss;
-				ss << "DO" << i;
-				doc[ss.str()] = _digitalOutputCoils[i] ? "On" : "Off";
-			}
-			#if AO_PINS > 0
-			for (int i = 0; i < AO_PINS; i++)
-			{
-				std::stringstream ss;
-				ss << "AO" << i;
-				doc[ss.str()] = _PWMOutputs[i].GetDutyCycle();
-			}
-			#endif
-			String s;
-			serializeJson(doc, s);
-			DeserializationError err = deserializeJson(doc, s);
-			if (err)
-			{
-				loge("deserializeJson() failed: %s", err.c_str());
-			}
-			if (_lastMessagePublished == s) // anything changed?
-			{
-				return;
-			}
-			_iot.PublishOnline();
-			_iot.Publish("readings", s.c_str(), false);
-			_lastMessagePublished = s;
-			_webSocket.textAll(s);
-			logv("Published readings: %s", s.c_str());
-		}
-	}
+// #pragma region MQTT
 
 	void PLC::onMqttConnect()
 	{
@@ -924,4 +936,6 @@ namespace CLASSICDIY
 			}
 		} 
 	}
+
+// #pragma endregion MQTT
 }

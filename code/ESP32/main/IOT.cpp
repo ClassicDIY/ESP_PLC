@@ -29,9 +29,6 @@ extern Adafruit_SSD1306 oled_display;
 
 #endif
 
-// extern const uint8_t hivemq_ca_pem_start[] asm("_binary_hivemq_ca_pem_start");
-// extern const uint8_t hivemq_ca_pem_end[] asm("_binary_hivemq_ca_pem_end");
-
 namespace CLASSICDIY
 {
 	TimerHandle_t mqttReconnectTimer;
@@ -43,6 +40,8 @@ namespace CLASSICDIY
 	ModbusClientRTU _MBclientRTU(RS485_RTS, MODBUS_RTU_REQUEST_QUEUE_SIZE);
 	#endif
 	static AsyncAuthenticationMiddleware basicAuth;
+
+// #pragma region Setup
 	void IOT::Init(IOTCallbackInterface *iotCB, AsyncWebServer *pwebServer)
 	{
 		_iotCB = iotCB;
@@ -361,60 +360,6 @@ namespace CLASSICDIY
 		request->send(200, "text/html", page);
 	}
 
-	void IOT::registerMBTCPWorkers(FunctionCode fc, MBSworker worker)
-	{
-		if (_ModbusMode == TCP)
-		{
-			_MBserver.registerWorker(_modbusID, fc, worker);
-		}
-		else
-		{
-			_MBRTUserver.registerWorker(_modbusID, fc, worker);					
-		}
-	}
-	
-	boolean IOT::ModbusBridgeEnabled()
-	{
-		return _useModbusBridge && (_ModbusMode == TCP);
-	}
-
-	Modbus::Error IOT::SendToModbusBridgeAsync(ModbusMessage& request)
-	{
-		Modbus::Error mbError = INVALID_SERVER;
-		#ifdef HasRS485
-		if (ModbusBridgeEnabled())
-		{
-			logv("SendToModbusBridge Token=%08X", Token);
-			if (_MBclientRTU.pendingRequests() < MODBUS_RTU_REQUEST_QUEUE_SIZE)
-			{
-				mbError = _MBclientRTU.addRequest(request, nextToken());
-				uint32_t nextToken();
-				mbError = SUCCESS;
-			}
-			else
-			{
-				mbError = REQUEST_QUEUE_FULL;
-			}
-		}
-		#endif
-		return mbError;
-	}
-
-	ModbusMessage IOT::SendToModbusBridgeSync(ModbusMessage request)
-	{
-		#ifdef HasRS485
-		if (ModbusBridgeEnabled())
-		{
-			uint32_t token = nextToken();
-			logd("ForwardToModbusBridge token: %08X", token);
-			return _MBclientRTU.syncRequest(request, token);
-		}
-		#endif
-		ModbusMessage response;
-		response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_ADDRESS);
-		return response;
-	}
-
 	void IOT::loadSettings()
 	{
 		String jsonString;
@@ -650,67 +595,6 @@ namespace CLASSICDIY
 		return;
 	}
 
-	void IOT::GoOnline()
-	{
-		logd("GoOnline called");
-		_pwebServer->begin();
-		_webLog.begin(_pwebServer);
-		#ifdef HasOTA
-		_OTA.begin(_pwebServer);
-		#endif
-		if (_networkState > ApState)
-		{
-			if (_NetworkSelection == EthernetMode || _NetworkSelection == WiFiMode)
-			{
-				MDNS.begin(_AP_SSID.c_str());
-				MDNS.addService("http", "tcp", ASYNC_WEBSERVER_PORT);
-				logd("Active mDNS services: %d", MDNS.queryService("http", "tcp"));
-			}
-			_iotCB->onNetworkConnect();
-			if (_useModbus && !_MBserver.isRunning())
-			{
-				if (_ModbusMode == TCP)
-				{
-					if (!_MBserver.isRunning())
-					{
-						_MBserver.start(_modbusPort, 5, 0); // listen for modbus requests
-						logd("Modbus TCP started");
-					}
-					#ifdef HasRS485
-					if (ModbusBridgeEnabled())
-					{
-						_MBclientRTU.setTimeout(2000);
-						_MBclientRTU.begin(Serial2);
-						_MBclientRTU.useModbusRTU();
-						_MBclientRTU.onDataHandler([this](ModbusMessage response, uint32_t token)
-						{
-							logd("RTU Response: serverID=%d, FC=%d, Token=%08X, length=%d:\n", response.getServerID(), response.getFunctionCode(), token, response.size());
-							_iotCB->onModbusMessage(response);
-							return true;
-						});
-						_MBclientRTU.onErrorHandler([this](Modbus::Error mbError, uint32_t token)
-						{
-							loge("Modbus RTU Error!!!");
-							loge("Modbus RTU (Token: %d) Error response: %02X - %s", token, (int)mbError, (const char *)ModbusError(mbError));
-							return true;
-						});
-					}
-					#endif
-				}
-				else
-				{
-					_MBRTUserver.begin(Serial2);
-					_MBRTUserver.useModbusRTU();
-					logd("Modbus RTU started");					
-				}
-
-			}
-			logd("Before xTimerStart _NetworkSelection: %d", _NetworkSelection);
-			xTimerStart(mqttReconnectTimer, 0);
-			setState(OnLine);
-		}
-	}
-
 	void IOT::UpdateOledDisplay()
 	{
 #ifdef Has_OLED_Display
@@ -750,6 +634,71 @@ namespace CLASSICDIY
 		}
 		oled_display.display();
 #endif
+	}
+
+// #pragma endregion Setup
+
+// #pragma region Network
+
+	void IOT::GoOnline()
+	{
+		logd("GoOnline called");
+		_pwebServer->begin();
+		_webLog.begin(_pwebServer);
+		#ifdef HasOTA
+		_OTA.begin(_pwebServer);
+		#endif
+		if (_networkState > ApState)
+		{
+			if (_NetworkSelection == EthernetMode || _NetworkSelection == WiFiMode)
+			{
+				MDNS.begin(_AP_SSID.c_str());
+				MDNS.addService("http", "tcp", ASYNC_WEBSERVER_PORT);
+				logd("Active mDNS services: %d", MDNS.queryService("http", "tcp"));
+			}
+			_iotCB->onNetworkConnect();
+			if (_useModbus && !_MBserver.isRunning())
+			{
+				if (_ModbusMode == TCP)
+				{
+					if (!_MBserver.isRunning())
+					{
+						_MBserver.start(_modbusPort, 5, 0); // listen for modbus requests
+						logd("Modbus TCP started");
+					}
+					#ifdef HasRS485
+					if (ModbusBridgeEnabled())
+					{
+						_MBclientRTU.setTimeout(2000);
+						_MBclientRTU.begin(Serial2);
+						_MBclientRTU.useModbusRTU();
+						_MBclientRTU.onDataHandler([this](ModbusMessage response, uint32_t token)
+						{
+							logv("RTU Response: serverID=%d, FC=%d, Token=%08X, length=%d:\n", response.getServerID(), response.getFunctionCode(), token, response.size());
+							_iotCB->onModbusMessage(response);
+							return true;
+						});
+						_MBclientRTU.onErrorHandler([this](Modbus::Error mbError, uint32_t token)
+						{
+							loge("Modbus RTU Error!!!");
+							loge("Modbus RTU (Token: %d) Error response: %02X - %s", token, (int)mbError, (const char *)ModbusError(mbError));
+							return true;
+						});
+					}
+					#endif
+				}
+				else
+				{
+					_MBRTUserver.begin(Serial2);
+					_MBRTUserver.useModbusRTU();
+					logd("Modbus RTU started");					
+				}
+
+			}
+			logd("Before xTimerStart _NetworkSelection: %d", _NetworkSelection);
+			xTimerStart(mqttReconnectTimer, 0);
+			setState(OnLine);
+		}
 	}
 
 	void IOT::GoOffline()
@@ -842,220 +791,6 @@ namespace CLASSICDIY
 			break;
 		default:
 			break;
-		}
-	}
-
-	void IOT::HandleMQTT(int32_t event_id, void *event_data)
-	{
-		auto event = (esp_mqtt_event_handle_t)event_data;
-		esp_mqtt_client_handle_t client = event->client;
-		JsonDocument doc;
-		switch ((esp_mqtt_event_id_t)event_id)
-		{
-		case MQTT_EVENT_CONNECTED:
-			logi("Connected to MQTT.");
-			char buf[128];
-			sprintf(buf, "%s/set/#", _rootTopicPrefix);
-			esp_mqtt_client_subscribe(client, buf, 0);
-			_iotCB->onMqttConnect();
-			esp_mqtt_client_publish(client, _willTopic, "Offline", 0, 1, 0);
-			break;
-		case MQTT_EVENT_DISCONNECTED:
-			logw("Disconnected from MQTT");
-			if (_networkState == OnLine)
-			{
-				xTimerStart(mqttReconnectTimer, 5000);
-			}
-			break;
-
-		case MQTT_EVENT_SUBSCRIBED:
-			logi("MQTT_EVENT_SUBSCRIBED, msg_id=%d", event->msg_id);
-			break;
-		case MQTT_EVENT_UNSUBSCRIBED:
-			logi("MQTT_EVENT_UNSUBSCRIBED, msg_id=%d", event->msg_id);
-			break;
-		case MQTT_EVENT_PUBLISHED:
-			logi("MQTT_EVENT_PUBLISHED, msg_id=%d", event->msg_id);
-			break;
-		case MQTT_EVENT_DATA:
-			char topicBuf[256];
-			snprintf(topicBuf, sizeof(topicBuf), "%.*s", event->topic_len, event->topic);
-			char payloadBuf[256];
-			snprintf(payloadBuf, sizeof(payloadBuf), "%.*s", event->data_len, event->data);
-			logd("MQTT Message arrived [%s] %s", topicBuf, payloadBuf);
-			_iotCB->onMqttMessage(topicBuf, payloadBuf);
-			// if (deserializeJson(doc, event->data)) // not json!
-			// {
-			// 	logd("MQTT payload {%s} is not valid JSON!", event->data);
-			// }
-			// else
-			// {
-			// 	if (doc.containsKey("status"))
-			// 	{
-			// 		doc.clear();
-			// 		doc["sw_version"] = APP_VERSION;
-			// 		// doc["IP"] = WiFi.localIP().toString().c_str();
-			// 		// doc["SSID"] = WiFi.SSID();
-			// 		doc["uptime"] = formatDuration(millis() - _lastBootTimeStamp);
-			// 		Publish("status", doc, true);
-			// 	}
-			// 	else
-			// 	{
-			// 		_iotCB->onMqttMessage(topicBuf, doc);
-			// 	}
-			// }
-			break;
-		case MQTT_EVENT_ERROR:
-			loge("MQTT_EVENT_ERROR");
-			if (event->error_handle->error_type == MQTT_ERROR_TYPE_TCP_TRANSPORT)
-			{
-				logi("Last errno string (%s)", strerror(event->error_handle->esp_transport_sock_errno));
-			}
-			break;
-		default:
-			logi("Other event id:%d", event->event_id);
-			break;
-		}
-	}
-
-	void IOT::ConnectToMQTTServer()
-	{
-		if (_networkState == OnLine)
-		{
-			if (_useMQTT && _mqttServer.length() > 0) // mqtt configured?
-			{
-				logd("Connecting to MQTT: %s:%d", _mqttServer.c_str(), _mqttPort);
-				int len = strlen(_AP_SSID.c_str());
-				strncpy(_rootTopicPrefix, _AP_SSID.c_str(), len);
-				logd("rootTopicPrefix: %s", _rootTopicPrefix);
-				sprintf(_willTopic, "%s/tele/LWT", _rootTopicPrefix);
-				logd("_willTopic: %s", _willTopic);
-				esp_mqtt_client_config_t mqtt_cfg = {};
-				mqtt_cfg.host = _mqttServer.c_str();
-				mqtt_cfg.port = _mqttPort;
-				mqtt_cfg.username = _mqttUserName.c_str();
-				mqtt_cfg.password = _mqttUserPassword.c_str();
-				mqtt_cfg.client_id = _AP_SSID.c_str();
-				mqtt_cfg.lwt_topic = _willTopic;
-				mqtt_cfg.lwt_retain = 1;
-				mqtt_cfg.lwt_msg = "Offline";
-				mqtt_cfg.lwt_msg_len = 7;
-				mqtt_cfg.transport = MQTT_TRANSPORT_OVER_TCP;
-				// mqtt_cfg.cert_pem = (const char *)hivemq_ca_pem_start,
-				// mqtt_cfg.skip_cert_common_name_check = true; // allow self-signed certs
-				_mqtt_client_handle = esp_mqtt_client_init(&mqtt_cfg);
-				esp_mqtt_client_register_event(_mqtt_client_handle, (esp_mqtt_event_id_t)ESP_EVENT_ANY_ID, mqtt_event_handler, this);
-				esp_mqtt_client_start(_mqtt_client_handle);
-			}
-		}
-	}
-
-	boolean IOT::Publish(const char *subtopic, JsonDocument &payload, boolean retained)
-	{
-		String s;
-		serializeJson(payload, s);
-		return Publish(subtopic, s.c_str(), retained);
-	}
-
-	boolean IOT::Publish(const char *subtopic, const char *value, boolean retained)
-	{
-		boolean rVal = false;
-		if (_mqtt_client_handle != 0)
-		{
-			char buf[128];
-			sprintf(buf, "%s/stat/%s", _rootTopicPrefix, subtopic);
-			rVal = (esp_mqtt_client_publish(_mqtt_client_handle, buf, value, strlen(value), 1, retained) != -1);
-			if (!rVal)
-			{
-				loge("**** Failed to publish MQTT message");
-			}
-		}
-		return rVal;
-	}
-
-	boolean IOT::Publish(const char *topic, float value, boolean retained)
-	{
-		char buf[256];
-		snprintf_P(buf, sizeof(buf), "%.1f", value);
-		return Publish(topic, buf, retained);
-	}
-
-	boolean IOT::PublishMessage(const char *topic, JsonDocument &payload, boolean retained)
-	{
-		boolean rVal = false;
-		if (_mqtt_client_handle != 0)
-		{
-			String s;
-			serializeJson(payload, s);
-			rVal = (esp_mqtt_client_publish(_mqtt_client_handle, topic, s.c_str(), s.length(), 0, retained) != -1);
-			if (!rVal)
-			{
-				loge("**** Configuration payload exceeds MAX MQTT Packet Size, %d [%s] topic: %s", s.length(), s.c_str(), topic);
-			}
-		}
-		return rVal;
-	}
-
-	boolean IOT::PublishHADiscovery(JsonDocument &payload)
-	{
-		boolean rVal = false;
-		if (_mqtt_client_handle != 0)
-		{
-			char topic[64];
-			sprintf(topic, "%s/device/%s_%X/config", HOME_ASSISTANT_PREFIX, TAG, getUniqueId());
-			rVal = PublishMessage(topic, payload, true);
-		}
-		return rVal;
-	}
-
-	std::string IOT::getRootTopicPrefix()
-	{
-		std::string s(_rootTopicPrefix);
-		return s;
-	};
-
-	std::string IOT::getThingName()
-	{
-		std::string s(_AP_SSID.c_str());
-		return s;
-	}
-
-	uint16_t IOT::getMBBaseAddress(IOTypes type)
-	{
-		switch(type)
-		{
-			case DigitalInputs:
-				return _discrete_input_base_addr;
-				break;
-			case DigitalOutputs:
-				return _coil_base_addr;
-				break;
-				
-			case AnalogInputs:
-				return _input_register_base_addr;
-				break;
-				
-			case AnalogOutputs:
-				return _holding_register_base_addr;
-				break;
-		}	
-		return 0;
-	}
-
-	void IOT::PublishOnline()
-	{
-		if (!_publishedOnline)
-		{
-			if (_mqtt_client_handle != 0)
-			{
-				if (!_publishedOnline)
-				{
-					if (esp_mqtt_client_publish(_mqtt_client_handle, _willTopic, "Online", 0, 1, 1) != -1)
-					{
-						_publishedOnline = true;
-					}
-				}
-			}
 		}
 	}
 
@@ -1319,5 +1054,282 @@ namespace CLASSICDIY
 		#endif
 	}
 
+// #pragma endregion Network
+
+// #pragma region Modbus
+
+	void IOT::registerMBTCPWorkers(FunctionCode fc, MBSworker worker)
+	{
+		if (_ModbusMode == TCP)
+		{
+			_MBserver.registerWorker(_modbusID, fc, worker);
+		}
+		else
+		{
+			_MBRTUserver.registerWorker(_modbusID, fc, worker);					
+		}
+	}
+	
+	boolean IOT::ModbusBridgeEnabled()
+	{
+		return _useModbusBridge && (_ModbusMode == TCP);
+	}
+
+	Modbus::Error IOT::SendToModbusBridgeAsync(ModbusMessage& request)
+	{
+		Modbus::Error mbError = INVALID_SERVER;
+		#ifdef HasRS485
+		if (ModbusBridgeEnabled())
+		{
+			logv("SendToModbusBridge Token=%08X", Token);
+			if (_MBclientRTU.pendingRequests() < MODBUS_RTU_REQUEST_QUEUE_SIZE)
+			{
+				mbError = _MBclientRTU.addRequest(request, nextToken());
+				uint32_t nextToken();
+				mbError = SUCCESS;
+			}
+			else
+			{
+				mbError = REQUEST_QUEUE_FULL;
+			}
+		}
+		#endif
+		return mbError;
+	}
+
+	ModbusMessage IOT::SendToModbusBridgeSync(ModbusMessage request)
+	{
+		#ifdef HasRS485
+		if (ModbusBridgeEnabled())
+		{
+			uint32_t token = nextToken();
+			logd("ForwardToModbusBridge token: %08X", token);
+			return _MBclientRTU.syncRequest(request, token);
+		}
+		#endif
+		ModbusMessage response;
+		response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_ADDRESS);
+		return response;
+	}
+
+	uint16_t IOT::getMBBaseAddress(IOTypes type)
+	{
+		switch(type)
+		{
+			case DigitalInputs:
+				return _discrete_input_base_addr;
+				break;
+			case DigitalOutputs:
+				return _coil_base_addr;
+				break;
+				
+			case AnalogInputs:
+				return _input_register_base_addr;
+				break;
+				
+			case AnalogOutputs:
+				return _holding_register_base_addr;
+				break;
+		}	
+		return 0;
+	}
+
+// #pragma endregion Modbus
+
+// #pragma region MQTT
+
+	void IOT::HandleMQTT(int32_t event_id, void *event_data)
+	{
+		auto event = (esp_mqtt_event_handle_t)event_data;
+		esp_mqtt_client_handle_t client = event->client;
+		JsonDocument doc;
+		switch ((esp_mqtt_event_id_t)event_id)
+		{
+		case MQTT_EVENT_CONNECTED:
+			logi("Connected to MQTT.");
+			char buf[128];
+			sprintf(buf, "%s/set/#", _rootTopicPrefix);
+			esp_mqtt_client_subscribe(client, buf, 0);
+			_iotCB->onMqttConnect();
+			esp_mqtt_client_publish(client, _willTopic, "Offline", 0, 1, 0);
+			break;
+		case MQTT_EVENT_DISCONNECTED:
+			logw("Disconnected from MQTT");
+			if (_networkState == OnLine)
+			{
+				xTimerStart(mqttReconnectTimer, 5000);
+			}
+			break;
+
+		case MQTT_EVENT_SUBSCRIBED:
+			logi("MQTT_EVENT_SUBSCRIBED, msg_id=%d", event->msg_id);
+			break;
+		case MQTT_EVENT_UNSUBSCRIBED:
+			logi("MQTT_EVENT_UNSUBSCRIBED, msg_id=%d", event->msg_id);
+			break;
+		case MQTT_EVENT_PUBLISHED:
+			logi("MQTT_EVENT_PUBLISHED, msg_id=%d", event->msg_id);
+			break;
+		case MQTT_EVENT_DATA:
+			char topicBuf[256];
+			snprintf(topicBuf, sizeof(topicBuf), "%.*s", event->topic_len, event->topic);
+			char payloadBuf[256];
+			snprintf(payloadBuf, sizeof(payloadBuf), "%.*s", event->data_len, event->data);
+			logd("MQTT Message arrived [%s] %s", topicBuf, payloadBuf);
+			_iotCB->onMqttMessage(topicBuf, payloadBuf);
+			// if (deserializeJson(doc, event->data)) // not json!
+			// {
+			// 	logd("MQTT payload {%s} is not valid JSON!", event->data);
+			// }
+			// else
+			// {
+			// 	if (doc.containsKey("status"))
+			// 	{
+			// 		doc.clear();
+			// 		doc["sw_version"] = APP_VERSION;
+			// 		// doc["IP"] = WiFi.localIP().toString().c_str();
+			// 		// doc["SSID"] = WiFi.SSID();
+			// 		doc["uptime"] = formatDuration(millis() - _lastBootTimeStamp);
+			// 		Publish("status", doc, true);
+			// 	}
+			// 	else
+			// 	{
+			// 		_iotCB->onMqttMessage(topicBuf, doc);
+			// 	}
+			// }
+			break;
+		case MQTT_EVENT_ERROR:
+			loge("MQTT_EVENT_ERROR");
+			if (event->error_handle->error_type == MQTT_ERROR_TYPE_TCP_TRANSPORT)
+			{
+				logi("Last errno string (%s)", strerror(event->error_handle->esp_transport_sock_errno));
+			}
+			break;
+		default:
+			logi("Other event id:%d", event->event_id);
+			break;
+		}
+	}
+
+	void IOT::ConnectToMQTTServer()
+	{
+		if (_networkState == OnLine)
+		{
+			if (_useMQTT && _mqttServer.length() > 0) // mqtt configured?
+			{
+				logd("Connecting to MQTT: %s:%d", _mqttServer.c_str(), _mqttPort);
+				int len = strlen(_AP_SSID.c_str());
+				strncpy(_rootTopicPrefix, _AP_SSID.c_str(), len);
+				logd("rootTopicPrefix: %s", _rootTopicPrefix);
+				sprintf(_willTopic, "%s/tele/LWT", _rootTopicPrefix);
+				logd("_willTopic: %s", _willTopic);
+				esp_mqtt_client_config_t mqtt_cfg = {};
+				mqtt_cfg.host = _mqttServer.c_str();
+				mqtt_cfg.port = _mqttPort;
+				mqtt_cfg.username = _mqttUserName.c_str();
+				mqtt_cfg.password = _mqttUserPassword.c_str();
+				mqtt_cfg.client_id = _AP_SSID.c_str();
+				mqtt_cfg.lwt_topic = _willTopic;
+				mqtt_cfg.lwt_retain = 1;
+				mqtt_cfg.lwt_msg = "Offline";
+				mqtt_cfg.lwt_msg_len = 7;
+				mqtt_cfg.transport = MQTT_TRANSPORT_OVER_TCP;
+				// mqtt_cfg.cert_pem = (const char *)hivemq_ca_pem_start,
+				// mqtt_cfg.skip_cert_common_name_check = true; // allow self-signed certs
+				_mqtt_client_handle = esp_mqtt_client_init(&mqtt_cfg);
+				esp_mqtt_client_register_event(_mqtt_client_handle, (esp_mqtt_event_id_t)ESP_EVENT_ANY_ID, mqtt_event_handler, this);
+				esp_mqtt_client_start(_mqtt_client_handle);
+			}
+		}
+	}
+
+	boolean IOT::Publish(const char *subtopic, JsonDocument &payload, boolean retained)
+	{
+		String s;
+		serializeJson(payload, s);
+		return Publish(subtopic, s.c_str(), retained);
+	}
+
+	boolean IOT::Publish(const char *subtopic, const char *value, boolean retained)
+	{
+		boolean rVal = false;
+		if (_mqtt_client_handle != 0)
+		{
+			char buf[128];
+			sprintf(buf, "%s/stat/%s", _rootTopicPrefix, subtopic);
+			rVal = (esp_mqtt_client_publish(_mqtt_client_handle, buf, value, strlen(value), 1, retained) != -1);
+			if (!rVal)
+			{
+				loge("**** Failed to publish MQTT message");
+			}
+		}
+		return rVal;
+	}
+
+	boolean IOT::Publish(const char *topic, float value, boolean retained)
+	{
+		char buf[256];
+		snprintf_P(buf, sizeof(buf), "%.1f", value);
+		return Publish(topic, buf, retained);
+	}
+
+	boolean IOT::PublishMessage(const char *topic, JsonDocument &payload, boolean retained)
+	{
+		boolean rVal = false;
+		if (_mqtt_client_handle != 0)
+		{
+			String s;
+			serializeJson(payload, s);
+			rVal = (esp_mqtt_client_publish(_mqtt_client_handle, topic, s.c_str(), s.length(), 0, retained) != -1);
+			if (!rVal)
+			{
+				loge("**** Configuration payload exceeds MAX MQTT Packet Size, %d [%s] topic: %s", s.length(), s.c_str(), topic);
+			}
+		}
+		return rVal;
+	}
+
+	boolean IOT::PublishHADiscovery(JsonDocument &payload)
+	{
+		boolean rVal = false;
+		if (_mqtt_client_handle != 0)
+		{
+			char topic[64];
+			sprintf(topic, "%s/device/%s_%X/config", HOME_ASSISTANT_PREFIX, TAG, getUniqueId());
+			rVal = PublishMessage(topic, payload, true);
+		}
+		return rVal;
+	}
+
+	std::string IOT::getRootTopicPrefix()
+	{
+		std::string s(_rootTopicPrefix);
+		return s;
+	};
+
+	std::string IOT::getThingName()
+	{
+		std::string s(_AP_SSID.c_str());
+		return s;
+	}
+
+	void IOT::PublishOnline()
+	{
+		if (!_publishedOnline)
+		{
+			if (_mqtt_client_handle != 0)
+			{
+				if (!_publishedOnline)
+				{
+					if (esp_mqtt_client_publish(_mqtt_client_handle, _willTopic, "Online", 0, 1, 1) != -1)
+					{
+						_publishedOnline = true;
+					}
+				}
+			}
+		}
+	}
+
+// #pragma endregion MQTT
 
 } // namespace CLASSICDIY
