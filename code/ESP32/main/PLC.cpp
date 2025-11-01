@@ -186,7 +186,7 @@ namespace CLASSICDIY
 			s.clear();
 			sprintf(desc_buf, "Modbus Input Registers: %d-%d", _iot.getMBBaseAddress(IOTypes::AnalogInputs), _iot.getMBBaseAddress(IOTypes::AnalogInputs) + _analogInputCount);
 			page.replace("{analogInputDesc}", desc_buf);
-			for (int i = 0; i < AI_PINS; i++)
+			for (int i = 0; i < _analogInputCount; i++)
 			{
 				s += "<div class='box' id=AI";
 				s += std::to_string(i);
@@ -198,7 +198,7 @@ namespace CLASSICDIY
 			s.clear();
 			sprintf(desc_buf, "Modbus Holding Registers: %d-%d", _iot.getMBBaseAddress(IOTypes::AnalogOutputs), _iot.getMBBaseAddress(IOTypes::AnalogOutputs) + _analogOutputCount);
 			page.replace("{analogOutputDesc}", desc_buf);
-			for (int i = 0; i < AO_PINS; i++)
+			for (int i = 0; i < _analogOutputCount; i++)
 			{
 				s += "<div class='box' id=AO";
 				s += std::to_string(i);
