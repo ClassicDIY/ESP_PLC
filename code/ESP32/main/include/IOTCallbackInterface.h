@@ -14,6 +14,6 @@ namespace CLASSICDIY
         virtual void onSubmitForm(AsyncWebServerRequest *request);
         virtual void onSaveSetting(JsonDocument& doc);
         virtual void onLoadSetting(JsonDocument& doc);
-        virtual void onModbusMessage(ModbusMessage& msg);
+        virtual bool onModbusMessage(ModbusMessage& msg);
     };
 } // namespace CLASSICDIY

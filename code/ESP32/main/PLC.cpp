@@ -493,7 +493,7 @@ namespace CLASSICDIY
 			// Is the coil number within the range of the coils?
 			if (index < _digitalOutputCoils.coils())
 			{
-				#if DO_PINS > 0
+
 				// Looks like it. Is the ON/OFF parameter correct?
 				if (state == 0x0000 || state == 0xFF00)
 				{
@@ -523,12 +523,14 @@ namespace CLASSICDIY
 							}
 						}
 					}
+					#if DO_PINS > 0
 					// Set the native coil
 					else if (_digitalOutputCoils.set(index, state))
 					{
 						_Coils[index].Set(state == 0xFF00 ? HIGH : LOW);
 						response = ECHO_RESPONSE;
 					}
+					#endif
 					else
 					{
 						response.setError(request.getServerID(), request.getFunctionCode(), SERVER_DEVICE_FAILURE);
@@ -539,7 +541,6 @@ namespace CLASSICDIY
 					// Wrong data parameter
 					response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_VALUE);
 				}
-				#endif
 			}
 			return response;
 		};
@@ -732,7 +733,7 @@ namespace CLASSICDIY
 		};
 
 		// WRITE_MULT_REGISTERS
-		auto modbusFC16 = [this](ModbusMessage request) -> ModbusMessage
+		auto modbusFC10 = [this](ModbusMessage request) -> ModbusMessage
 		{
 			ModbusMessage response; 
 			uint16_t addr = 0;
@@ -767,7 +768,8 @@ namespace CLASSICDIY
 				if (count > 0) //any registers to forward to RS485 device?
 				{
 					uint16_t index = addr >= AO_PINS ? addr - AO_PINS : 0; // number and address of bridge discretes
-					// ModbusMessage forward;
+					ModbusMessage forward;
+					// ToDo
 					// uint8_t err = forward.setMessage(_holdingID, request.getFunctionCode(), index, value);
 					// if (err != SUCCESS)
 					// {
@@ -801,13 +803,28 @@ namespace CLASSICDIY
 		_iot.registerMBTCPWorkers(WRITE_MULT_COILS, modbusFC0F);
 		_iot.registerMBTCPWorkers(READ_HOLD_REGISTER, modbusFC03);
 		_iot.registerMBTCPWorkers(WRITE_HOLD_REGISTER, modbusFC06);
-		_iot.registerMBTCPWorkers(WRITE_MULT_REGISTERS, modbusFC16);
-
+		_iot.registerMBTCPWorkers(WRITE_MULT_REGISTERS, modbusFC10);
 	}
 	
-	void PLC::onModbusMessage(ModbusMessage& msg)
+	bool PLC::onModbusMessage(ModbusMessage& msg)
 	{
-		_digitalInputDiscretes.set(DI_PINS, _discreteCount, (uint8_t *)msg.data() + 3);
+		bool rval = false;
+		switch (msg.getFunctionCode())
+		{
+			case READ_DISCR_INPUT:
+				rval = _digitalInputDiscretes.set(DI_PINS, _discreteCount, (uint8_t *)msg.data() + 3);
+			break;
+			case READ_HOLD_REGISTER:
+				// rval = _digitalInputDiscretes.set(AO_PINS, _holdingCount, (uint8_t *)msg.data() + 3);
+			break;
+			case READ_COIL:
+				rval = _digitalOutputCoils.set(DO_PINS, _coilCount, (uint8_t *)msg.data() + 3);
+			break;
+			case READ_INPUT_REGISTER:
+				// rval = _digitalInputDiscretes.set(AI_PINS, _inputCount, (uint8_t *)msg.data() + 3);
+			break;
+		}
+		return rval;
 	}
 
 // #pragma endregion Modbus

@@ -675,12 +675,10 @@ namespace CLASSICDIY
 						_MBclientRTU.onDataHandler([this](ModbusMessage response, uint32_t token)
 						{
 							logv("RTU Response: serverID=%d, FC=%d, Token=%08X, length=%d:\n", response.getServerID(), response.getFunctionCode(), token, response.size());
-							_iotCB->onModbusMessage(response);
-							return true;
+							return _iotCB->onModbusMessage(response);
 						});
 						_MBclientRTU.onErrorHandler([this](Modbus::Error mbError, uint32_t token)
 						{
-							loge("Modbus RTU Error!!!");
 							loge("Modbus RTU (Token: %d) Error response: %02X - %s", token, (int)mbError, (const char *)ModbusError(mbError));
 							return true;
 						});

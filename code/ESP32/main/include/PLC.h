@@ -30,7 +30,7 @@ namespace CLASSICDIY
 		void onSubmitForm(AsyncWebServerRequest *request);
 	    void onSaveSetting(JsonDocument& doc);
     	void onLoadSetting(JsonDocument& doc);
-		void onModbusMessage(ModbusMessage& msg);
+		bool onModbusMessage(ModbusMessage& msg);
 
 	protected:
 		boolean PublishDiscoverySub(const char *component, const char *entityName, const char *jsonElement, const char *device_class, const char *unit_of_meas, const char *icon = "");
