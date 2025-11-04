@@ -674,12 +674,12 @@ namespace CLASSICDIY
 						_MBclientRTU.useModbusRTU();
 						_MBclientRTU.onDataHandler([this](ModbusMessage response, uint32_t token)
 						{
-							logv("RTU Response: serverID=%d, FC=%d, Token=%08X, length=%d:\n", response.getServerID(), response.getFunctionCode(), token, response.size());
+							logv("RTU Response: serverID=%d, FC=%d, Token=%08X, length=%d", response.getServerID(), response.getFunctionCode(), token, response.size());
 							return _iotCB->onModbusMessage(response);
 						});
 						_MBclientRTU.onErrorHandler([this](Modbus::Error mbError, uint32_t token)
 						{
-							loge("Modbus RTU (Token: %d) Error response: %02X - %s", token, (int)mbError, (const char *)ModbusError(mbError));
+							logv("Modbus RTU (Token: %d) Error response: %02X - %s", token, (int)mbError, (const char *)ModbusError(mbError));
 							return true;
 						});
 					}
@@ -1079,11 +1079,11 @@ namespace CLASSICDIY
 		#ifdef HasRS485
 		if (ModbusBridgeEnabled())
 		{
-			logv("SendToModbusBridge Token=%08X", Token);
+			uint32_t token = nextToken();
+			logv("SendToModbusBridge Token=%08X FC%d", token, request.getFunctionCode());
 			if (_MBclientRTU.pendingRequests() < MODBUS_RTU_REQUEST_QUEUE_SIZE)
 			{
-				mbError = _MBclientRTU.addRequest(request, nextToken());
-				uint32_t nextToken();
+				mbError = _MBclientRTU.addRequest(request, token);
 				mbError = SUCCESS;
 			}
 			else

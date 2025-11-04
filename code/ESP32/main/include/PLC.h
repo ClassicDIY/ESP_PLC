@@ -7,6 +7,7 @@
 #include <ModbusServerTCPasync.h>
 #include "Defines.h"
 #include "CoilData.h"
+#include "RegisterData.h"
 #include "AnalogSensor.h"
 #include "DigitalSensor.h"
 #include "PWMOutput.h"
@@ -60,13 +61,13 @@ namespace CLASSICDIY
 		Coil _Coils[DO_PINS] = {DO0, DO1, DO2, DO3, DO4, DO5};
 		DigitalSensor _DigitalSensors[DI_PINS] = {};
 		AnalogSensor _AnalogSensors[AI_PINS] = {};
-		PWMOutput _PWMOutputs[AO_PINS] = {AO0, AO1, AO2, AO3};
+		PWMOutput _PWMOutputs[AO_PINS] = {};
 		#endif
 
-		CoilData _digitalOutputCoils;
-		CoilData _digitalInputDiscretes;
-		uint8_t _analogInputCount;
-		uint8_t _analogOutputCount;
+		CoilData* _digitalOutputCoils;
+		CoilData* _digitalInputDiscretes;
+		RegisterData* _analogOutputRegisters;
+		RegisterData* _analogInputRegisters;
 
 		// Modbus Bridge settings
 		uint8_t _inputID = 0;
