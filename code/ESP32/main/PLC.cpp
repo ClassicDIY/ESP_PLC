@@ -18,10 +18,6 @@ namespace CLASSICDIY
 	PLC::~PLC()
 	{
 		logd("PLC destructor");
-		delete _digitalOutputCoils;
-		delete _digitalInputDiscretes;
-		delete _analogOutputRegisters;
-		delete _analogInputRegisters;
 	}
 
 // #region Setup
@@ -31,13 +27,13 @@ void PLC::setup()
 	logd("setup");
 	_iot.Init(this, &_asyncServer);
 	uint16_t coilCount = _iot.ModbusBridgeEnabled() ? _coilCount + DO_PINS : DO_PINS;
-	_digitalOutputCoils = new CoilData(coilCount);
+	_digitalOutputCoils.Init(coilCount);
 	uint16_t discreteCount = _iot.ModbusBridgeEnabled() ? _discreteCount + DI_PINS : DI_PINS;
-	_digitalInputDiscretes = new CoilData(discreteCount, false);
+	_digitalInputDiscretes.Init(discreteCount, false);
 	uint16_t analogOutputCount = _iot.ModbusBridgeEnabled() ? _holdingCount + AO_PINS : AO_PINS;
-	_analogOutputRegisters = new RegisterData(analogOutputCount);
+	_analogOutputRegisters.Init(analogOutputCount);
 	uint16_t analogInputCount = _iot.ModbusBridgeEnabled() ? _inputCount + AI_PINS : AI_PINS;
-	_analogInputRegisters = new RegisterData(analogInputCount);
+	_analogInputRegisters.Init(analogInputCount);
 
 	_asyncServer.on("/", HTTP_GET, [this](AsyncWebServerRequest *request)
 					{
@@ -46,10 +42,10 @@ void PLC::setup()
 			page.replace("{n}", _iot.getThingName().c_str());
 			page.replace("{v}", APP_VERSION);
 			char desc_buf[64];
-			sprintf(desc_buf, "Modbus Discretes: %d-%d", _iot.getMBBaseAddress(IOTypes::DigitalInputs), _iot.getMBBaseAddress(IOTypes::DigitalInputs) + _digitalInputDiscretes->coils());
+			sprintf(desc_buf, "Modbus Discretes: %d-%d", _iot.getMBBaseAddress(IOTypes::DigitalInputs), _iot.getMBBaseAddress(IOTypes::DigitalInputs) + _digitalInputDiscretes.coils());
 			page.replace("{digitalInputDesc}", desc_buf);
 			std::string s;
-			for (int i = 0; i < _digitalInputDiscretes->coils(); i++)
+			for (int i = 0; i < _digitalInputDiscretes.coils(); i++)
 			{
 				s += "<div class='box' id=DI";
 				s += std::to_string(i);
@@ -59,9 +55,9 @@ void PLC::setup()
 			}
 			page.replace("{digitalInputs}", s.c_str());
 			s.clear();
-			sprintf(desc_buf, "Modbus Coils: %d-%d", _iot.getMBBaseAddress(IOTypes::DigitalOutputs), _iot.getMBBaseAddress(IOTypes::DigitalOutputs) + _digitalOutputCoils->coils());
+			sprintf(desc_buf, "Modbus Coils: %d-%d", _iot.getMBBaseAddress(IOTypes::DigitalOutputs), _iot.getMBBaseAddress(IOTypes::DigitalOutputs) + _digitalOutputCoils.coils());
 			page.replace("{digitalOutputDesc}", desc_buf);
-			for (int i = 0; i < _digitalOutputCoils->coils(); i++)
+			for (int i = 0; i < _digitalOutputCoils.coils(); i++)
 			{
 				s += "<div class='box' id=DO";
 				s += std::to_string(i);
@@ -71,9 +67,9 @@ void PLC::setup()
 			}
 			page.replace("{digitalOutputs}", s.c_str());
 			s.clear();
-			sprintf(desc_buf, "Modbus Input Registers: %d-%d", _iot.getMBBaseAddress(IOTypes::AnalogInputs), _iot.getMBBaseAddress(IOTypes::AnalogInputs) + _analogInputRegisters->size());
+			sprintf(desc_buf, "Modbus Input Registers: %d-%d", _iot.getMBBaseAddress(IOTypes::AnalogInputs), _iot.getMBBaseAddress(IOTypes::AnalogInputs) + _analogInputRegisters.size());
 			page.replace("{analogInputDesc}", desc_buf);
-			for (int i = 0; i < _analogInputRegisters->size(); i++)
+			for (int i = 0; i < _analogInputRegisters.size(); i++)
 			{
 				s += "<div class='box' id=AI";
 				s += std::to_string(i);
@@ -83,9 +79,9 @@ void PLC::setup()
 			}
 			page.replace("{analogInputs}", s.c_str());
 			s.clear();
-			sprintf(desc_buf, "Modbus Holding Registers: %d-%d", _iot.getMBBaseAddress(IOTypes::AnalogOutputs), _iot.getMBBaseAddress(IOTypes::AnalogOutputs) + _analogOutputRegisters->size());
+			sprintf(desc_buf, "Modbus Holding Registers: %d-%d", _iot.getMBBaseAddress(IOTypes::AnalogOutputs), _iot.getMBBaseAddress(IOTypes::AnalogOutputs) + _analogOutputRegisters.size());
 			page.replace("{analogOutputDesc}", desc_buf);
-			for (int i = 0; i < _analogOutputRegisters->size(); i++)
+			for (int i = 0; i < _analogOutputRegisters.size(); i++)
 			{
 				s += "<div class='box' id=AO";
 				s += std::to_string(i);
@@ -298,15 +294,15 @@ void PLC::Monitor()
 	#if DI_PINS > 0
 	for (int i = 0; i < DI_PINS; i++)
 	{
-		_digitalInputDiscretes->set(i, _DigitalSensors[i].Level());
+		_digitalInputDiscretes.set(i, _DigitalSensors[i].Level());
 	}
 	#endif
-	// transfer analog data from sensors to RegisterData
+	// transfer analog data from sensors to RegisterSet
 	#if AI_PINS > 0
 	for (int i = 0; i < AI_PINS; i++)
 	{
 		_AnalogSensors[i].Run();
-		_analogInputRegisters->set(i, _AnalogSensors[i].Level());
+		_analogInputRegisters.set(i, _AnalogSensors[i].Level());
 	}
 	#endif
 	unsigned long now = millis();
@@ -360,29 +356,29 @@ void PLC::Process()
 	{
 		JsonDocument doc;
 		doc.clear();
-		for (int i = 0; i < _digitalInputDiscretes->coils(); i++)
+		for (int i = 0; i < _digitalInputDiscretes.coils(); i++)
 		{
 			std::stringstream ss;
 			ss << "DI" << i;
-			doc[ss.str()] = (*_digitalInputDiscretes)[i] ? "High" : "Low";
+			doc[ss.str()] = _digitalInputDiscretes[i] ? "High" : "Low";
 		}
-		for (int i = 0; i < _analogInputRegisters->size(); i++)
+		for (int i = 0; i < _analogInputRegisters.size(); i++)
 		{
 			std::stringstream ss;
 			ss << "AI" << i;
-			doc[ss.str()] = (*_analogInputRegisters)[i];
+			doc[ss.str()] = _analogInputRegisters[i];
 		}
-		for (int i = 0; i < _digitalOutputCoils->coils(); i++)
+		for (int i = 0; i < _digitalOutputCoils.coils(); i++)
 		{
 			std::stringstream ss;
 			ss << "DO" << i;
-			doc[ss.str()] = (*_digitalOutputCoils)[i] ? "On" : "Off";
+			doc[ss.str()] = _digitalOutputCoils[i] ? "On" : "Off";
 		}
-		for (int i = 0; i < _analogOutputRegisters->size(); i++)
+		for (int i = 0; i < _analogOutputRegisters.size(); i++)
 		{
 			std::stringstream ss;
 			ss << "AO" << i;
-			doc[ss.str()] = (*_analogOutputRegisters)[i];
+			doc[ss.str()] = _analogOutputRegisters[i];
 		}
 		String s;
 		serializeJson(doc, s);
@@ -418,12 +414,12 @@ void PLC::onNetworkConnect()
 		request.get(4, words);
 		logd("READ_INPUT_REGISTER %d %d[%d]", request.getFunctionCode(), addr, words);
 		addr -= _iot.getMBBaseAddress(AnalogInputs);
-		if ((addr + words) <= _analogInputRegisters->size())
+		if ((addr + words) <= _analogInputRegisters.size())
 		{
 			response.add(request.getServerID(), request.getFunctionCode(), (uint8_t)(words * 2));
 			for (int i = addr; i < (addr + words); i++)
 			{
-				response.add((uint16_t)(*_analogInputRegisters)[i]);
+				response.add((uint16_t)_analogInputRegisters[i]);
 			}
 		}
 		else
@@ -443,9 +439,9 @@ void PLC::onNetworkConnect()
 		request.get(2, addr, numregs);
 		logd("READ_DISCR_INPUT FC%d %d[%d]", request.getFunctionCode(), addr, numregs);
 		addr -= _iot.getMBBaseAddress(DigitalInputs);
-		if ((addr + numregs) <= _digitalInputDiscretes->coils())
+		if ((addr + numregs) <= _digitalInputDiscretes.coils())
 		{
-			vector<uint8_t> discreteSet = _digitalInputDiscretes->slice(addr, numregs);
+			vector<uint8_t> discreteSet = _digitalInputDiscretes.slice(addr, numregs);
 			response.add(request.getServerID(), request.getFunctionCode(), (uint8_t)discreteSet.size(), discreteSet);
 		}
 		else
@@ -466,9 +462,9 @@ void PLC::onNetworkConnect()
 		logd("READ_COIL %d %d[%d]", request.getFunctionCode(), addr, numCoils);
 		// Address overflow?
 		addr -= _iot.getMBBaseAddress(DigitalOutputs);
-		if ((addr + numCoils) <= _digitalOutputCoils->coils())
+		if ((addr + numCoils) <= _digitalOutputCoils.coils())
 		{
-			vector<uint8_t> coilset = _digitalOutputCoils->slice(addr, numCoils);
+			vector<uint8_t> coilset = _digitalOutputCoils.slice(addr, numCoils);
 			response.add(request.getServerID(), request.getFunctionCode(), (uint8_t)coilset.size(), coilset);
 		}
 		else
@@ -490,12 +486,12 @@ void PLC::onNetworkConnect()
 		logd("WRITE_COIL %d %d:%d", request.getFunctionCode(), addr, state);
 		addr -= _iot.getMBBaseAddress(DigitalOutputs);
 		// Is the coil number within the range of the coils?
-		if (addr < _digitalOutputCoils->coils())
+		if (addr < _digitalOutputCoils.coils())
 		{
 			// Looks like it. Is the ON/OFF parameter correct?
 			if (state == 0x0000 || state == 0xFF00)
 			{
-				if (_digitalOutputCoils->set(addr, state))
+				if (_digitalOutputCoils.set(addr, state))
 				{
 					if (addr < DO_PINS)
 					{
@@ -563,7 +559,7 @@ void PLC::onNetworkConnect()
 		offset = request.get(offset, addr, numCoils, numBytes);
 		logd("WRITE_MULT_COILS %d %d[%d]", request.getFunctionCode(), addr, numCoils);
 		addr -= _iot.getMBBaseAddress(DigitalOutputs);
-		if ((addr + numCoils) <= _digitalOutputCoils->coils())
+		if ((addr + numCoils) <= _digitalOutputCoils.coils())
 		{
 			// Packed coils will fit in our storage
 			if (numBytes == ((numCoils - 1) >> 3) + 1)
@@ -573,16 +569,16 @@ void PLC::onNetworkConnect()
 				request.get(offset, coilset, numBytes);
 				logd("offset: %d coilset: %d numCoils: %d numBytes: %d addr: %d", offset, coilset.size(), numCoils, numBytes, addr);
 				// Now set the coils
-				if (_digitalOutputCoils->set(addr, numCoils, coilset))
+				if (_digitalOutputCoils.set(addr, numCoils, coilset))
 				{
 					#if DO_PINS > 0
 					// set native DO pins
 					for (int i = 0; i < DO_PINS; i++)
 					{
-						_Coils[i].Set((*_digitalOutputCoils)[i]);
+						_Coils[i].Set(_digitalOutputCoils[i]);
 					}
 					#endif
-					CoilData bridgeCoilset = _digitalOutputCoils->slice(DO_PINS, _coilCount); // bridge coils are forwarded to the modbus bridge
+					CoilSet bridgeCoilset = _digitalOutputCoils.slice(DO_PINS, _coilCount); // bridge coils are forwarded to the modbus bridge
 					ModbusMessage forward;
 					Error err = forward.setMessage(_coilID, request.getFunctionCode(), 0, bridgeCoilset.coils(), bridgeCoilset.size(), bridgeCoilset.data());
 					if (err == SUCCESS)
@@ -635,12 +631,12 @@ void PLC::onNetworkConnect()
 		request.get(4, words);
 		logd("READ_HOLD_REGISTER FC%d %d[%d]", request.getFunctionCode(), addr, words);
 		addr -= _iot.getMBBaseAddress(AnalogOutputs);
-		if ((addr + words) <= _analogOutputRegisters->size())
+		if ((addr + words) <= _analogOutputRegisters.size())
 		{
 			response.add(request.getServerID(), request.getFunctionCode(), (uint8_t)(words * 2));
 			for (int i = addr; i < (addr + words); i++)
 			{
-				response.add((uint16_t)(*_analogOutputRegisters)[i]);
+				response.add((uint16_t)_analogOutputRegisters[i]);
 			}
 		}
 		else
@@ -660,9 +656,9 @@ void PLC::onNetworkConnect()
 		request.get(2, addr, value);
 		logd("WRITE_HOLD_REGISTER FC%d %d[%d]", request.getFunctionCode(), addr, value);
 		addr -= _iot.getMBBaseAddress(AnalogOutputs);
-		if (addr < _analogOutputRegisters->size())
+		if (addr < _analogOutputRegisters.size())
 		{
-			if (_analogOutputRegisters->set(addr, value))
+			if (_analogOutputRegisters.set(addr, value))
 			{
 				if (addr < AO_PINS)
 				{
@@ -723,7 +719,7 @@ void PLC::onNetworkConnect()
 		offset = request.get(offset, addr, numRegs, numBytes);
 		logd("WRITE_MULT_REGISTERS %d %d[%d] (%d bytes)", request.getFunctionCode(), addr, numRegs, numBytes);
 		addr -= _iot.getMBBaseAddress(AnalogOutputs);
-		if (addr < _analogOutputRegisters->size())
+		if (addr < _analogOutputRegisters.size())
 		{
 			if (numRegs == numBytes / 2)
 			{
@@ -737,7 +733,8 @@ void PLC::onNetworkConnect()
 				for (size_t i = 0; i < regset.size(); i += 2)
 				{
 					uint16_t value = static_cast<uint16_t>(input[i + 1]) | (static_cast<uint16_t>(input[i]) << 8);
-					rVal = _analogOutputRegisters->set(index++, value);
+					logd("value[%d](%d): %d", index, i, value);
+					rVal = _analogOutputRegisters.set(index++, value);
 					if (!rVal)
 					{
 						break; // some went wrong
@@ -745,14 +742,14 @@ void PLC::onNetworkConnect()
 				}
 				if (rVal)
 				{
-#if AO_PINS > 0
+					#if AO_PINS > 0
 					// set native AO pins
 					for (int i = 0; i < AO_PINS; i++)
 					{
-						_PWMOutputs[i].Set((*_analogOutputRegisters)[i]);
+						_PWMOutputs[i].Set(_analogOutputRegisters[i]);
 					}
-#endif
-					RegisterData bridgeRegset = _analogOutputRegisters->slice(AO_PINS, numRegs); // bridge registers are forwarded to the modbus bridge
+					#endif
+					RegisterSet bridgeRegset = _analogOutputRegisters.slice(AO_PINS, numRegs); // bridge registers are forwarded to the modbus bridge
 					ModbusMessage forward;
 					Error err = forward.setMessage(_holdingID, request.getFunctionCode(), 0, bridgeRegset.size(), bridgeRegset.size() * 2, bridgeRegset.data());
 					if (err == SUCCESS)
@@ -812,24 +809,23 @@ bool PLC::onModbusMessage(ModbusMessage &msg)
 	switch (msg.getFunctionCode())
 	{
 	case READ_DISCR_INPUT:
-		rval = _digitalInputDiscretes->set(DI_PINS, _discreteCount, (uint8_t *)msg.data() + 3);
+		rval = _digitalInputDiscretes.set(DI_PINS, _discreteCount, (uint8_t *)msg.data() + 3);
 		break;
 	case READ_HOLD_REGISTER:
 	//ToDo verify holding registers have the same value as _analogOutputRegisters
-		// rval = _digitalInputDiscretes->set(AO_PINS, _holdingCount, (uint8_t *)msg.data() + 3);
+		// rval = _digitalInputDiscretes.set(AO_PINS, _holdingCount, (uint8_t *)msg.data() + 3);
 		break;
 	case READ_COIL:
 	//ToDo verify coils have the same value as _digitalOutputCoils
-		// rval = _digitalOutputCoils->set(DO_PINS, _coilCount, (uint8_t *)msg.data() + 3);
+		// rval = _digitalOutputCoils.set(DO_PINS, _coilCount, (uint8_t *)msg.data() + 3);
 		break;
 	case READ_INPUT_REGISTER:
 		uint16_t offs = 3; // First value is on pos 3, after server ID, function code and length byte
 		uint16_t values[_inputCount];
 		for (uint8_t i = 0; i < _inputCount; ++i) {
 			offs = msg.get(offs, values[i]);
-			logd("READ_INPUT_REGISTER [%d] %d", i, values[i]);
 		}
-		rval = _analogInputRegisters->set(AI_PINS, _inputCount, values);
+		rval = _analogInputRegisters.set(AI_PINS, _inputCount, values);
 		break;
 	}
 	return rval;
@@ -861,7 +857,7 @@ void PLC::onMqttConnect()
 
 		JsonObject components = doc["components"].to<JsonObject>();
 
-		for (int i = 0; i < _digitalInputDiscretes->coils(); i++)
+		for (int i = 0; i < _digitalInputDiscretes.coils(); i++)
 		{
 			std::stringstream ss;
 			ss << "DI" << i;
@@ -876,7 +872,7 @@ void PLC::onMqttConnect()
 			din["value_template"] = buffer;
 			din["icon"] = "mdi:switch";
 		}
-		for (int i = 0; i < _digitalOutputCoils->coils(); i++)
+		for (int i = 0; i < _digitalOutputCoils.coils(); i++)
 		{
 			std::stringstream ss;
 			ss << "DO" << i;
@@ -892,7 +888,7 @@ void PLC::onMqttConnect()
 			dout["value_template"] = buffer;
 			dout["icon"] = "mdi:valve";
 		}
-		for (int i = 0; i < _analogInputRegisters->size(); i++)
+		for (int i = 0; i < _analogInputRegisters.size(); i++)
 		{
 			std::stringstream ss;
 			ss << "AI" << i;
@@ -906,7 +902,7 @@ void PLC::onMqttConnect()
 			ain["value_template"] = buffer;
 			ain["icon"] = "mdi:lightning-bolt";
 		}
-		for (int i = 0; i < _analogOutputRegisters->size(); i++)
+		for (int i = 0; i < _analogOutputRegisters.size(); i++)
 		{
 			std::stringstream ss;
 			ss << "AO" << i;
@@ -957,13 +953,13 @@ void PLC::onMqttMessage(char *topic, char *payload)
 					input.toLowerCase();
 					if (input == "on" || input == "high" || input == "1")
 					{
-						_digitalOutputCoils->set(i, true);
+						_digitalOutputCoils.set(i, true);
 						_Coils[i].Set(HIGH);
 						logi("Write Coil %d HIGH", i);
 					}
 					else if (input == "off" || input == "low" || input == "0")
 					{
-						_digitalOutputCoils->set(i, false);
+						_digitalOutputCoils.set(i, false);
 						_Coils[i].Set(LOW);
 						logi("Write Coil %d LOW", i);
 					}

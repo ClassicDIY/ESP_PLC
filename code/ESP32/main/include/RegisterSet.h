@@ -5,26 +5,28 @@
 
 using std::vector;
 
-// registerData: representing Modbus register values
-class RegisterData
+// RegisterSet: representing Modbus register values
+class RegisterSet
 {
 public:
     // Maximum size is 250 registers
-    explicit RegisterData(uint16_t size = 0, uint16_t initValue = 0);
+    RegisterSet();
 
     // Destructor: take care of cleaning up
-    ~RegisterData();
+    ~RegisterSet();
+
+    void Init(uint16_t size, uint16_t initValue = 0);
 
     // Comparison operators
-    bool operator==(const RegisterData &m);
+    bool operator==(const RegisterSet &m);
 
     // If used as vector<uint16_t>, return the complete set
     operator vector<uint16_t> const();
 
-    // slice: return a new registerData object with registers shifted leftmost
+    // slice: return a new RegisterSet object with registers shifted leftmost
     // will return empty set if illegal parameters are detected
     // Default start is first register, default length all to the end
-    RegisterData slice(uint16_t start = 0, uint16_t length = 0);
+    RegisterSet slice(uint16_t start = 0, uint16_t length = 0);
 
     // operator[]: return value of a single register
     uint16_t operator[](uint16_t index) const;
@@ -47,6 +49,6 @@ public:
     uint16_t *data();
 
 // protected:
-    uint16_t RDsize;    // Size of the registerData store in bits
+    uint16_t RDsize = 0; // Size of the RegisterSet store in bits
     uint16_t *RDbuffer; // Pointer to bit storage
 };

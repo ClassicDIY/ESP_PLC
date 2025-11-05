@@ -6,8 +6,8 @@
 #include <ESPAsyncWebServer.h>
 #include <ModbusServerTCPasync.h>
 #include "Defines.h"
-#include "CoilData.h"
-#include "RegisterData.h"
+#include "CoilSet.h"
+#include "RegisterSet.h"
 #include "AnalogSensor.h"
 #include "DigitalSensor.h"
 #include "PWMOutput.h"
@@ -64,10 +64,10 @@ namespace CLASSICDIY
 		PWMOutput _PWMOutputs[AO_PINS] = {};
 		#endif
 
-		CoilData* _digitalOutputCoils = nullptr;
-		CoilData* _digitalInputDiscretes = nullptr;
-		RegisterData* _analogOutputRegisters = nullptr;
-		RegisterData* _analogInputRegisters = nullptr;
+		CoilSet _digitalOutputCoils;
+		CoilSet _digitalInputDiscretes;
+		RegisterSet _analogOutputRegisters;
+		RegisterSet _analogInputRegisters;
 
 		// Modbus Bridge settings
 		uint8_t _inputID = 0;

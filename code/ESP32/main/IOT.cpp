@@ -679,7 +679,7 @@ namespace CLASSICDIY
 						});
 						_MBclientRTU.onErrorHandler([this](Modbus::Error mbError, uint32_t token)
 						{
-							logv("Modbus RTU (Token: %d) Error response: %02X - %s", token, (int)mbError, (const char *)ModbusError(mbError));
+							logd("Modbus RTU (Token: %d) Error response: %02X - %s", token, (int)mbError, (const char *)ModbusError(mbError));
 							return true;
 						});
 					}
@@ -691,7 +691,6 @@ namespace CLASSICDIY
 					_MBRTUserver.useModbusRTU();
 					logd("Modbus RTU started");					
 				}
-
 			}
 			logd("Before xTimerStart _NetworkSelection: %d", _NetworkSelection);
 			xTimerStart(mqttReconnectTimer, 0);
@@ -1090,6 +1089,7 @@ namespace CLASSICDIY
 			{
 				mbError = REQUEST_QUEUE_FULL;
 			}
+			delay(100);
 		}
 		#endif
 		return mbError;

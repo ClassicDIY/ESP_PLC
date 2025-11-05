@@ -100,8 +100,8 @@ esp_err_t Main::setup()
 
 void Main::loop()
 {
-	// _plc.Process();
 	_controller.run();
+	delay(10);
 }
 
 extern "C" void app_main(void)

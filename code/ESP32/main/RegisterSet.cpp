@@ -1,12 +1,29 @@
 #include "Log.h"
 #include "Defines.h"
-#include "RegisterData.h"
+#include "RegisterSet.h"
 
 // Constructor:
 // Maximum size is 255
-RegisterData::RegisterData(uint16_t size, uint16_t initValue) : RDsize(0), RDbuffer(nullptr)
+RegisterSet::RegisterSet() : RDsize(0), RDbuffer(nullptr)
 {
-  logd("RegisterData constructor");
+}
+
+// Destructor: take care of cleaning up
+RegisterSet::~RegisterSet()
+{
+  if (RDsize > 0)
+  {
+    if (RDbuffer != nullptr)
+    {
+      delete RDbuffer;
+      RDbuffer = nullptr;
+      RDsize = 0;
+    }
+  }
+}
+
+void RegisterSet::Init(uint16_t size, uint16_t initValue)
+{
   // Limit the size to 255
   if (size > 255)
     size = 255;
@@ -22,18 +39,8 @@ RegisterData::RegisterData(uint16_t size, uint16_t initValue) : RDsize(0), RDbuf
   }
 }
 
-// Destructor: take care of cleaning up
-RegisterData::~RegisterData()
-{
-  logd("RegisterData destructor");
-  if (RDbuffer)
-  {
-    delete RDbuffer;
-  }
-}
-
 // Comparison operators
-bool RegisterData::operator==(const RegisterData &m)
+bool RegisterSet::operator==(const RegisterSet &m)
 {
   // Self-compare is always true
   if (this == &m)
@@ -48,7 +55,7 @@ bool RegisterData::operator==(const RegisterData &m)
 }
 
 // If used as vector<uint16_t>, return a complete slice
-RegisterData::operator vector<uint16_t> const()
+RegisterSet::operator vector<uint16_t> const()
 {
   // Create new vector to return
   vector<uint16_t> retval;
@@ -61,16 +68,16 @@ RegisterData::operator vector<uint16_t> const()
   return retval;
 }
 
-uint16_t *RegisterData::data()
+uint16_t *RegisterSet::data()
 {
   return RDbuffer;
 }
 
-// slice: return a subset RegisterData object
+// slice: return a subset RegisterSet object
 // will return empty object if illegal parameters are detected
-RegisterData RegisterData::slice(uint16_t start, uint16_t length)
+RegisterSet RegisterSet::slice(uint16_t start, uint16_t length)
 {
-  RegisterData retval;
+  RegisterSet retval;
 
   // Any slice of an empty registerset is an empty registerset ;)
   if (RDsize == 0)
@@ -88,7 +95,7 @@ RegisterData RegisterData::slice(uint16_t start, uint16_t length)
   if ((start + length) <= RDsize)
   {
     // Yes, it does. Extend return object
-    retval = RegisterData(length);
+    retval.Init(length);
 
     // Loop over all requested registers
     for (uint16_t i = start; i < start + length; ++i)
@@ -100,7 +107,7 @@ RegisterData RegisterData::slice(uint16_t start, uint16_t length)
 }
 
 // operator[]: return value of a single register
-uint16_t RegisterData::operator[](uint16_t index) const
+uint16_t RegisterSet::operator[](uint16_t index) const
 {
   if (index < RDsize)
   {
@@ -111,7 +118,7 @@ uint16_t RegisterData::operator[](uint16_t index) const
 }
 
 // set #1: alter one single register
-bool RegisterData::set(uint16_t index, uint16_t value)
+bool RegisterSet::set(uint16_t index, uint16_t value)
 {
   // Within coils?
   if (index < RDsize)
@@ -124,7 +131,7 @@ bool RegisterData::set(uint16_t index, uint16_t value)
 }
 
 // set #2: alter a group of registers
-bool RegisterData::set(uint16_t start, uint16_t length, vector<uint16_t> newValue)
+bool RegisterSet::set(uint16_t start, uint16_t length, vector<uint16_t> newValue)
 {
   // Does the vector contain enough data for the specified size?
   if (newValue.size() >= (size_t)RDsize)
@@ -136,7 +143,7 @@ bool RegisterData::set(uint16_t start, uint16_t length, vector<uint16_t> newValu
 }
 
 // set #3: alter a group of registers
-bool RegisterData::set(uint16_t start, uint16_t length, uint16_t *newValue)
+bool RegisterSet::set(uint16_t start, uint16_t length, uint16_t *newValue)
 {
   // Does the requested slice fit in the buffer?
   if ((start + length) <= RDsize)
