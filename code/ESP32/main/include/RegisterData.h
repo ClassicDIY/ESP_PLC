@@ -15,15 +15,8 @@ public:
     // Destructor: take care of cleaning up
     ~RegisterData();
 
-    // Assignment operator
-    RegisterData& operator=(const RegisterData& m);
-
-    // Copy constructor
-    RegisterData(const RegisterData &m);
-
     // Comparison operators
     bool operator==(const RegisterData &m);
-    bool operator!=(const RegisterData &m);
 
     // If used as vector<uint16_t>, return the complete set
     operator vector<uint16_t> const();
@@ -47,10 +40,6 @@ public:
 
     // set #3: alter a group of registers, overwriting it by the bits from unit8_t buffer newValue
     bool set(uint16_t index, uint16_t length, uint16_t *newValue);
-
-    // set #4: alter a group of registers, overwriting it by the registers in another registerData object
-    // Setting stops when either target storage or source registers are exhausted
-    bool set(uint16_t index, const RegisterData &c);
 
     // get size in registers
     inline uint16_t size() const { return RDsize; }
