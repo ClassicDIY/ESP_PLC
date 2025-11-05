@@ -43,8 +43,7 @@ namespace CLASSICDIY
 	private:
 		boolean _discoveryPublished = false;
 		String _lastMessagePublished;
-		unsigned long _lastPublishTimeStamp = 0;
-
+		unsigned long _lastModbusPollTime = 0;
 		#ifdef EDGEBOX
 		Coil _Coils[DO_PINS] = {DO0, DO1, DO2, DO3, DO4, DO5};
 		DigitalSensor _DigitalSensors[DI_PINS] = {DI0, DI1, DI2, DI3};

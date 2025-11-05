@@ -17,6 +17,7 @@ namespace CLASSICDIY
 
 	PLC::~PLC()
 	{
+		logd("PLC destructor");
 		delete _digitalOutputCoils;
 		delete _digitalInputDiscretes;
 		delete _analogOutputRegisters;
@@ -308,40 +309,45 @@ void PLC::Monitor()
 		_analogInputRegisters->set(i, _AnalogSensors[i].Level());
 	}
 	#endif
-	if (_iot.getNetworkState() == OnLine && _iot.ModbusBridgeEnabled())
+	unsigned long now = millis();
+	if (MODBUS_POLL_RATE < now - _lastModbusPollTime)
 	{
-		if (_discreteCount > 0)
+		_lastModbusPollTime = now;
+		if (_iot.getNetworkState() == OnLine && _iot.ModbusBridgeEnabled())
 		{
-			ModbusMessage forward;
-			uint8_t err = forward.setMessage(_discreteID, READ_DISCR_INPUT, _discreteAddress, _discreteCount);
-			if (err == SUCCESS)
+			if (_discreteCount > 0)
 			{
-				Modbus::Error error = _iot.SendToModbusBridgeAsync(forward);
-				if (error != SUCCESS)
+				ModbusMessage forward;
+				uint8_t err = forward.setMessage(_discreteID, READ_DISCR_INPUT, _discreteAddress, _discreteCount);
+				if (err == SUCCESS)
 				{
-					logd("Error forwarding FC02 to modbus bridge device Id:%d Error: %02X - %s", _discreteID, error, (const char *)ModbusError(error));
+					Modbus::Error error = _iot.SendToModbusBridgeAsync(forward);
+					if (error != SUCCESS)
+					{
+						logd("Error forwarding FC02 to modbus bridge device Id:%d Error: %02X - %s", _discreteID, error, (const char *)ModbusError(error));
+					}
+				}
+				else
+				{
+					loge("poll discrete error: 0X%x", err);
 				}
 			}
-			else
+			if (_inputCount > 0)
 			{
-				loge("poll discrete error: 0X%x", err);
-			}
-		}
-		if (_inputCount > 0)
-		{
-			ModbusMessage forward;
-			uint8_t err = forward.setMessage(_inputID, READ_INPUT_REGISTER, _inputAddress, _inputCount);
-			if (err == SUCCESS)
-			{
-				Modbus::Error error = _iot.SendToModbusBridgeAsync(forward);
-				if (error != SUCCESS)
+				ModbusMessage forward;
+				uint8_t err = forward.setMessage(_inputID, READ_INPUT_REGISTER, _inputAddress, _inputCount);
+				if (err == SUCCESS)
 				{
-					logd("Error forwarding FC03 to modbus bridge device Id:%d Error: %02X - %s", _inputID, error, (const char *)ModbusError(error));
+					Modbus::Error error = _iot.SendToModbusBridgeAsync(forward);
+					if (error != SUCCESS)
+					{
+						logd("Error forwarding FC03 to modbus bridge device Id:%d Error: %02X - %s", _inputID, error, (const char *)ModbusError(error));
+					}
 				}
-			}
-			else
-			{
-				loge("poll holding error: 0X%x", err);
+				else
+				{
+					loge("poll holding error: 0X%x", err);
+				}
 			}
 		}
 	}
@@ -809,21 +815,21 @@ bool PLC::onModbusMessage(ModbusMessage &msg)
 		rval = _digitalInputDiscretes->set(DI_PINS, _discreteCount, (uint8_t *)msg.data() + 3);
 		break;
 	case READ_HOLD_REGISTER:
+	//ToDo verify holding registers have the same value as _analogOutputRegisters
 		// rval = _digitalInputDiscretes->set(AO_PINS, _holdingCount, (uint8_t *)msg.data() + 3);
 		break;
 	case READ_COIL:
-		rval = _digitalOutputCoils->set(DO_PINS, _coilCount, (uint8_t *)msg.data() + 3);
+	//ToDo verify coils have the same value as _digitalOutputCoils
+		// rval = _digitalOutputCoils->set(DO_PINS, _coilCount, (uint8_t *)msg.data() + 3);
 		break;
 	case READ_INPUT_REGISTER:
-		std::vector<uint16_t> output;
-		output.reserve(_inputCount);
-		uint8_t *input = (uint8_t *)msg.data() + 3;
-		for (size_t i = 0; i < msg.size(); i += 2)
-		{
-			uint16_t value = static_cast<uint16_t>(input[i]) | (static_cast<uint16_t>(input[i + 1]) << 8);
-			output.push_back(value);
+		uint16_t offs = 3; // First value is on pos 3, after server ID, function code and length byte
+		uint16_t values[_inputCount];
+		for (uint8_t i = 0; i < _inputCount; ++i) {
+			offs = msg.get(offs, values[i]);
+			logd("READ_INPUT_REGISTER [%d] %d", i, values[i]);
 		}
-		rval = _analogInputRegisters->set(AI_PINS, _inputCount, output);
+		rval = _analogInputRegisters->set(AI_PINS, _inputCount, values);
 		break;
 	}
 	return rval;
@@ -933,7 +939,7 @@ void PLC::onMqttMessage(char *topic, char *payload)
 	std::string fullPath = topic;
 	if (strncmp(topic, cmnd.c_str(), cmnd.length()) == 0)
 	{
-		// ToDo handle analog output
+		// ToDo handle analog output aka holding registers
 		// Handle set commands
 		size_t lastSlash = fullPath.find_last_of('/');
 		std::string dout;
@@ -941,7 +947,7 @@ void PLC::onMqttMessage(char *topic, char *payload)
 		{
 			dout = fullPath.substr(lastSlash + 1);
 			logd("coil: %s: ", dout.c_str());
-			for (int i = 0; i < DO_PINS; i++) // ToDo
+			for (int i = 0; i < DO_PINS; i++) // ToDo forward to bridge coils
 			{
 				std::stringstream ss;
 				ss << "DO" << i;

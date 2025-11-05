@@ -10,6 +10,7 @@
 #define EEPROM_SIZE 2048
 #define AP_BLINK_RATE 600
 #define NC_BLINK_RATE 100
+#define MODBUS_POLL_RATE 1000
 #define AP_TIMEOUT 1000
 // #define AP_TIMEOUT 30000 //set back to 1000 in production
 #define FLASHER_TIMEOUT 10000
