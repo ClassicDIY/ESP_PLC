@@ -19,7 +19,8 @@ namespace CLASSICDIY
 	class PLC : public IOTCallbackInterface
 	{
 	public:
-		PLC() {};
+		PLC();
+		~PLC();
 		void setup();
 		void CleanUp();
 		void Monitor();
@@ -64,10 +65,10 @@ namespace CLASSICDIY
 		PWMOutput _PWMOutputs[AO_PINS] = {};
 		#endif
 
-		CoilData* _digitalOutputCoils;
-		CoilData* _digitalInputDiscretes;
-		RegisterData* _analogOutputRegisters;
-		RegisterData* _analogInputRegisters;
+		CoilData* _digitalOutputCoils = nullptr;
+		CoilData* _digitalInputDiscretes = nullptr;
+		RegisterData* _analogOutputRegisters = nullptr;
+		RegisterData* _analogInputRegisters = nullptr;
 
 		// Modbus Bridge settings
 		uint8_t _inputID = 0;

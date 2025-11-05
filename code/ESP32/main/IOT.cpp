@@ -1095,21 +1095,6 @@ namespace CLASSICDIY
 		return mbError;
 	}
 
-	ModbusMessage IOT::SendToModbusBridgeSync(ModbusMessage request)
-	{
-		#ifdef HasRS485
-		if (ModbusBridgeEnabled())
-		{
-			uint32_t token = nextToken();
-			logd("ForwardToModbusBridge token: %08X", token);
-			return _MBclientRTU.syncRequest(request, token);
-		}
-		#endif
-		ModbusMessage response;
-		response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_ADDRESS);
-		return response;
-	}
-
 	uint16_t IOT::getMBBaseAddress(IOTypes type)
 	{
 		switch(type)

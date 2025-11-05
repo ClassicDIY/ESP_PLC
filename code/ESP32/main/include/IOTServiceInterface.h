@@ -24,6 +24,5 @@ public:
     virtual boolean ModbusBridgeEnabled() = 0;
     virtual void registerMBTCPWorkers(FunctionCode fc, MBSworker worker) = 0;
     virtual Modbus::Error SendToModbusBridgeAsync(ModbusMessage& request);
-    virtual ModbusMessage SendToModbusBridgeSync(ModbusMessage request);
 };
 } // namespace CLASSICDIY

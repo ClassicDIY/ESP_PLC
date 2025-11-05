@@ -45,7 +45,6 @@ namespace CLASSICDIY
         boolean ModbusBridgeEnabled();
         void registerMBTCPWorkers(FunctionCode fc, MBSworker worker);
         Modbus::Error SendToModbusBridgeAsync(ModbusMessage& request);
-        ModbusMessage SendToModbusBridgeSync(ModbusMessage request);
         uint16_t getMBBaseAddress(IOTypes type);
 
     private:
