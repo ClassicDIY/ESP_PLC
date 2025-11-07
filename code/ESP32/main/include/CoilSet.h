@@ -14,6 +14,7 @@ public:
   void Init(uint16_t size, bool initValue = false);
 
   bool operator==(const CoilSet& m);
+  bool operator!=(const CoilSet& m);
 
   // If used as vector<uint8_t>, return the complete set
   operator vector<uint8_t> const ();

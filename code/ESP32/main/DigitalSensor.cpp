@@ -7,7 +7,7 @@ namespace CLASSICDIY
 	DigitalSensor::DigitalSensor(int sensorPin)
 	{
 		_sensorPin = sensorPin;
-		pinMode(sensorPin, INPUT_PULLUP);
+		pinMode(sensorPin, INPUT);
 	}
 
 	DigitalSensor::~DigitalSensor()
@@ -22,7 +22,6 @@ namespace CLASSICDIY
 		return formattedString;
 	}
 
-	// level in 0 -> 100% range
 	bool DigitalSensor::Level()
 	{
 		return (bool)digitalRead(_sensorPin);

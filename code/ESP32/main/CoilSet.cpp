@@ -47,6 +47,11 @@ bool CoilSet::operator==(const CoilSet& m) {
   return true;
 }
 
+// Inequality: invert the result of the equality comparison
+bool CoilSet::operator!=(const CoilSet& m) {
+  return !(*this == m);
+}
+
 // If used as vector<uint8_t>, return a complete slice
 CoilSet::operator vector<uint8_t> const () {
   // Create new vector to return

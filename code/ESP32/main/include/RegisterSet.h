@@ -19,6 +19,7 @@ public:
 
     // Comparison operators
     bool operator==(const RegisterSet &m);
+    bool operator!=(const RegisterSet &m);
 
     // If used as vector<uint16_t>, return the complete set
     operator vector<uint16_t> const();
@@ -40,8 +41,11 @@ public:
     // set #2: alter a group of registers, overwriting it by the uint16_t from newValue
     bool set(uint16_t index, uint16_t length, vector<uint16_t> newValue);
 
-    // set #3: alter a group of registers, overwriting it by the bits from unit8_t buffer newValue
+    // set #3: alter a group of registers, overwriting it by the array of words
     bool set(uint16_t index, uint16_t length, uint16_t *newValue);
+
+     // set #4: alter a group of registers, overwriting it by the array of byte
+    bool set(uint16_t index, uint16_t length, uint8_t *data);
 
     // get size in registers
     inline uint16_t size() const { return RDsize; }

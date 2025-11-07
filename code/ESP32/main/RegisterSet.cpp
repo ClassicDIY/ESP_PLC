@@ -54,6 +54,11 @@ bool RegisterSet::operator==(const RegisterSet &m)
   return true;
 }
 
+// Inequality: invert the result of the equality comparison
+bool RegisterSet::operator!=(const RegisterSet& m) {
+  return !(*this == m);
+}
+
 // If used as vector<uint16_t>, return a complete slice
 RegisterSet::operator vector<uint16_t> const()
 {
@@ -151,10 +156,32 @@ bool RegisterSet::set(uint16_t start, uint16_t length, uint16_t *newValue)
     // Yes, it does.
     // Prepare pointers to the source byte and the bit within
     uint16_t *cp = newValue;
-    // Loop over all bits to be set
+    // Loop over all words to be set
     for (uint16_t i = start; i < start + length; i++)
     {
       RDbuffer[i] = *cp++;
+    }
+    return true;
+  }
+  return false;
+}
+
+// set #4: alter a group of registers
+bool RegisterSet::set(uint16_t start, uint16_t length, uint8_t *newValue)
+{
+  // Does the requested slice fit in the buffer?
+  if ((start + length) <= RDsize)
+  {
+    // Yes, it does.
+    // Prepare pointers to the source byte and the bit within
+    uint8_t *bp = newValue;
+    // Loop over all bytes to be set
+    uint16_t j = start * 2;
+    for (uint16_t i = start; i < start + length; i++)
+    {
+      uint16_t value = static_cast<uint16_t>(bp[j + 1]) | (static_cast<uint16_t>(bp[j]) << 8);
+      RDbuffer[i] = value;
+       j += 2;
     }
     return true;
   }
