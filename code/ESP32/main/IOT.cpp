@@ -153,6 +153,11 @@ namespace CLASSICDIY
 		_uniqueId += chipid[4] << 8;
 		_uniqueId += chipid[5];
 		_lastBootTimeStamp = millis();
+		_pwebServer->on("/reboot", [this](AsyncWebServerRequest *request)
+		{ 
+			RedirectToHome(request);
+			_needToReboot = true;
+		});
 		_pwebServer->onNotFound([this](AsyncWebServerRequest *request)
 		{
 			RedirectToHome(request); 
@@ -338,9 +343,8 @@ namespace CLASSICDIY
 				_modbusClientStopBits = sel == "1" ? UART_STOP_BITS_1 : UART_STOP_BITS_2;
 			}
 			_iotCB->onSubmitForm(request);
-			saveSettings(); 
-			delay(3000);
-			esp_restart(); 
+			RedirectToHome(request);
+			saveSettings();
 		});
 	}
 
@@ -363,6 +367,7 @@ namespace CLASSICDIY
 			if (ch == '\0')
 				break; // Stop at the null terminator
 			jsonString += ch;
+			_settingsChecksum += ch;
 		}
 		logd("Settings JSON: " );
 		ets_printf("%s\r\n", jsonString.c_str());
@@ -456,13 +461,19 @@ namespace CLASSICDIY
 		String jsonString;
 		serializeJson(doc, jsonString);
 		// Serial.println(jsonString.c_str());
+		uint32_t sum = 0;
 		for (int i = 0; i < jsonString.length(); ++i)
 		{
-			EEPROM.write(i, jsonString[i]);
+			int8_t byte = jsonString[i];
+			EEPROM.write(i, byte);
+			sum += byte;
 		}
+
 		EEPROM.write(jsonString.length(), '\0'); // Null-terminate the string
 		EEPROM.commit();
 		logd("JSON saved, required EEPROM size: %d", jsonString.length());
+		_needToReboot = _settingsChecksum != sum;
+		if (_needToReboot) logd("******* Need to reboot! ***");
 	}
 
 	void IOT::Run()
@@ -535,7 +546,7 @@ namespace CLASSICDIY
 			{
 				// -- Network not available, fall back to AP mode.
 				logw("Giving up on Network connection.");
-				WiFi.disconnect(true);
+				WiFi.disconnect();
 				setState(ApState);
 			}
 		}
@@ -584,6 +595,12 @@ namespace CLASSICDIY
 		}
 #endif
 
+		if (_needToReboot)
+		{
+			GoOffline();
+			delay(500);
+			esp_restart();
+		}
 		vTaskDelay(pdMS_TO_TICKS(20));
 		return;
 	}
@@ -721,17 +738,37 @@ namespace CLASSICDIY
 		switch (newState)
 		{
 		case OffLine:
-			WiFi.disconnect(true);
-			WiFi.mode(WIFI_OFF);
-			DisconnectModem();
-			DisconnectEthernet();
+			if (_NetworkSelection == WiFiMode)
+			{
+				WiFi.disconnect(true);  // true = erase WiFi credentials
+				WiFi.mode(WIFI_OFF);    // disable Wi-Fi hardware
+			}
+			else if (_NetworkSelection == EthernetMode)
+			{
+				DisconnectEthernet();
+			}
+			else if (_NetworkSelection == ModemMode)
+			{
+				DisconnectModem();
+			}
+			delay(100);
 			break;
 		case ApState:
 			if ((oldState == Connecting) || (oldState == OnLine))
 			{
-				WiFi.disconnect(true);
-				DisconnectModem();
-				DisconnectEthernet();
+				if (_NetworkSelection == WiFiMode)
+				{
+					WiFi.disconnect(true);  // true = erase WiFi credentials
+				}
+				else if (_NetworkSelection == EthernetMode)
+				{
+					DisconnectEthernet();
+				}
+				else if (_NetworkSelection == ModemMode)
+				{
+					DisconnectModem();
+				}
+				delay(100);
 			}
 			WiFi.mode(WIFI_AP);
 			if (WiFi.softAP(_AP_SSID, _AP_Password))

@@ -72,6 +72,8 @@ namespace CLASSICDIY
         uint16_t _mqttPort = 1883;
         String _mqttUserName;
         String _mqttUserPassword;
+        uint32_t _settingsChecksum = 0;
+        bool _needToReboot = false;
         bool _useModbus = false;
         ModbusMode _ModbusMode = TCP;
         uint16_t _modbusPort = 502;
