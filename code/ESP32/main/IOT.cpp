@@ -153,14 +153,6 @@ namespace CLASSICDIY
 		_uniqueId += chipid[4] << 8;
 		_uniqueId += chipid[5];
 		_lastBootTimeStamp = millis();
-		_pwebServer->on("/reboot", [this](AsyncWebServerRequest *request)
-		{ 
-			logd("resetModule");
-			String page = reboot_html;
-			request->send(200, "text/html", page.c_str());
-			delay(3000);
-			esp_restart(); 
-		});
 		_pwebServer->onNotFound([this](AsyncWebServerRequest *request)
 		{
 			RedirectToHome(request); 
@@ -347,7 +339,8 @@ namespace CLASSICDIY
 			}
 			_iotCB->onSubmitForm(request);
 			saveSettings(); 
-			RedirectToHome(request);
+			delay(3000);
+			esp_restart(); 
 		});
 	}
 

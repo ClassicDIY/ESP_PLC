@@ -17,15 +17,6 @@ const char* redirect_html PROGMEM = R"rawliteral(
     </html>
 )rawliteral";
 
-const char reboot_html[] PROGMEM = R"rawliteral(
-    <!DOCTYPE html><html lang=\"en\"><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, user-scalable=no\"/>
-    <title>ESP32 Reboot</title>
-    </head><body>
-    <h1>Rebooting ESP32</h1>
-    <a href='/'>Return home after reboot has completed.</a>
-    </body></html>
-)rawliteral";
-
 const char update_html[] PROGMEM = R"rawliteral(
     <!DOCTYPE html><html lang=\"en\"><head><meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
     <title>Firmware Update</title>
@@ -308,7 +299,6 @@ const char network_config_links[] PROGMEM = R"rawliteral(
         <div class="link-row">
           <a href='/'>Home page</a>
           <a href='/update'>Firmware update</a>
-          <a href='/reboot'>Reboot</a>
         </div>
     </div></div>
     </body></html>
@@ -317,7 +307,6 @@ const char network_config_links[] PROGMEM = R"rawliteral(
 const char network_config_links_no_ota[] PROGMEM = R"rawliteral(
         <div class="link-row">
           <a href='/'>Home page</a>  
-          <a href='/reboot'>Reboot</a>
         </div>
     </div></div>
     </body></html>
