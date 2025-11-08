@@ -1302,18 +1302,6 @@ namespace CLASSICDIY
 		return rVal;
 	}
 
-	boolean IOT::PublishHADiscovery(JsonDocument &payload)
-	{
-		boolean rVal = false;
-		if (_mqtt_client_handle != 0)
-		{
-			char topic[64];
-			sprintf(topic, "%s/device/%s_%X/config", HOME_ASSISTANT_PREFIX, TAG, getUniqueId());
-			rVal = PublishMessage(topic, payload, true);
-		}
-		return rVal;
-	}
-
 	std::string IOT::getRootTopicPrefix()
 	{
 		std::string s(_rootTopicPrefix);

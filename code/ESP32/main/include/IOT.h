@@ -38,7 +38,6 @@ namespace CLASSICDIY
         boolean Publish(const char *subtopic, JsonDocument &payload, boolean retained = false);
         boolean Publish(const char *subtopic, float value, boolean retained = false);
         boolean PublishMessage(const char *topic, JsonDocument &payload, boolean retained);
-        boolean PublishHADiscovery(JsonDocument &payload);
         void PublishOnline();
 
         // Modbus

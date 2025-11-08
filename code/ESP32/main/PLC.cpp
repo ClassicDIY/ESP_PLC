@@ -900,93 +900,96 @@ namespace CLASSICDIY
 	{
 		if (ReadyToPublish())
 		{
-			logd("Publishing discovery ");
-			char buffer[STR_LEN];
-			JsonDocument doc;
-			JsonObject device = doc["device"].to<JsonObject>();
-			device["sw_version"] = APP_VERSION;
-			device["manufacturer"] = "ClassicDIY";
-			sprintf(buffer, "%s (%X)", TAG, _iot.getUniqueId());
-			device["model"] = buffer;
-
-			JsonObject origin = doc["origin"].to<JsonObject>();
-			origin["name"] = TAG;
-
-			JsonArray identifiers = device["identifiers"].to<JsonArray>();
-			sprintf(buffer, "%X", _iot.getUniqueId());
-			identifiers.add(buffer);
-
-			JsonObject components = doc["components"].to<JsonObject>();
-
 			for (int i = 0; i < _digitalInputDiscretes.coils(); i++)
 			{
 				std::stringstream ss;
 				ss << "DI" << i;
-				JsonObject din = components[ss.str()].to<JsonObject>();
-				din["platform"] = "binary_sensor";
-				din["name"] = ss.str();
-				din["payload_off"] = "Low";
-				din["payload_on"] = "High";
-				sprintf(buffer, "%X_%s", _iot.getUniqueId(), ss.str().c_str());
-				din["unique_id"] = buffer;
-				sprintf(buffer, "{{ value_json.%s }}", ss.str().c_str());
-				din["value_template"] = buffer;
-				din["icon"] = "mdi:switch";
+				if (PublishDiscoverySub(DigitalInputs, ss.str().c_str(), nullptr, "mdi:switch") == false)
+				{
+					return; // try later
+				}
 			}
 			for (int i = 0; i < _digitalOutputCoils.coils(); i++)
 			{
 				std::stringstream ss;
 				ss << "DO" << i;
-				JsonObject dout = components[ss.str()].to<JsonObject>();
-				dout["platform"] = "switch";
-				dout["name"] = ss.str();
-				dout["state_on"] = "On";
-				dout["state_off"] = "Off";
-				dout["command_topic"] = _iot.getRootTopicPrefix() + "/set/" + ss.str();
-				sprintf(buffer, "%X_%s", _iot.getUniqueId(), ss.str().c_str());
-				dout["unique_id"] = buffer;
-				sprintf(buffer, "{{ value_json.%s }}", ss.str().c_str());
-				dout["value_template"] = buffer;
-				dout["icon"] = "mdi:valve";
+				if (PublishDiscoverySub(DigitalOutputs, ss.str().c_str(), nullptr, "mdi:valve") == false)
+				{
+					return; // try later
+				}
 			}
 			for (int i = 0; i < _analogInputRegisters.size(); i++)
 			{
 				std::stringstream ss;
 				ss << "AI" << i;
-				JsonObject ain = components[ss.str()].to<JsonObject>();
-				ain["platform"] = "sensor";
-				ain["name"] = ss.str();
-				ain["unit_of_measurement"] = "%";
-				sprintf(buffer, "%X_%s", _iot.getUniqueId(), ss.str().c_str());
-				ain["unique_id"] = buffer;
-				sprintf(buffer, "{{ value_json.%s }}", ss.str().c_str());
-				ain["value_template"] = buffer;
-				ain["icon"] = "mdi:lightning-bolt";
+				if (PublishDiscoverySub(AnalogInputs, ss.str().c_str(), "%", "mdi:lightning-bolt") == false)
+				{
+					return; // try later
+				}
 			}
 			for (int i = 0; i < _analogOutputRegisters.size(); i++)
 			{
 				std::stringstream ss;
 				ss << "AO" << i;
-				JsonObject aon = components[ss.str()].to<JsonObject>();
-				aon["platform"] = "sensor";
-				aon["name"] = ss.str();
-				aon["unit_of_measurement"] = "%";
-				sprintf(buffer, "%X_%s", _iot.getUniqueId(), ss.str().c_str());
-				aon["unique_id"] = buffer;
-				sprintf(buffer, "{{ value_json.%s }}", ss.str().c_str());
-				aon["value_template"] = buffer;
-				aon["icon"] = "mdi:lightning-bolt";
+				if (PublishDiscoverySub(AnalogOutputs, ss.str().c_str(), "%", "mdi:lightning-bolt") == false)
+				{
+					return; // try later
+				}
 			}
-			sprintf(buffer, "%s/stat/readings", _iot.getRootTopicPrefix().c_str());
-			doc["state_topic"] = buffer;
-			sprintf(buffer, "%s/tele/LWT", _iot.getRootTopicPrefix().c_str());
-			doc["availability_topic"] = buffer;
-			doc["pl_avail"] = "Online";
-			doc["pl_not_avail"] = "Offline";
-
-			_iot.PublishHADiscovery(doc);
 			_discoveryPublished = true;
 		}
+	}
+
+	boolean PLC::PublishDiscoverySub(IOTypes type, const char *entityName, const char* unit_of_meas, const char* icon) 
+	{
+		String topic = HOME_ASSISTANT_PREFIX;
+		topic += (type == DigitalOutputs) ? "/switch/" : "/sensor/";
+		topic += String(_iot.getUniqueId());
+		topic += "/";
+		topic += entityName;
+		topic += "/config";
+
+		JsonDocument payload;
+		payload["name"] = entityName;
+		payload["unique_id"] =  String(_iot.getUniqueId()) + "_" + String(entityName);
+		payload["value_template"] =  ("{{ value_json." + String(entityName) + " }}").c_str();
+		payload["state_topic"] = _iot.getRootTopicPrefix().c_str() + String("/stat/readings");
+		if (type == DigitalOutputs) {
+			payload ["command_topic"] =  _iot.getRootTopicPrefix().c_str() + String("/set/") + String(entityName);
+			payload ["state_on"] = "On";
+			payload ["state_off"] = "Off";
+		}
+		else if (type == DigitalInputs) 
+		{
+			payload["payload_off"] = "Low";
+			payload["payload_on"] = "High";
+		}
+		payload["availability_topic"] = _iot.getRootTopicPrefix().c_str() + String("/tele/LWT");
+		payload["payload_available"] = "Online";
+		payload["payload_not_available"] = "Offline";
+		if (unit_of_meas) 
+		{
+			payload["unit_of_measurement"] = unit_of_meas;
+		}
+		if (icon) 
+		{
+			payload["icon"] = icon;
+		}
+
+		char buffer[STR_LEN];
+		JsonObject device = payload["device"].to<JsonObject>();
+		device["name"] =  _iot.getThingName();
+		device["sw_version"] = APP_VERSION;
+		device["manufacturer"] = "ClassicDIY";
+		sprintf(buffer, "%s (%X)", TAG, _iot.getUniqueId());
+		device["model"] = buffer;
+		JsonArray identifiers = device["identifiers"].to<JsonArray>();
+		sprintf(buffer, "%X", _iot.getUniqueId());
+		identifiers.add(buffer);
+
+		logd("Discovery => topic: %s", topic.c_str());
+		return _iot.PublishMessage(topic.c_str(), payload, true);
+
 	}
 
 	void PLC::onMqttMessage(char *topic, char *payload)

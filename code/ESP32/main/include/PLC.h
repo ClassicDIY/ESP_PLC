@@ -13,6 +13,7 @@
 #include "PWMOutput.h"
 #include "Coil.h"
 #include "IOTCallbackInterface.h"
+#include "Enumerations.h"
 
 namespace CLASSICDIY
 {
@@ -35,7 +36,7 @@ namespace CLASSICDIY
 		bool onModbusMessage(ModbusMessage& msg);
 
 	protected:
-		boolean PublishDiscoverySub(const char *component, const char *entityName, const char *jsonElement, const char *device_class, const char *unit_of_meas, const char *icon = "");
+		boolean PublishDiscoverySub(IOTypes type, const char *entityName, const char* unit_of_meas = nullptr, const char* icon = nullptr);
 		bool ReadyToPublish() {
 			return (!_discoveryPublished);
 		}
