@@ -35,7 +35,7 @@ namespace CLASSICDIY
 	static DNSServer _dnsServer;
 	static WebLog _webLog;
 	static ModbusServerTCPasync _MBserver;
-	static ModbusServerRTU _MBRTUserver(2000);
+	static ModbusServerRTU _MBRTUserver(MODBUS_RTU_TIMEOUT);
 	#ifdef HasRS485
 	ModbusClientRTU _MBclientRTU(RS485_RTS, MODBUS_RTU_REQUEST_QUEUE_SIZE);
 	#endif
@@ -679,7 +679,7 @@ namespace CLASSICDIY
 					#ifdef HasRS485
 					if (ModbusBridgeEnabled())
 					{
-						_MBclientRTU.setTimeout(2000);
+						_MBclientRTU.setTimeout(MODBUS_RTU_TIMEOUT);
 						_MBclientRTU.begin(Serial2);
 						_MBclientRTU.useModbusRTU();
 						_MBclientRTU.onDataHandler([this](ModbusMessage response, uint32_t token)
@@ -690,6 +690,12 @@ namespace CLASSICDIY
 						_MBclientRTU.onErrorHandler([this](Modbus::Error mbError, uint32_t token)
 						{
 							logd("Modbus RTU (Token: %d) Error response: %02X - %s", token, (int)mbError, (const char *)ModbusError(mbError));
+							if (_MBclientRTU.pendingRequests() > 2)
+							{
+								logd("Modbus RTU clearing queue!");
+								_MBclientRTU.clearQueue();
+								Serial2.flush();
+							}
 							return true;
 						});
 					}
@@ -714,6 +720,7 @@ namespace CLASSICDIY
 		xTimerStop(mqttReconnectTimer, 0); // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
 		_webLog.end();
 		_dnsServer.stop();
+		StopMQTT();
 		logd("GoOffline RTU");
 		if (_ModbusMode == RTU)
 		{
@@ -1164,7 +1171,7 @@ namespace CLASSICDIY
 			sprintf(buf, "%s/set/#", _rootTopicPrefix);
 			esp_mqtt_client_subscribe(client, buf, 0);
 			_iotCB->onMqttConnect();
-			esp_mqtt_client_publish(client, _willTopic, "Offline", 0, 1, 0);
+			esp_mqtt_client_publish(client, _willTopic, "Online", 0, 1, 0);
 			break;
 		case MQTT_EVENT_DISCONNECTED:
 			logw("Disconnected from MQTT");
@@ -1302,6 +1309,16 @@ namespace CLASSICDIY
 		return rVal;
 	}
 
+	void IOT::StopMQTT()
+	{
+		if (_mqtt_client_handle != 0)
+		{
+			esp_mqtt_client_publish(_mqtt_client_handle, _willTopic, "Offline", 0, 1, 0);
+			esp_mqtt_client_stop(_mqtt_client_handle);
+		}
+		return;
+	}
+
 	std::string IOT::getRootTopicPrefix()
 	{
 		std::string s(_rootTopicPrefix);
@@ -1312,23 +1329,6 @@ namespace CLASSICDIY
 	{
 		std::string s(_AP_SSID.c_str());
 		return s;
-	}
-
-	void IOT::PublishOnline()
-	{
-		if (!_publishedOnline)
-		{
-			if (_mqtt_client_handle != 0)
-			{
-				if (!_publishedOnline)
-				{
-					if (esp_mqtt_client_publish(_mqtt_client_handle, _willTopic, "Online", 0, 1, 1) != -1)
-					{
-						_publishedOnline = true;
-					}
-				}
-			}
-		}
 	}
 
 // #pragma endregion MQTT

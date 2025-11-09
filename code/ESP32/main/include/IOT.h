@@ -38,7 +38,6 @@ namespace CLASSICDIY
         boolean Publish(const char *subtopic, JsonDocument &payload, boolean retained = false);
         boolean Publish(const char *subtopic, float value, boolean retained = false);
         boolean PublishMessage(const char *topic, JsonDocument &payload, boolean retained);
-        void PublishOnline();
 
         // Modbus
         boolean ModbusBridgeEnabled();
@@ -92,15 +91,12 @@ namespace CLASSICDIY
             _Token %= 65535;
             return _Token;
         }
-
         uint16_t _input_register_base_addr = INPUT_REGISTER_BASE_ADDRESS;
 		uint16_t _coil_base_addr = COIL_BASE_ADDRESS;
 		uint16_t _discrete_input_base_addr = DISCRETE_BASE_ADDRESS;
         uint16_t _holding_register_base_addr = HOLDING_REGISTER_BASE_ADDRESS;
-        bool _clientsConfigured = false;
         IOTCallbackInterface *_iotCB;
         u_int _uniqueId = 0; // unique id from mac address NIC segment
-        bool _publishedOnline = false;
         unsigned long _lastBlinkTime = 0;
         unsigned long _lastBootTimeStamp = millis();
         unsigned long _waitInAPTimeStamp = millis();
@@ -116,6 +112,7 @@ namespace CLASSICDIY
         void loadSettings();
         void ConnectToMQTTServer();
         void HandleMQTT(int32_t event_id, void *event_data);
+        void StopMQTT();
         void setState(NetworkState newState);
         void wakeup_modem(void);
         esp_netif_t *_netif = NULL;

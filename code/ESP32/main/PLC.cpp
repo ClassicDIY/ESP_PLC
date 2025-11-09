@@ -423,7 +423,6 @@ namespace CLASSICDIY
 			{
 				return;
 			}
-			_iot.PublishOnline();
 			_iot.Publish("readings", s.c_str(), false);
 			_lastMessagePublished = s;
 			_webSocket.textAll(s);
@@ -885,6 +884,15 @@ namespace CLASSICDIY
 			for (uint8_t i = 0; i < _inputCount; ++i)
 			{
 				offs = msg.get(offs, values[i]);
+				if (values[i] != 0)
+				{
+					uint16_t v = (values[i] + 500) / 1000; // convert to mA rounded
+					v -= 4; // convert to %
+					v *= 625;
+					v /= 100;
+					values[i] = v;
+				}
+
 			}
 			rval = _analogInputRegisters.set(AI_PINS, _inputCount, values);
 			break;
@@ -898,7 +906,7 @@ namespace CLASSICDIY
 
 	void PLC::onMqttConnect()
 	{
-		if (ReadyToPublish())
+		if (!_discoveryPublished)
 		{
 			for (int i = 0; i < _digitalInputDiscretes.coils(); i++)
 			{
@@ -931,7 +939,7 @@ namespace CLASSICDIY
 			{
 				std::stringstream ss;
 				ss << "AO" << i;
-				if (PublishDiscoverySub(AnalogOutputs, ss.str().c_str(), "%", "mdi:lightning-bolt") == false)
+				if (PublishDiscoverySub(AnalogOutputs, ss.str().c_str(), nullptr, nullptr) == false)
 				{
 					return; // try later
 				}
@@ -943,13 +951,27 @@ namespace CLASSICDIY
 	boolean PLC::PublishDiscoverySub(IOTypes type, const char *entityName, const char* unit_of_meas, const char* icon) 
 	{
 		String topic = HOME_ASSISTANT_PREFIX;
-		topic += (type == DigitalOutputs) ? "/switch/" : "/sensor/";
+		switch (type) {
+			case DigitalOutputs:
+			topic += "/switch/";
+			break;
+			case AnalogOutputs:
+			topic += "/number/";
+			break;
+			case DigitalInputs:
+			topic += "/sensor/";
+			break;
+			case AnalogInputs:
+			topic += "/sensor/";
+			break;
+		}
 		topic += String(_iot.getUniqueId());
 		topic += "/";
 		topic += entityName;
 		topic += "/config";
 
 		JsonDocument payload;
+		payload["platform"] = "mqtt";
 		payload["name"] = entityName;
 		payload["unique_id"] =  String(_iot.getUniqueId()) + "_" + String(entityName);
 		payload["value_template"] =  ("{{ value_json." + String(entityName) + " }}").c_str();
@@ -958,6 +980,12 @@ namespace CLASSICDIY
 			payload ["command_topic"] =  _iot.getRootTopicPrefix().c_str() + String("/set/") + String(entityName);
 			payload ["state_on"] = "On";
 			payload ["state_off"] = "Off";
+		}
+		else if (type == AnalogOutputs) {
+			payload ["command_topic"] =  _iot.getRootTopicPrefix().c_str() + String("/set/") + String(entityName);
+			payload ["min"] = 0;
+			payload ["max"] = 65535;
+			payload ["step"] = 1;
 		}
 		else if (type == DigitalInputs) 
 		{
@@ -999,41 +1027,74 @@ namespace CLASSICDIY
 		std::string fullPath = topic;
 		if (strncmp(topic, cmnd.c_str(), cmnd.length()) == 0)
 		{
-			// ToDo handle analog output aka holding registers
 			// Handle set commands
 			size_t lastSlash = fullPath.find_last_of('/');
 			std::string dout;
 			if (lastSlash != std::string::npos)
 			{
 				dout = fullPath.substr(lastSlash + 1);
-				logd("coil: %s: ", dout.c_str());
-				for (int i = 0; i < DO_PINS; i++) // ToDo forward to bridge coils
+				if (dout[0] == 'D') // coils?
 				{
-					std::stringstream ss;
-					ss << "DO" << i;
-					if (dout == ss.str())
+					logd("coil: %s: ", dout.c_str());
+					for (int i = 0; i < _digitalOutputCoils.coils(); i++) 
 					{
-						String input = payload;
-						input.toLowerCase();
-						if (input == "on" || input == "high" || input == "1")
+						std::stringstream ss;
+						ss << "DO" << i;
+						if (dout == ss.str())
 						{
-							_digitalOutputCoils.set(i, true);
-							_Coils[i].Set(HIGH);
-							logi("Write Coil %d HIGH", i);
+							String input = payload;
+							input.toLowerCase();
+							if (input == "on" || input == "high" || input == "1")
+							{
+								_digitalOutputCoils.set(i, true);
+								logi("Write Coil %d HIGH", i);
+							}
+							else if (input == "off" || input == "low" || input == "0")
+							{
+								_digitalOutputCoils.set(i, false);
+								// _Coils[i].Set(LOW);
+								logi("Write Coil %d LOW", i);
+							}
+							else
+							{
+								logw("Write Coil %d invalid state: %s", i, input.c_str());
+							}
+							break;
 						}
-						else if (input == "off" || input == "low" || input == "0")
-						{
-							_digitalOutputCoils.set(i, false);
-							_Coils[i].Set(LOW);
-							logi("Write Coil %d LOW", i);
-						}
-						else
-						{
-							logw("Write Coil %d invalid state: %s", i, input.c_str());
-						}
-						break;
 					}
+#if DO_PINS > 0
+					// set native DO pins
+					for (int j = 0; j < DO_PINS; j++)
+					{
+						_Coils[j].Set(_digitalOutputCoils[j]);
+					}
+#endif
 				}
+				else if (dout[0] == 'A') // registers?
+				{
+					logd("gerister: %s: ", dout.c_str());
+					for (int i = 0; i < _analogOutputRegisters.size(); i++) 
+					{
+						std::stringstream ss;
+						ss << "AO" << i;
+						if (dout == ss.str())
+						{
+							String input = payload;
+							input.toLowerCase();
+							logd("Analog output value: %s", input.c_str());
+							_analogOutputRegisters.set(i, atoi(input.c_str()));
+							break;
+						}
+					}
+#if AO_PINS > 0
+					// set native AO pins
+					for (int i = 0; i < AO_PINS; i++)
+					{
+						_PWMOutputs[i].Set(_analogOutputRegisters[i]);
+					}
+#endif
+				}
+
 			}
 		}
 	}

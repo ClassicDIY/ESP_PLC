@@ -37,9 +37,6 @@ namespace CLASSICDIY
 
 	protected:
 		boolean PublishDiscoverySub(IOTypes type, const char *entityName, const char* unit_of_meas = nullptr, const char* icon = nullptr);
-		bool ReadyToPublish() {
-			return (!_discoveryPublished);
-		}
 
 	private:
 		boolean _discoveryPublished = false;

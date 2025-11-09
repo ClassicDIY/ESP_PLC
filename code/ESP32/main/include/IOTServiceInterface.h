@@ -16,7 +16,6 @@ public:
     virtual std::string getRootTopicPrefix() = 0;
     virtual u_int getUniqueId() = 0;
     virtual std::string getThingName() = 0;
-    virtual void PublishOnline() = 0;
 
     // Modbus related methods
     virtual uint16_t getMBBaseAddress(IOTypes type) = 0;
