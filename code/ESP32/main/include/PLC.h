@@ -15,73 +15,74 @@
 #include "IOTCallbackInterface.h"
 #include "Enumerations.h"
 
-namespace CLASSICDIY
-{
-	class PLC : public IOTCallbackInterface
-	{
-	public:
-		PLC();
-		~PLC();
-		void setup();
-		void CleanUp();
-		void Monitor();
-		void Process();
-		void onMqttConnect();
-		void onMqttMessage(char* topic, char *payload);
-		void onNetworkConnect();
-		void addApplicationConfigs(String& page);
-		void onSubmitForm(AsyncWebServerRequest *request);
-	    void onSaveSetting(JsonDocument& doc);
-    	void onLoadSetting(JsonDocument& doc);
-		bool onModbusMessage(ModbusMessage& msg);
+namespace CLASSICDIY {
+class PLC : public IOTCallbackInterface {
+ public:
+   PLC();
+   ~PLC();
+   void setup();
+   void CleanUp();
+   void Monitor();
+   void Process();
+   void onMqttConnect();
+   void onMqttMessage(char *topic, char *payload);
+   void onNetworkConnect();
+   void addApplicationConfigs(String &page);
+   void onSubmitForm(AsyncWebServerRequest *request);
+   void onSaveSetting(JsonDocument &doc);
+   void onLoadSetting(JsonDocument &doc);
+   bool onModbusMessage(ModbusMessage &msg);
 
-	protected:
-		boolean PublishDiscoverySub(IOTypes type, const char *entityName, const char* unit_of_meas = nullptr, const char* icon = nullptr);
+ protected:
+   boolean PublishDiscoverySub(IOTypes type, const char *entityName, const char *unit_of_meas = nullptr, const char *icon = nullptr);
 
-	private:
-		boolean _discoveryPublished = false;
-		String _lastMessagePublished;
-		unsigned long _lastModbusPollTime = 0;
-		#ifdef EDGEBOX
-		Coil _Coils[DO_PINS] = {DO0, DO1, DO2, DO3, DO4, DO5};
-		DigitalSensor _DigitalSensors[DI_PINS] = {DI0, DI1, DI2, DI3};
-		AnalogSensor _AnalogSensors[AI_PINS] = {AI0, AI1, AI2, AI3};
-		PWMOutput _PWMOutputs[AO_PINS] = {AO0, AO1, AO2, AO3};
-		#elif NORVI_GSM_AE02
-		Coil _Coils[DO_PINS] = {DO0, DO1};
-		DigitalSensor _DigitalSensors[DI_PINS] = {DI0, DI1, DI2, DI3, DI4, DI5, DI6, DI7};
-		AnalogSensor _AnalogSensors[AI_PINS] = {AI0, AI1, AI2, AI3};
-		#elif LILYGO_T_SIM7600G
-		Coil _Coils[DO_PINS] = {DO0, DO1};
-		DigitalSensor _DigitalSensors[DI_PINS] = {DI0, DI1};
-		AnalogSensor _AnalogSensors[AI_PINS] = {};
-		#elif Waveshare_Relay_6CH
-		Coil _Coils[DO_PINS] = {DO0, DO1, DO2, DO3, DO4, DO5};
-		DigitalSensor _DigitalSensors[DI_PINS] = {};
-		AnalogSensor _AnalogSensors[AI_PINS] = {};
-		PWMOutput _PWMOutputs[AO_PINS] = {};
-		#endif
+ private:
+   boolean _discoveryPublished = false;
+   String _lastMessagePublished;
+   unsigned long _lastModbusPollTime = 0;
+#ifdef EDGEBOX
+   Coil _Coils[DO_PINS] = {DO0, DO1, DO2, DO3, DO4, DO5};
+   DigitalSensor _DigitalSensors[DI_PINS] = {DI0, DI1, DI2, DI3};
+   AnalogSensor _AnalogSensors[AI_PINS] = {AI0, AI1, AI2, AI3};
+   PWMOutput _PWMOutputs[AO_PINS] = {AO0, AO1};
+#elif NORVI_GSM_AE02
+   Coil _Coils[DO_PINS] = {DO0, DO1};
+   DigitalSensor _DigitalSensors[DI_PINS] = {DI0, DI1, DI2, DI3, DI4, DI5, DI6, DI7};
+   AnalogSensor _AnalogSensors[AI_PINS] = {AI0, AI1, AI2, AI3};
+#elif LILYGO_T_SIM7600G
+   Coil _Coils[DO_PINS] = {DO0, DO1};
+   DigitalSensor _DigitalSensors[DI_PINS] = {DI0, DI1};
+   AnalogSensor _AnalogSensors[AI_PINS] = {};
+#elif Waveshare_Relay_6CH
+   Coil _Coils[DO_PINS] = {DO0, DO1, DO2, DO3, DO4, DO5};
+   DigitalSensor _DigitalSensors[DI_PINS] = {};
+   AnalogSensor _AnalogSensors[AI_PINS] = {};
+   PWMOutput _PWMOutputs[AO_PINS] = {};
+#elif ESP_32Dev
+   Coil _Coils[DO_PINS] = {DO0, DO1};
+   DigitalSensor _DigitalSensors[DI_PINS] = {DI0, DI1};
+#endif
 
-		CoilSet _digitalOutputCoils;
-		CoilSet _digitalInputDiscretes;
-		RegisterSet _analogOutputRegisters;
-		RegisterSet _analogInputRegisters;
+   CoilSet _digitalOutputCoils;
+   CoilSet _digitalInputDiscretes;
+   RegisterSet _analogOutputRegisters;
+   RegisterSet _analogInputRegisters;
 
-		// Modbus Bridge settings
-		uint8_t _inputID = 0;
-        uint16_t _inputAddress = 0;
-        uint8_t _inputCount = 0;
+   // Modbus Bridge settings
+   uint8_t _inputID = 0;
+   uint16_t _inputAddress = 0;
+   uint8_t _inputCount = 0;
 
-        uint8_t _coilID = 0;
-        uint16_t _coilAddress = 0;
-        uint8_t _coilCount = 0;
+   uint8_t _coilID = 0;
+   uint16_t _coilAddress = 0;
+   uint8_t _coilCount = 0;
 
-        uint8_t _discreteID = 0;
-        uint16_t _discreteAddress = 0;
-        uint8_t _discreteCount = 0;
+   uint8_t _discreteID = 0;
+   uint16_t _discreteAddress = 0;
+   uint8_t _discreteCount = 0;
 
-        uint8_t _holdingID = 0;
-        uint16_t _holdingAddress = 0;
-        uint8_t _holdingCount = 0;
-	};
-}
+   uint8_t _holdingID = 0;
+   uint16_t _holdingAddress = 0;
+   uint8_t _holdingCount = 0;
+};
+} // namespace CLASSICDIY

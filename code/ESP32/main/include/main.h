@@ -7,10 +7,8 @@
 #include "esp_event.h"
 #include "nvs_flash.h"
 
-
-class Main 
-{
-public:
-    esp_err_t setup(void);
-    void loop(void);
+class Main {
+ public:
+   esp_err_t setup(void);
+   void loop(void);
 };

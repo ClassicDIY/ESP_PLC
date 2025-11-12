@@ -41,14 +41,13 @@ const char web_serial_html[] PROGMEM = R"rawliteral(
 	</html>
 	)rawliteral";
 
-class WebLog
-{
-public:
-	WebLog() {};
-	void begin(AsyncWebServer *pwebServer);
-	void end();
-	void process();
+class WebLog {
+ public:
+   WebLog() {};
+   void begin(AsyncWebServer *pwebServer);
+   void end();
+   void process();
 
-private:
-	uint32_t _lastHeap = 0;
+ private:
+   uint32_t _lastHeap = 0;
 };

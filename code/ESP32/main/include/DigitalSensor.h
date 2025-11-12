@@ -1,21 +1,18 @@
 #pragma once
 #include <Arduino.h>
-#include <sstream> 
+#include <sstream>
 #include <string>
 #include "defines.h"
 
-namespace CLASSICDIY
-{
-	class DigitalSensor
-	{
-	public:
-		
-		DigitalSensor(int sensorPin);
-		~DigitalSensor();
-		std::string Pin();
-		bool Level();
+namespace CLASSICDIY {
+class DigitalSensor {
+ public:
+   DigitalSensor(int sensorPin);
+   ~DigitalSensor();
+   std::string Pin();
+   bool Level();
 
-	private:
-		int _sensorPin; // Defines the pin that the sensor is connected to
-	};
-}
+ private:
+   int _sensorPin; // Defines the pin that the sensor is connected to
+};
+} // namespace CLASSICDIY

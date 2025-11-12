@@ -6,12 +6,12 @@
 
 /*
  * softAP to PPPoS Example (network_dce)
-*/
+ */
 
 #pragma once
 
-#include "driver/gpio.h"
 #include "GPIO_pins.h"
+#include "driver/gpio.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -25,28 +25,29 @@ extern "C" {
 #define MODEM_DISCONNECT_BIT BIT1
 #define MODEM_GOT_DATA_BIT BIT2
 
-#define ESP_MODEM_DTE_EDGEBOX_CONFIG() \
-    {                                  \
-        .dte_buffer_size = CONFIG_GATEWAY_MODEM_DTE_BUFFER_SIZE,        \
-        .task_stack_size = CONFIG_GATEWAY_MODEM_UART_EVENT_TASK_STACK_SIZE,       \
-        .task_priority = CONFIG_GATEWAY_MODEM_UART_EVENT_TASK_PRIORITY,            \
-        .uart_config = {               \
-            .port_num = UART_NUM_1,                 \
-            .data_bits = UART_DATA_8_BITS,          \
-            .stop_bits = UART_STOP_BITS_1,          \
-            .parity = UART_PARITY_DISABLE,          \
-            .flow_control = ESP_MODEM_FLOW_CONTROL_NONE,\
-            .source_clk = ESP_MODEM_DEFAULT_UART_CLK,   \
-            .baud_rate = MODEM_UART_BAUD,                    \
-            .tx_io_num = LTE_TXD,                        \
-            .rx_io_num = LTE_RXD,                        \
-            .rts_io_num = MODEM_UART_RTS,                       \
-            .cts_io_num = MODEM_UART_CTS,                       \
-            .rx_buffer_size = CONFIG_GATEWAY_MODEM_UART_RX_BUFFER_SIZE,                 \
-            .tx_buffer_size = CONFIG_GATEWAY_MODEM_UART_TX_BUFFER_SIZE,                  \
-            .event_queue_size = CONFIG_GATEWAY_MODEM_UART_EVENT_QUEUE_SIZE,                 \
-       },                                           \
-    }
+#define ESP_MODEM_DTE_EDGEBOX_CONFIG()                                                                                                     \
+   {                                                                                                                                       \
+       .dte_buffer_size = CONFIG_GATEWAY_MODEM_DTE_BUFFER_SIZE,                                                                            \
+       .task_stack_size = CONFIG_GATEWAY_MODEM_UART_EVENT_TASK_STACK_SIZE,                                                                 \
+       .task_priority = CONFIG_GATEWAY_MODEM_UART_EVENT_TASK_PRIORITY,                                                                     \
+       .uart_config =                                                                                                                      \
+           {                                                                                                                               \
+               .port_num = UART_NUM_1,                                                                                                     \
+               .data_bits = UART_DATA_8_BITS,                                                                                              \
+               .stop_bits = UART_STOP_BITS_1,                                                                                              \
+               .parity = UART_PARITY_DISABLE,                                                                                              \
+               .flow_control = ESP_MODEM_FLOW_CONTROL_NONE,                                                                                \
+               .source_clk = ESP_MODEM_DEFAULT_UART_CLK,                                                                                   \
+               .baud_rate = MODEM_UART_BAUD,                                                                                               \
+               .tx_io_num = LTE_TXD,                                                                                                       \
+               .rx_io_num = LTE_RXD,                                                                                                       \
+               .rts_io_num = MODEM_UART_RTS,                                                                                               \
+               .cts_io_num = MODEM_UART_CTS,                                                                                               \
+               .rx_buffer_size = CONFIG_GATEWAY_MODEM_UART_RX_BUFFER_SIZE,                                                                 \
+               .tx_buffer_size = CONFIG_GATEWAY_MODEM_UART_TX_BUFFER_SIZE,                                                                 \
+               .event_queue_size = CONFIG_GATEWAY_MODEM_UART_EVENT_QUEUE_SIZE,                                                             \
+           },                                                                                                                              \
+   }
 
 /**
  * @brief Initialize a singleton covering the PPP network provided by the connected modem device
@@ -55,7 +56,7 @@ extern "C" {
  *
  * @return ESP_OK on success
  */
-esp_err_t modem_init_network(esp_netif_t *netif, const char * apn, const char * pin);
+esp_err_t modem_init_network(esp_netif_t *netif, const char *apn, const char *pin);
 
 /**
  * @brief Destroys the single network DCE

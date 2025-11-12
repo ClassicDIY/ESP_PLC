@@ -33,11 +33,3 @@
 #define COIL_BASE_ADDRESS 2000
 #define DISCRETE_BASE_ADDRESS 3000
 #define HOLDING_REGISTER_BASE_ADDRESS 4000
-
-#ifdef Has_OLED_Display
-// OLED display definitions
-#define SCREEN_WIDTH 128 // OLED display width, in pixels 
-#define SCREEN_HEIGHT 64 // OLED display height, in pixels 
-#define OLED_RESET -1 // Reset pin # (or -1 if sharing Arduino reset pin)
-#endif
-
