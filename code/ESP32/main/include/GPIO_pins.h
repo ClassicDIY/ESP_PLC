@@ -148,7 +148,7 @@ static const uint8_t I2C_SDA = 21;
 static const uint8_t I2C_SCL = 22;
 
 // GSM Modem
-static const uint8_t LTE_AIRPLANE_MODE = 25; // SIM7600G airplane mode pin, High to exit.
+#define LTE_AIRPLANE_MODE  25 // SIM7600G airplane mode pin, High to exit.
 static const uint8_t LTE_PWR_EN = 4;         // send power to the modem
 static const uint8_t LTE_TXD = 27;
 static const uint8_t LTE_RXD = 26;

@@ -33,10 +33,6 @@ void PLC::setup() {
       page.replace("{style}", style);
       page.replace("{n}", _iot.getThingName().c_str());
       page.replace("{v}", APP_VERSION);
-      char desc_buf[64];
-      sprintf(desc_buf, "Modbus Discretes: %d-%d", _iot.getMBBaseAddress(IOTypes::DigitalInputs),
-              _iot.getMBBaseAddress(IOTypes::DigitalInputs) + _digitalInputDiscretes.coils());
-      page.replace("{digitalInputDesc}", desc_buf);
       std::string s;
       for (int i = 0; i < _digitalInputDiscretes.coils(); i++) {
          s += "<div class='box' id=DI";
@@ -47,9 +43,6 @@ void PLC::setup() {
       }
       page.replace("{digitalInputs}", s.c_str());
       s.clear();
-      sprintf(desc_buf, "Modbus Coils: %d-%d", _iot.getMBBaseAddress(IOTypes::DigitalOutputs),
-              _iot.getMBBaseAddress(IOTypes::DigitalOutputs) + _digitalOutputCoils.coils());
-      page.replace("{digitalOutputDesc}", desc_buf);
       for (int i = 0; i < _digitalOutputCoils.coils(); i++) {
          s += "<div class='box' id=DO";
          s += std::to_string(i);
@@ -59,9 +52,6 @@ void PLC::setup() {
       }
       page.replace("{digitalOutputs}", s.c_str());
       s.clear();
-      sprintf(desc_buf, "Modbus Input Registers: %d-%d", _iot.getMBBaseAddress(IOTypes::AnalogInputs),
-              _iot.getMBBaseAddress(IOTypes::AnalogInputs) + _analogInputRegisters.size());
-      page.replace("{analogInputDesc}", desc_buf);
       for (int i = 0; i < _analogInputRegisters.size(); i++) {
          s += "<div class='box' id=AI";
          s += std::to_string(i);
@@ -71,9 +61,6 @@ void PLC::setup() {
       }
       page.replace("{analogInputs}", s.c_str());
       s.clear();
-      sprintf(desc_buf, "Modbus Holding Registers: %d-%d", _iot.getMBBaseAddress(IOTypes::AnalogOutputs),
-              _iot.getMBBaseAddress(IOTypes::AnalogOutputs) + _analogOutputRegisters.size());
-      page.replace("{analogOutputDesc}", desc_buf);
       for (int i = 0; i < _analogOutputRegisters.size(); i++) {
          s += "<div class='box' id=AO";
          s += std::to_string(i);
@@ -81,6 +68,27 @@ void PLC::setup() {
          s += std::to_string(i);
          s += "</div>";
       }
+#ifdef HasModbus
+      char desc_buf[64];
+      sprintf(desc_buf, "Modbus Coils: %d-%d", _iot.getMBBaseAddress(IOTypes::DigitalOutputs),
+              _iot.getMBBaseAddress(IOTypes::DigitalOutputs) + _digitalOutputCoils.coils());
+      page.replace("{digitalOutputDesc}", desc_buf);
+      sprintf(desc_buf, "Modbus Input Registers: %d-%d", _iot.getMBBaseAddress(IOTypes::AnalogInputs),
+              _iot.getMBBaseAddress(IOTypes::AnalogInputs) + _analogInputRegisters.size());
+      page.replace("{analogInputDesc}", desc_buf);
+      sprintf(desc_buf, "Modbus Discretes: %d-%d", _iot.getMBBaseAddress(IOTypes::DigitalInputs),
+              _iot.getMBBaseAddress(IOTypes::DigitalInputs) + _digitalInputDiscretes.coils());
+      page.replace("{digitalInputDesc}", desc_buf);
+      sprintf(desc_buf, "Modbus Holding Registers: %d-%d", _iot.getMBBaseAddress(IOTypes::AnalogOutputs),
+              _iot.getMBBaseAddress(IOTypes::AnalogOutputs) + _analogOutputRegisters.size());
+      page.replace("{analogOutputDesc}", desc_buf);
+#else
+      page.replace("{digitalOutputDesc}", "");
+      page.replace("{analogInputDesc}", "");
+      page.replace("{digitalInputDesc}", "");
+      page.replace("{analogOutputDesc}", "");
+#endif
+
       page.replace("{analogOutputs}", s.c_str());
       request->send(200, "text/html", page);
    });
@@ -183,6 +191,7 @@ void PLC::addApplicationConfigs(String &page) {
    page += appFields;
    page.replace("{validateInputs}", scriptConvs);
 #endif
+#ifdef HasModbus
    // Bridge app settings
    String appBridgeFields = app_modbusBridge;
    appBridgeFields.replace("{inputBridgeID}", String(_inputID));
@@ -198,6 +207,7 @@ void PLC::addApplicationConfigs(String &page) {
    appBridgeFields.replace("{holdingRegBridge}", String(_holdingAddress));
    appBridgeFields.replace("{holdingRegBridgeCount}", String(_holdingCount));
    page.replace("{modbusBridgeAppSettings}", appBridgeFields);
+#endif
 }
 
 void PLC::onSubmitForm(AsyncWebServerRequest *request) {
@@ -259,6 +269,7 @@ void PLC::onSubmitForm(AsyncWebServerRequest *request) {
 
 void PLC::CleanUp() {
    _webSocket.cleanupClients(); // cleanup disconnected clients or too many clients
+#ifdef HasModbus
    // read modbus bridge outputs to compare with current set.
    if (_iot.getNetworkState() == OnLine && _iot.ModbusBridgeEnabled()) {
       // fetch the actual coil info to compare with coilset
@@ -286,6 +297,7 @@ void PLC::CleanUp() {
          }
       }
    }
+#endif
 }
 
 void PLC::Monitor() {
@@ -302,9 +314,11 @@ void PLC::Monitor() {
       _analogInputRegisters.set(i, _AnalogSensors[i].Level());
    }
 #endif
+#ifdef HasModbus
    unsigned long now = millis();
    if (MODBUS_POLL_RATE < now - _lastModbusPollTime) {
       _lastModbusPollTime = now;
+
       if (_iot.getNetworkState() == OnLine && _iot.ModbusBridgeEnabled()) {
          if (_discreteCount > 0) {
             ModbusMessage forward;
@@ -334,6 +348,7 @@ void PLC::Monitor() {
          }
       }
    }
+#endif
 }
 
 void PLC::Process() {
@@ -371,7 +386,9 @@ void PLC::Process() {
       {
          return;
       }
+#ifdef HasMQTT
       _iot.Publish("readings", s.c_str(), false);
+#endif
       _lastMessagePublished = s;
       _webSocket.textAll(s);
       logv("Published readings: %s", s.c_str());
@@ -380,7 +397,7 @@ void PLC::Process() {
 
 // #endregion
 
-// #pragma region Modbus
+#ifdef HasModbus
 void PLC::onNetworkConnect() {
    // READ_INPUT_REGISTER
    auto modbusFC04 = [this](ModbusMessage request) -> ModbusMessage {
@@ -756,9 +773,9 @@ bool PLC::onModbusMessage(ModbusMessage &msg) {
    return rval;
 }
 
-// #pragma endregion Modbus
+#endif
 
-// #pragma region MQTT
+#ifdef HasMQTT
 
 void PLC::onMqttConnect() {
    if (!_discoveryPublished) {
@@ -921,6 +938,5 @@ void PLC::onMqttMessage(char *topic, char *payload) {
       }
    }
 }
-
-// #pragma endregion MQTT
+#endif
 } // namespace CLASSICDIY

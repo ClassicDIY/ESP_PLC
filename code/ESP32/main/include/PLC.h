@@ -24,18 +24,25 @@ class PLC : public IOTCallbackInterface {
    void CleanUp();
    void Monitor();
    void Process();
+#ifdef HasMQTT
    void onMqttConnect();
    void onMqttMessage(char *topic, char *payload);
+#endif
+#ifdef HasModbus
+   bool onModbusMessage(ModbusMessage &msg);
    void onNetworkConnect();
+   #else
+   void onNetworkConnect() {}; // noop
+#endif
    void addApplicationConfigs(String &page);
    void onSubmitForm(AsyncWebServerRequest *request);
    void onSaveSetting(JsonDocument &doc);
    void onLoadSetting(JsonDocument &doc);
-   bool onModbusMessage(ModbusMessage &msg);
 
  protected:
+ #ifdef HasMQTT
    boolean PublishDiscoverySub(IOTypes type, const char *entityName, const char *unit_of_meas = nullptr, const char *icon = nullptr);
-
+#endif
  private:
    boolean _discoveryPublished = false;
    String _lastMessagePublished;

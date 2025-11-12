@@ -6,6 +6,7 @@
 namespace CLASSICDIY {
 class IOTServiceInterface {
  public:
+#ifdef MQTT
    // MQTT related methods
    virtual boolean Publish(const char *subtopic, const char *value, boolean retained) = 0;
    virtual boolean Publish(const char *subtopic, float value, boolean retained) = 0;
@@ -13,11 +14,13 @@ class IOTServiceInterface {
    virtual std::string getRootTopicPrefix() = 0;
    virtual u_int getUniqueId() = 0;
    virtual std::string getThingName() = 0;
-
+#endif
+#ifdef Modbus
    // Modbus related methods
    virtual uint16_t getMBBaseAddress(IOTypes type) = 0;
    virtual boolean ModbusBridgeEnabled() = 0;
    virtual void registerMBTCPWorkers(FunctionCode fc, MBSworker worker) = 0;
    virtual Modbus::Error SendToModbusBridgeAsync(ModbusMessage &request);
+#endif
 };
 } // namespace CLASSICDIY

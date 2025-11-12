@@ -25,15 +25,19 @@
 #include <Adafruit_SSD1306.h>
 
 extern Adafruit_SSD1306 oled_display;
-
 #endif
 
 namespace CLASSICDIY {
-TimerHandle_t mqttReconnectTimer;
+
 static DNSServer _dnsServer;
 static WebLog _webLog;
+#ifdef HasMQTT
+TimerHandle_t mqttReconnectTimer;
+#endif
+#ifdef HasModbus
 static ModbusServerTCPasync _MBserver;
 static ModbusServerRTU _MBRTUserver(MODBUS_RTU_TIMEOUT);
+#endif
 #ifdef HasRS485
 ModbusClientRTU _MBclientRTU(RS485_RTS, MODBUS_RTU_REQUEST_QUEUE_SIZE);
 #endif
@@ -91,8 +95,9 @@ void IOT::Init(IOTCallbackInterface *iotCB, AsyncWebServer *pwebServer) {
       }
    }
 #endif
+#ifdef HasMQTT
    mqttReconnectTimer = xTimerCreate("mqttTimer", pdMS_TO_TICKS(8000), pdFALSE, this, mqttReconnectTimerCF);
-
+#endif
    WiFi.onEvent([this](WiFiEvent_t event, WiFiEventInfo_t info) {
       String s;
       JsonDocument doc;
@@ -156,7 +161,7 @@ void IOT::Init(IOTCallbackInterface *iotCB, AsyncWebServer *pwebServer) {
    _pwebServer
        ->on("/settings", HTTP_GET,
             [this](AsyncWebServerRequest *request) {
-               String fields = network_config_fields;
+               String fields = network_config;
                fields.replace("{n}", _AP_SSID);
                fields.replace("{v}", APP_VERSION);
                fields.replace("{AP_SSID}", _AP_SSID);
@@ -178,51 +183,59 @@ void IOT::Init(IOTCallbackInterface *iotCB, AsyncWebServer *pwebServer) {
                fields.replace("{SIM_USERNAME}", _SIM_Username);
                fields.replace("{SIM_PASSWORD}", _SIM_Password);
                fields.replace("{SIM_PIN}", _SIM_PIN);
-               fields.replace("{mqttchecked}", _useMQTT ? "checked" : "unchecked");
-               fields.replace("{mqttServer}", _mqttServer);
-               fields.replace("{mqttPort}", String(_mqttPort));
-               fields.replace("{mqttUser}", _mqttUserName);
-               fields.replace("{mqttPw}", _mqttUserPassword);
-               fields.replace("{modbuschecked}", _useModbus ? "checked" : "unchecked");
-               fields.replace("{TCP}", _ModbusMode == TCP ? "selected" : "");
-               fields.replace("{RTU}", _ModbusMode == RTU ? "selected" : "");
-               fields.replace("{RTU_SVR_9600}", _modbusBaudRate == 9600 ? "selected" : "");
-               fields.replace("{RTU_SVR_19200}", _modbusBaudRate == 19200 ? "selected" : "");
-               fields.replace("{RTU_SVR_38400}", _modbusBaudRate == 38400 ? "selected" : "");
-               fields.replace("{RTU_SVR_115200}", _modbusBaudRate == 115200 ? "selected" : "");
-               fields.replace("{RTU_SVR_Parity_None}", _modbusParity == UART_PARITY_DISABLE ? "selected" : "");
-               fields.replace("{RTU_SVR_Parity_Even}", _modbusParity == UART_PARITY_EVEN ? "selected" : "");
-               fields.replace("{RTU_SVR_Parity_Odd}", _modbusParity == UART_PARITY_ODD ? "selected" : "");
-               fields.replace("{RTU_SVR_1Stop}", _modbusStopBits == UART_STOP_BITS_1 ? "selected" : "");
-               fields.replace("{RTU_SVR_2Stop}", _modbusStopBits == UART_STOP_BITS_2 ? "selected" : "");
-               fields.replace("{modbusPort}", String(_modbusPort));
-               fields.replace("{modbusID}", String(_modbusID));
-               fields.replace("{inputRegBase}", String(_input_register_base_addr));
-               fields.replace("{coilBase}", String(_coil_base_addr));
-               fields.replace("{discreteBase}", String(_discrete_input_base_addr));
-               fields.replace("{holdingRegBase}", String(_holding_register_base_addr));
-               fields.replace("{modbusBridgechecked}", _useModbusBridge ? "checked" : "unchecked");
-               fields.replace("{RTU_CLIENT_9600}", _modbusClientBaudRate == 9600 ? "selected" : "");
-               fields.replace("{RTU_CLIENT_19200}", _modbusClientBaudRate == 19200 ? "selected" : "");
-               fields.replace("{RTU_CLIENT_38400}", _modbusClientBaudRate == 38400 ? "selected" : "");
-               fields.replace("{RTU_CLIENT_115200}", _modbusClientBaudRate == 115200 ? "selected" : "");
-               fields.replace("{RTU_CLIENT_Parity_None}", _modbusClientParity == UART_PARITY_DISABLE ? "selected" : "");
-               fields.replace("{RTU_CLIENT_Parity_Even}", _modbusClientParity == UART_PARITY_EVEN ? "selected" : "");
-               fields.replace("{RTU_CLIENT_Parity_Odd}", _modbusClientParity == UART_PARITY_ODD ? "selected" : "");
-               fields.replace("{RTU_CLIENT_1Stop}", _modbusClientStopBits == UART_STOP_BITS_1 ? "selected" : "");
-               fields.replace("{RTU_CLIENT_2Stop}", _modbusClientStopBits == UART_STOP_BITS_2 ? "selected" : "");
+#ifdef HasMQTT
+               String mqtt = config_mqtt;
+               mqtt.replace("{mqttchecked}", _useMQTT ? "checked" : "unchecked");
+               mqtt.replace("{mqttServer}", _mqttServer);
+               mqtt.replace("{mqttPort}", String(_mqttPort));
+               mqtt.replace("{mqttUser}", _mqttUserName);
+               mqtt.replace("{mqttPw}", _mqttUserPassword);
+               fields += mqtt;
+#endif
+#ifdef HasModbus
+               String modbus = config_modbus;
+               modbus.replace("{modbuschecked}", _useModbus ? "checked" : "unchecked");
+               modbus.replace("{TCP}", _ModbusMode == TCP ? "selected" : "");
+               modbus.replace("{RTU}", _ModbusMode == RTU ? "selected" : "");
+               modbus.replace("{RTU_SVR_9600}", _modbusBaudRate == 9600 ? "selected" : "");
+               modbus.replace("{RTU_SVR_19200}", _modbusBaudRate == 19200 ? "selected" : "");
+               modbus.replace("{RTU_SVR_38400}", _modbusBaudRate == 38400 ? "selected" : "");
+               modbus.replace("{RTU_SVR_115200}", _modbusBaudRate == 115200 ? "selected" : "");
+               modbus.replace("{RTU_SVR_Parity_None}", _modbusParity == UART_PARITY_DISABLE ? "selected" : "");
+               modbus.replace("{RTU_SVR_Parity_Even}", _modbusParity == UART_PARITY_EVEN ? "selected" : "");
+               modbus.replace("{RTU_SVR_Parity_Odd}", _modbusParity == UART_PARITY_ODD ? "selected" : "");
+               modbus.replace("{RTU_SVR_1Stop}", _modbusStopBits == UART_STOP_BITS_1 ? "selected" : "");
+               modbus.replace("{RTU_SVR_2Stop}", _modbusStopBits == UART_STOP_BITS_2 ? "selected" : "");
+               modbus.replace("{modbusPort}", String(_modbusPort));
+               modbus.replace("{modbusID}", String(_modbusID));
+               modbus.replace("{inputRegBase}", String(_input_register_base_addr));
+               modbus.replace("{coilBase}", String(_coil_base_addr));
+               modbus.replace("{discreteBase}", String(_discrete_input_base_addr));
+               modbus.replace("{holdingRegBase}", String(_holding_register_base_addr));
+               modbus.replace("{modbusBridgechecked}", _useModbusBridge ? "checked" : "unchecked");
+               modbus.replace("{RTU_CLIENT_9600}", _modbusClientBaudRate == 9600 ? "selected" : "");
+               modbus.replace("{RTU_CLIENT_19200}", _modbusClientBaudRate == 19200 ? "selected" : "");
+               modbus.replace("{RTU_CLIENT_38400}", _modbusClientBaudRate == 38400 ? "selected" : "");
+               modbus.replace("{RTU_CLIENT_115200}", _modbusClientBaudRate == 115200 ? "selected" : "");
+               modbus.replace("{RTU_CLIENT_Parity_None}", _modbusClientParity == UART_PARITY_DISABLE ? "selected" : "");
+               modbus.replace("{RTU_CLIENT_Parity_Even}", _modbusClientParity == UART_PARITY_EVEN ? "selected" : "");
+               modbus.replace("{RTU_CLIENT_Parity_Odd}", _modbusClientParity == UART_PARITY_ODD ? "selected" : "");
+               modbus.replace("{RTU_CLIENT_1Stop}", _modbusClientStopBits == UART_STOP_BITS_1 ? "selected" : "");
+               modbus.replace("{RTU_CLIENT_2Stop}", _modbusClientStopBits == UART_STOP_BITS_2 ? "selected" : "");
+               fields += modbus;
+#endif
                String page = network_config_top;
                page.replace("{style}", style);
                page.replace("{n}", _AP_SSID);
                page.replace("{v}", APP_VERSION);
                page += fields;
                _iotCB->addApplicationConfigs(page);
-               String apply_button = network_config_apply_button;
+               String apply_button = config_apply_button;
                page += apply_button;
 #ifdef HasOTA
-               page += network_config_links;
+               page += config_links;
 #else 
-			page += network_config_links_no_ota;
+			page += config_links_no_ota;
 #endif
                request->send(200, "text/html", page);
             })
@@ -231,13 +244,17 @@ void IOT::Init(IOTCallbackInterface *iotCB, AsyncWebServer *pwebServer) {
    _pwebServer->on("/submit", HTTP_POST, [this](AsyncWebServerRequest *request) {
       logd("submit");
       if (request->hasParam("AP_SSID", true)) {
-         _AP_SSID = request->getParam("AP_SSID", true)->value().c_str();
+         String ap_ssid = request->getParam("AP_SSID", true)->value();
+         ap_ssid.trim();
+         _AP_SSID = ap_ssid.c_str();
       }
       if (request->hasParam("AP_Pw", true)) {
          _AP_Password = request->getParam("AP_Pw", true)->value().c_str();
       }
       if (request->hasParam("SSID", true)) {
-         _SSID = request->getParam("SSID", true)->value().c_str();
+         String ssid = request->getParam("SSID", true)->value();
+         ssid.trim();
+         _SSID = ssid.c_str();
       }
       if (request->hasParam("networkSelector", true)) {
          String sel = request->getParam("networkSelector", true)->value();
@@ -270,6 +287,7 @@ void IOT::Init(IOTCallbackInterface *iotCB, AsyncWebServer *pwebServer) {
          _Gateway_IP = request->getParam("ETH_GW", true)->value().c_str();
       }
 #endif
+#ifdef HasMQTT
       _useMQTT = request->hasParam("mqttCheckbox", true);
       if (request->hasParam("mqttServer", true)) {
          _mqttServer = request->getParam("mqttServer", true)->value().c_str();
@@ -283,6 +301,8 @@ void IOT::Init(IOTCallbackInterface *iotCB, AsyncWebServer *pwebServer) {
       if (request->hasParam("mqttPw", true)) {
          _mqttUserPassword = request->getParam("mqttPw", true)->value().c_str();
       }
+#endif
+#ifdef HasModbus
       _useModbus = request->hasParam("modbusCheckbox", true);
       if (request->hasParam("modbusModeSelector", true)) {
          String sel = request->getParam("modbusModeSelector", true)->value();
@@ -329,6 +349,7 @@ void IOT::Init(IOTCallbackInterface *iotCB, AsyncWebServer *pwebServer) {
          String sel = request->getParam("clientRTUStopBits", true)->value().c_str();
          _modbusClientStopBits = sel == "1" ? UART_STOP_BITS_1 : UART_STOP_BITS_2;
       }
+#endif
       _iotCB->onSubmitForm(request);
       RedirectToHome(request);
       saveSettings();
@@ -375,11 +396,14 @@ void IOT::loadSettings() {
       _Static_IP = iot["ETH_SIP"].isNull() ? "" : iot["ETH_SIP"].as<String>();
       _Subnet_Mask = iot["ETH_SM"].isNull() ? "" : iot["ETH_SM"].as<String>();
       _Gateway_IP = iot["ETH_GW"].isNull() ? "" : iot["ETH_GW"].as<String>();
+#ifdef HasMQTT
       _useMQTT = iot["useMQTT"].isNull() ? false : iot["useMQTT"].as<bool>();
       _mqttServer = iot["mqttServer"].isNull() ? "" : iot["mqttServer"].as<String>();
       _mqttPort = iot["mqttPort"].isNull() ? 1883 : iot["mqttPort"].as<uint16_t>();
       _mqttUserName = iot["mqttUser"].isNull() ? "" : iot["mqttUser"].as<String>();
       _mqttUserPassword = iot["mqttPw"].isNull() ? "" : iot["mqttPw"].as<String>();
+#endif
+#ifdef HasModbus
       _useModbus = iot["useModbus"].isNull() ? false : iot["useModbus"].as<bool>();
       _ModbusMode = iot["modbusMode"].isNull() ? TCP : iot["modbusMode"].as<ModbusMode>();
       _modbusBaudRate = iot["svrRTUBaud"].isNull() ? 9600 : iot["svrRTUBaud"].as<uint32_t>();
@@ -395,6 +419,7 @@ void IOT::loadSettings() {
       _modbusClientBaudRate = iot["modbusClientBaudRate"].isNull() ? 9600 : iot["modbusClientBaudRate"].as<uint32_t>();
       _modbusClientParity = iot["modbusClientParity"].isNull() ? UART_PARITY_DISABLE : iot["modbusClientParity"].as<uart_parity_t>();
       _modbusClientStopBits = iot["modbusClientStopBits"].isNull() ? UART_STOP_BITS_1 : iot["modbusClientStopBits"].as<uart_stop_bits_t>();
+#endif
       _iotCB->onLoadSetting(doc);
    }
 }
@@ -416,11 +441,14 @@ void IOT::saveSettings() {
    iot["ETH_SIP"] = _Static_IP;
    iot["ETH_SM"] = _Subnet_Mask;
    iot["ETH_GW"] = _Gateway_IP;
+#ifdef HasMQTT
    iot["useMQTT"] = _useMQTT;
    iot["mqttServer"] = _mqttServer;
    iot["mqttPort"] = _mqttPort;
    iot["mqttUser"] = _mqttUserName;
    iot["mqttPw"] = _mqttUserPassword;
+#endif
+#ifdef HasModbus
    iot["useModbus"] = _useModbus;
    iot["modbusMode"] = _ModbusMode;
    iot["svrRTUBaud"] = _modbusBaudRate;
@@ -436,6 +464,7 @@ void IOT::saveSettings() {
    iot["modbusClientBaudRate"] = _modbusClientBaudRate;
    iot["modbusClientParity"] = _modbusClientParity;
    iot["modbusClientStopBits"] = _modbusClientStopBits;
+#endif
    _iotCB->onSaveSetting(doc);
    String jsonString;
    serializeJson(doc, jsonString);
@@ -453,6 +482,11 @@ void IOT::saveSettings() {
    _needToReboot = _settingsChecksum != sum;
    if (_needToReboot)
       logd("******* Need to reboot! ***");
+}
+
+std::string IOT::getThingName() {
+   std::string s(_AP_SSID.c_str());
+   return s;
 }
 
 void IOT::Run() {
@@ -606,12 +640,14 @@ void IOT::GoOnline() {
          logd("Active mDNS services: %d", MDNS.queryService("http", "tcp"));
       }
       _iotCB->onNetworkConnect();
+#ifdef HasModbus
       if (_useModbus && !_MBserver.isRunning()) {
          if (_ModbusMode == TCP) {
             if (!_MBserver.isRunning()) {
                _MBserver.start(_modbusPort, 5, 0); // listen for modbus requests
                logd("Modbus TCP started");
             }
+
 #ifdef HasRS485
             if (ModbusBridgeEnabled()) {
                _MBclientRTU.setTimeout(MODBUS_RTU_TIMEOUT);
@@ -639,22 +675,29 @@ void IOT::GoOnline() {
             logd("Modbus RTU started");
          }
       }
-      logd("Before xTimerStart _NetworkSelection: %d", _NetworkSelection);
+#endif
+#ifdef HasMQTT
       xTimerStart(mqttReconnectTimer, 0);
+#endif
       setState(OnLine);
    }
 }
 
 void IOT::GoOffline() {
    logd("GoOffline");
+#ifdef HasMQTT
    xTimerStop(mqttReconnectTimer, 0); // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
+   StopMQTT();
+#endif
    _webLog.end();
    _dnsServer.stop();
-   StopMQTT();
+
+#ifdef HasModbus
    logd("GoOffline RTU");
    if (_ModbusMode == RTU) {
       _MBRTUserver.end();
    }
+#endif
    MDNS.end();
    if (_networkState == OnLine) {
       setState(OffLine);
@@ -673,12 +716,17 @@ void IOT::setState(NetworkState newState) {
    switch (newState) {
    case OffLine:
       if (_NetworkSelection == WiFiMode) {
+         logd("Going offline, set back to AP mode");
          WiFi.disconnect(true); // true = erase WiFi credentials
-         WiFi.mode(WIFI_OFF);   // disable Wi-Fi hardware
+         WiFi.mode(WIFI_AP);
+#ifdef HasEthernet
       } else if (_NetworkSelection == EthernetMode) {
          DisconnectEthernet();
+#endif
+#ifdef HasLTE
       } else if (_NetworkSelection == ModemMode) {
          DisconnectModem();
+#endif
       }
       delay(100);
       break;
@@ -686,10 +734,14 @@ void IOT::setState(NetworkState newState) {
       if ((oldState == Connecting) || (oldState == OnLine)) {
          if (_NetworkSelection == WiFiMode) {
             WiFi.disconnect(true); // true = erase WiFi credentials
+#ifdef HasEthernet
          } else if (_NetworkSelection == EthernetMode) {
             DisconnectEthernet();
+#endif
+#ifdef HasLTE
          } else if (_NetworkSelection == ModemMode) {
             DisconnectModem();
+#endif
          }
          delay(100);
       }
@@ -711,17 +763,21 @@ void IOT::setState(NetworkState newState) {
          WiFi.mode(WIFI_STA);
          WiFi.begin(_SSID, _WiFi_Password);
       } else if (_NetworkSelection == EthernetMode) {
+#ifdef HasEthernet
          if (ConnectEthernet() == ESP_OK) {
             logd("Ethernet succeeded");
          } else {
             loge("Failed to connect to Ethernet");
          }
+#endif
+#ifdef HasLTE
       } else if (_NetworkSelection == ModemMode) {
          if (ConnectModem() == ESP_OK) {
             logd("Modem succeeded");
          } else {
             loge("Failed to connect to 4G Modem");
          }
+#endif
       }
       break;
    case OnLine:
@@ -757,9 +813,9 @@ void IOT::HandleIPEvent(int32_t event_id, void *event_data) {
       logd("IP event! %d", (int)event_id);
    }
 }
-
-esp_err_t IOT::ConnectEthernet() {
 #ifdef HasEthernet
+esp_err_t IOT::ConnectEthernet() {
+
    esp_err_t ret = ESP_OK;
    logd("ConnectEthernet");
    if ((ret = gpio_install_isr_service(0)) != ESP_OK) {
@@ -851,14 +907,28 @@ esp_err_t IOT::ConnectEthernet() {
       }
    }
    return ret;
-#else
-   loge("Ethernet not supported on this device");
-   return ESP_ERR_NOT_SUPPORTED;
-#endif
 }
 
-void IOT::wakeup_modem(void) {
+void IOT::DisconnectEthernet() {
+   if (_eth_handle != NULL) {
+      ESP_ERROR_CHECK(esp_eth_stop(_eth_handle));
+      _eth_handle = NULL;
+      if (_eth_netif_glue != NULL) {
+         ESP_ERROR_CHECK(esp_eth_del_netif_glue(_eth_netif_glue));
+         _eth_netif_glue = NULL;
+      }
+      if (_netif != NULL) {
+         esp_netif_destroy(_netif);
+         _netif = NULL;
+      }
+      ESP_ERROR_CHECK(esp_event_handler_unregister(IP_EVENT, ESP_EVENT_ANY_ID, on_ip_event));
+   }
+}
+
+#endif
+
 #ifdef HasLTE
+void IOT::wakeup_modem(void) {
    pinMode(LTE_PWR_EN, OUTPUT);
 #ifdef LTE_AIRPLANE_MODE
    pinMode(LTE_AIRPLANE_MODE, OUTPUT); // turn off airplane mode
@@ -870,11 +940,9 @@ void IOT::wakeup_modem(void) {
    digitalWrite(LTE_PWR_EN, HIGH);
    delay(2000);
    logd("Modem is powered up and ready");
-#endif
 }
 
 esp_err_t IOT::ConnectModem() {
-#ifdef HasLTE
    logd("ConnectModem");
    esp_err_t ret = ESP_OK;
    wakeup_modem();
@@ -913,14 +981,9 @@ esp_err_t IOT::ConnectModem() {
    }
    logi("Modem has acquired network");
    return ret;
-#else
-   loge("LTE not supported on this device");
-   return ESP_ERR_NOT_SUPPORTED;
-#endif
 }
 
 void IOT::DisconnectModem() {
-#ifdef HasLTE
    if (digitalRead(LTE_PWR_EN) == HIGH) {
 #ifdef LTE_AIRPLANE_MODE
       digitalWrite(LTE_AIRPLANE_MODE, LOW); // turn on airplane mode
@@ -934,30 +997,12 @@ void IOT::DisconnectModem() {
       }
       ESP_ERROR_CHECK(esp_event_handler_unregister(IP_EVENT, ESP_EVENT_ANY_ID, on_ip_event));
    }
-#endif
 }
-
-void IOT::DisconnectEthernet() {
-#ifdef HasEthernet
-   if (_eth_handle != NULL) {
-      ESP_ERROR_CHECK(esp_eth_stop(_eth_handle));
-      _eth_handle = NULL;
-      if (_eth_netif_glue != NULL) {
-         ESP_ERROR_CHECK(esp_eth_del_netif_glue(_eth_netif_glue));
-         _eth_netif_glue = NULL;
-      }
-      if (_netif != NULL) {
-         esp_netif_destroy(_netif);
-         _netif = NULL;
-      }
-      ESP_ERROR_CHECK(esp_event_handler_unregister(IP_EVENT, ESP_EVENT_ANY_ID, on_ip_event));
-   }
 #endif
-}
 
 // #pragma endregion Network
 
-// #pragma region Modbus
+#ifdef HasModbus
 
 void IOT::registerMBTCPWorkers(FunctionCode fc, MBSworker worker) {
    if (_ModbusMode == TCP) {
@@ -1007,10 +1052,9 @@ uint16_t IOT::getMBBaseAddress(IOTypes type) {
    return 0;
 }
 
-// #pragma endregion Modbus
+#endif
 
-// #pragma region MQTT
-
+#ifdef HasMQTT
 void IOT::HandleMQTT(int32_t event_id, void *event_data) {
    auto event = (esp_mqtt_event_handle_t)event_data;
    esp_mqtt_client_handle_t client = event->client;
@@ -1161,11 +1205,6 @@ std::string IOT::getRootTopicPrefix() {
    return s;
 };
 
-std::string IOT::getThingName() {
-   std::string s(_AP_SSID.c_str());
-   return s;
-}
-
-// #pragma endregion MQTT
+#endif
 
 } // namespace CLASSICDIY

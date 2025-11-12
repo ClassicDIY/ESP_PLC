@@ -1,18 +1,22 @@
 #pragma once
 #include <Arduino.h>
-#include <ArduinoJson.h>
-#include <sstream>
-#include <string>
+#include "ArduinoJson.h"
 #include <EEPROM.h>
 #include <AsyncTCP.h>
 #include <WiFi.h>
 #include <DNSServer.h>
 #include <ESPAsyncWebServer.h>
+#ifdef HasModbus
 #include <ModbusServerTCPasync.h>
 #include <ModbusServerRTU.h>
 #include <ModbusClientRTU.h>
+#endif
+#ifdef HasMQTT
 #include "mqtt_client.h"
+#endif
 #include "time.h"
+#include <sstream>
+#include <string>
 #include "Defines.h"
 #include "Enumerations.h"
 #include "OTA.h"
@@ -30,18 +34,22 @@ class IOT : public IOTServiceInterface {
    NetworkState getNetworkState() { return _networkState; }
    void GoOnline();
 
-   // MQTT
+#ifdef HasMQTT
    std::string getRootTopicPrefix();
    boolean Publish(const char *subtopic, const char *value, boolean retained = false);
    boolean Publish(const char *subtopic, JsonDocument &payload, boolean retained = false);
    boolean Publish(const char *subtopic, float value, boolean retained = false);
    boolean PublishMessage(const char *topic, JsonDocument &payload, boolean retained);
+#endif
 
-   // Modbus
+#ifdef HasModbus
    boolean ModbusBridgeEnabled();
    void registerMBTCPWorkers(FunctionCode fc, MBSworker worker);
    Modbus::Error SendToModbusBridgeAsync(ModbusMessage &request);
    uint16_t getMBBaseAddress(IOTypes type);
+#else
+boolean ModbusBridgeEnabled() {return false;};
+#endif
 
  private:
    OTA _OTA = OTA();
@@ -63,13 +71,37 @@ class IOT : public IOTServiceInterface {
    String _Static_IP;
    String _Subnet_Mask;
    String _Gateway_IP;
+   uint32_t _settingsChecksum = 0;
+   bool _needToReboot = false;
+
+#ifdef HasMQTT
    bool _useMQTT = false;
    String _mqttServer;
    uint16_t _mqttPort = 1883;
    String _mqttUserName;
    String _mqttUserPassword;
-   uint32_t _settingsChecksum = 0;
-   bool _needToReboot = false;
+   char _willTopic[STR_LEN * 2];
+   char _rootTopicPrefix[STR_LEN];
+   esp_mqtt_client_handle_t _mqtt_client_handle = 0;
+   void ConnectToMQTTServer();
+   void HandleMQTT(int32_t event_id, void *event_data);
+   void StopMQTT();
+   static void mqttReconnectTimerCF(TimerHandle_t xTimer) {
+      // Retrieve the instance of the class (stored as the timer's ID)
+      IOT *instance = static_cast<IOT *>(pvTimerGetTimerID(xTimer));
+      if (instance != nullptr) {
+         instance->ConnectToMQTTServer();
+      }
+   }
+   static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data) {
+      IOT *instance = static_cast<IOT *>(handler_args);
+      if (instance != nullptr) {
+         instance->HandleMQTT(event_id, event_data);
+      }
+   }
+#endif
+
+#ifdef HasModbus
    bool _useModbus = false;
    ModbusMode _ModbusMode = TCP;
    uint16_t _modbusPort = 502;
@@ -92,6 +124,8 @@ class IOT : public IOTServiceInterface {
    uint16_t _coil_base_addr = COIL_BASE_ADDRESS;
    uint16_t _discrete_input_base_addr = DISCRETE_BASE_ADDRESS;
    uint16_t _holding_register_base_addr = HOLDING_REGISTER_BASE_ADDRESS;
+#endif
+
    IOTCallbackInterface *_iotCB;
    u_int _uniqueId = 0; // unique id from mac address NIC segment
    unsigned long _lastBlinkTime = 0;
@@ -99,40 +133,25 @@ class IOT : public IOTServiceInterface {
    unsigned long _waitInAPTimeStamp = millis();
    unsigned long _NetworkConnectionStart = 0;
    unsigned long _FlasherIPConfigStart = millis();
-   char _willTopic[STR_LEN * 2];
-   char _rootTopicPrefix[STR_LEN];
-   esp_mqtt_client_handle_t _mqtt_client_handle = 0;
    void RedirectToHome(AsyncWebServerRequest *request);
    void UpdateOledDisplay();
    void GoOffline();
    void saveSettings();
    void loadSettings();
-   void ConnectToMQTTServer();
-   void HandleMQTT(int32_t event_id, void *event_data);
-   void StopMQTT();
    void setState(NetworkState newState);
+#ifdef HasLTE
    void wakeup_modem(void);
    esp_netif_t *_netif = NULL;
    esp_err_t ConnectModem();
    void DisconnectModem();
    esp_eth_handle_t _eth_handle = NULL;
    esp_eth_netif_glue_handle_t _eth_netif_glue;
+#endif
+#ifdef HasEthernet
    esp_err_t ConnectEthernet();
    void DisconnectEthernet();
+#endif
    void HandleIPEvent(int32_t event_id, void *event_data);
-   static void mqttReconnectTimerCF(TimerHandle_t xTimer) {
-      // Retrieve the instance of the class (stored as the timer's ID)
-      IOT *instance = static_cast<IOT *>(pvTimerGetTimerID(xTimer));
-      if (instance != nullptr) {
-         instance->ConnectToMQTTServer();
-      }
-   }
-   static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data) {
-      IOT *instance = static_cast<IOT *>(handler_args);
-      if (instance != nullptr) {
-         instance->HandleMQTT(event_id, event_data);
-      }
-   }
    static void on_ip_event(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data) {
       IOT *instance = static_cast<IOT *>(arg);
       if (instance) {
