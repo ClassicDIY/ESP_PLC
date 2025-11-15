@@ -247,10 +247,10 @@ void inline GPIO_Init() {
 #define OLED_RESET -1    // Reset pin # (or -1 if sharing Arduino reset pin)
 
 // digital outputs
-#define DO0 GPIO_NUM_32
-#define DO1 GPIO_NUM_33
-#define DO2 GPIO_NUM_25
-#define DO3 GPIO_NUM_26
+#define DO0 GPIO_NUM_21
+#define DO1 GPIO_NUM_19
+#define DO2 GPIO_NUM_18
+#define DO3 GPIO_NUM_5
 
 #elif ESP_32Dev
 
