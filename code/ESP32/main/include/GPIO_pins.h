@@ -15,63 +15,63 @@
 void inline GPIO_Init() {}
 
 // Programming and Debugging Port
-static const uint8_t U0_TXD = 43;
-static const uint8_t U0_RXD = 44;
+#define U0_TXD GPIO_NUM_43
+#define U0_RXD GPIO_NUM_44
 
 // I2C
-static const uint8_t I2C_SDA = 20;
-static const uint8_t I2C_SCL = 19;
+#define I2C_SDA GPIO_NUM_20
+#define I2C_SCL GPIO_NUM_19
 
 // I2C INT fro RTC PCF8563
-static const uint8_t I2C_INT = 9;
+#define I2C_INT GPIO_NUM_9
 
 // SPI BUS for W5500 Ethernet Port Driver
-static const uint8_t ETH_SS = 10;
-static const uint8_t ETH_MOSI = 12;
-static const uint8_t ETH_MISO = 11;
-static const uint8_t ETH_SCK = 13;
-static const uint8_t ETH_INT = 14;
-static const uint8_t ETH_RST = 15;
+#define ETH_SS GPIO_NUM_10
+#define ETH_MOSI GPIO_NUM_12
+#define ETH_MISO GPIO_NUM_11
+#define ETH_SCK GPIO_NUM_13
+#define ETH_INT GPIO_NUM_14
+#define ETH_RST GPIO_NUM_15
 
 // A7670G
-static const uint8_t LTE_AIRPLANE_MODE = 16;
-static const uint8_t LTE_PWR_EN = 21;
-static const uint8_t LTE_TXD = 48;
-static const uint8_t LTE_RXD = 47;
+#define LTE_AIRPLANE_MODE GPIO_NUM_16
+#define LTE_PWR_EN GPIO_NUM_21
+#define LTE_TXD GPIO_NUM_48
+#define LTE_RXD GPIO_NUM_47
 
 // RS485
-static const uint8_t RS485_TXD = 17;
-static const uint8_t RS485_RXD = 18;
-static const uint8_t RS485_RTS = 8;
+#define RS485_TXD GPIO_NUM_17
+#define RS485_RXD GPIO_NUM_18
+#define RS485_RTS GPIO_NUM_8
 
 // CAN BUS
-static const uint8_t CAN_TXD = 1;
-static const uint8_t CAN_RXD = 2;
+#define CAN_TXD GPIO_NUM_1
+#define CAN_RXD GPIO_NUM_2
 
 // BUZZER
-static const uint8_t BUZZER = 45;
+#define BUZZER GPIO_NUM_45
 
-static const uint8_t DO0 = 40;
-static const uint8_t DO1 = 39;
-static const uint8_t DO2 = 38;
-static const uint8_t DO3 = 37;
-static const uint8_t DO4 = 36;
-static const uint8_t DO5 = 35;
+#define DO0 GPIO_NUM_40
+#define DO1 GPIO_NUM_39
+#define DO2 GPIO_NUM_38
+#define DO3 GPIO_NUM_37
+#define DO4 GPIO_NUM_36
+#define DO5 GPIO_NUM_35
 
-static const uint8_t DI0 = 4;
-static const uint8_t DI1 = 5;
-static const uint8_t DI2 = 6;
-static const uint8_t DI3 = 7;
+#define DI0 GPIO_NUM_4
+#define DI1 GPIO_NUM_5
+#define DI2 GPIO_NUM_6
+#define DI3 GPIO_NUM_7
 
 // Analog Input (SGM58031) channels
-static const uint8_t AI0 = 0;
-static const uint8_t AI1 = 1;
-static const uint8_t AI2 = 2;
-static const uint8_t AI3 = 3;
+#define AI0 GPIO_NUM_0
+#define AI1 GPIO_NUM_1
+#define AI2 GPIO_NUM_2
+#define AI3 GPIO_NUM_3
 
 // Analog Output
-static const uint8_t AO0 = 42;
-static const uint8_t AO1 = 41;
+#define AO0 GPIO_NUM_42
+#define AO1 GPIO_NUM_41
 
 #elif NORVI_GSM_AE02
 
@@ -80,45 +80,45 @@ static const uint8_t AO1 = 41;
 #define AI_PINS 4        // Number of analog input pins
 #define AO_PINS 0        // Number of analog output pins
 
-static const uint8_t BUTTONS = 36; // Analog pin to read buttons
+#define BUTTONS GPIO_NUM_36 // Analog pin to read buttons
 
-void inline GPIO_Init() { pinMode(BUTTONS, INPUT); }
+void inline GPIO_Init() { pinMode(GPIO_NUM_36, INPUT); }
 
 // Programming and Debugging Port
-static const uint8_t U0_TXD = 03;
-static const uint8_t U0_RXD = 01;
+#define U0_TXD GPIO_NUM_03
+#define U0_RXD GPIO_NUM_01
 
 // I2C
-static const uint8_t I2C_SDA = 16;
-static const uint8_t I2C_SCL = 17;
+#define I2C_SDA GPIO_NUM_16
+#define I2C_SCL GPIO_NUM_17
 
 // GSM Modem
-static const uint8_t LTE_PWR_EN = 21;
-static const uint8_t LTE_TXD = 32;
-static const uint8_t LTE_RXD = 33;
+#define LTE_PWR_EN GPIO_NUM_21
+#define LTE_TXD GPIO_NUM_32
+#define LTE_RXD GPIO_NUM_33
 
 // RS485
-static const uint8_t RS485_TXD = 26;
-static const uint8_t RS485_RXD = 25;
-static const uint8_t RS485_RTS = 22;
+#define RS485_TXD GPIO_NUM_26
+#define RS485_RXD GPIO_NUM_25
+#define RS485_RTS GPIO_NUM_22
 
-static const uint8_t DO0 = 12;
-static const uint8_t DO1 = 2;
+#define DO0 GPIO_NUM_12
+#define DO1 GPIO_NUM_2
 
-static const uint8_t DI0 = 27;
-static const uint8_t DI1 = 34;
-static const uint8_t DI2 = 35;
-static const uint8_t DI3 = 14;
-static const uint8_t DI4 = 13;
-static const uint8_t DI5 = 5;
-static const uint8_t DI6 = 15;
-static const uint8_t DI7 = 19;
+#define DI0 GPIO_NUM_27
+#define DI1 GPIO_NUM_34
+#define DI2 GPIO_NUM_35
+#define DI3 GPIO_NUM_14
+#define DI4 GPIO_NUM_13
+#define DI5 GPIO_NUM_5
+#define DI6 GPIO_NUM_15
+#define DI7 GPIO_NUM_19
 
 // Analog Input (ADS1115) channels
-static const uint8_t AI0 = 0;
-static const uint8_t AI1 = 1;
-static const uint8_t AI2 = 2;
-static const uint8_t AI3 = 3;
+#define AI0 GPIO_NUM_0
+#define AI1 GPIO_NUM_1
+#define AI2 GPIO_NUM_2
+#define AI3 GPIO_NUM_3
 
 // No Analog output
 
@@ -140,26 +140,26 @@ static const uint8_t AI3 = 3;
 void inline GPIO_Init() {}
 
 // Programming and Debugging Port
-static const uint8_t U0_TXD = 01;
-static const uint8_t U0_RXD = 03;
+#define U0_TXD GPIO_NUM_01
+#define U0_RXD GPIO_NUM_03
 
 // I2C
-static const uint8_t I2C_SDA = 21;
-static const uint8_t I2C_SCL = 22;
+#define I2C_SDA GPIO_NUM_21
+#define I2C_SCL GPIO_NUM_22
 
 // GSM Modem
 #define LTE_AIRPLANE_MODE  25 // SIM7600G airplane mode pin, High to exit.
-static const uint8_t LTE_PWR_EN = 4;         // send power to the modem
-static const uint8_t LTE_TXD = 27;
-static const uint8_t LTE_RXD = 26;
+#define LTE_PWR_EN GPIO_NUM_4         // send power to the modem
+#define LTE_TXD GPIO_NUM_27
+#define LTE_RXD GPIO_NUM_26
 
 // digital outputs
-static const uint8_t DO0 = 14;
-static const uint8_t DO1 = 15;
+#define DO0 GPIO_NUM_14
+#define DO1 GPIO_NUM_15
 
 // digital inputs
-static const uint8_t DI0 = 12;
-static const uint8_t DI1 = 13;
+#define DI0 GPIO_NUM_12
+#define DI1 GPIO_NUM_13
 
 // No Analog output
 
@@ -197,31 +197,60 @@ void inline GPIO_Init() {
    ledcAttachPin(GPIO_PIN_Buzzer, PWM_Channel);   // Connect the channel to the corresponding pin
 }
 // UARTS
-static const uint8_t U0_TXD = 43;
-static const uint8_t U0_RXD = 44;
+#define U0_TXD GPIO_NUM_43
+#define U0_RXD GPIO_NUM_44
 
 // RS485
-static const uint8_t RS485_TXD = 17;
-static const uint8_t RS485_RXD = 18;
-static const int8_t RS485_RTS = -1;
+#define RS485_TXD GPIO_NUM_17
+#define RS485_RXD GPIO_NUM_18
+#define RS485_RTS -1
 
 // I2C
-static const uint8_t I2C_SDA = 47;
-static const uint8_t I2C_SCL = 48;
+#define I2C_SDA GPIO_NUM_47
+#define I2C_SCL GPIO_NUM_48
 
 // digital outputs
-static const uint8_t DO0 = 1;
-static const uint8_t DO1 = 2;
-static const uint8_t DO2 = 41;
-static const uint8_t DO3 = 42;
-static const uint8_t DO4 = 45;
-static const uint8_t DO5 = 46;
+#define DO0 GPIO_NUM_1
+#define DO1 GPIO_NUM_2
+#define DO2 GPIO_NUM_41
+#define DO3 GPIO_NUM_42
+#define DO4 GPIO_NUM_45
+#define DO5 GPIO_NUM_46
 
 // analog outputs
-static const uint8_t AO0 = 7;
-static const uint8_t AO1 = 8;
-static const uint8_t AO2 = 9;
-static const uint8_t AO3 = 10;
+#define AO0 GPIO_NUM_7
+#define AO1 GPIO_NUM_8
+#define AO2 GPIO_NUM_9
+#define AO3 GPIO_NUM_10
+
+#elif Lilygo_Relay_4CH
+
+#define DI_PINS 0 // Number of digital input pins
+#define DO_PINS 4 // Number of digital output pins
+#define AI_PINS 0 // Number of analog input pins
+#define AO_PINS 0 // Number of analog output pins
+
+#define FACTORY_RESET_PIN 4 // Clear NVRAM
+#define WIFI_STATUS_PIN 25  // LED Pin
+
+void inline GPIO_Init() {
+}
+
+// I2C
+#define I2C_SDA GPIO_NUM_15
+#define I2C_SCL GPIO_NUM_14
+
+// OLED display definitions
+#define SCREEN_ADDRESS 0x3C // OLED 128X64 I2C address
+#define SCREEN_WIDTH 128 // OLED display width, in pixels
+#define SCREEN_HEIGHT 64 // OLED display height, in pixels
+#define OLED_RESET -1    // Reset pin # (or -1 if sharing Arduino reset pin)
+
+// digital outputs
+#define DO0 GPIO_NUM_32
+#define DO1 GPIO_NUM_33
+#define DO2 GPIO_NUM_25
+#define DO3 GPIO_NUM_26
 
 #elif ESP_32Dev
 
@@ -236,15 +265,15 @@ static const uint8_t AO3 = 10;
 void inline GPIO_Init() {}
 
 // I2C
-static const uint8_t I2C_SDA = 21;
-static const uint8_t I2C_SCL = 22;
+#define I2C_SDA GPIO_NUM_21
+#define I2C_SCL GPIO_NUM_22
 
 // digital outputs
-static const uint8_t DO0 = 36;
-static const uint8_t DO1 = 39;
+#define DO0 GPIO_NUM_36
+#define DO1 GPIO_NUM_39
 
 // digital inputs
-static const uint8_t DI0 = 34;
-static const uint8_t DI1 = 35;
+#define DI0 GPIO_NUM_34
+#define DI1 GPIO_NUM_35
 
 #endif

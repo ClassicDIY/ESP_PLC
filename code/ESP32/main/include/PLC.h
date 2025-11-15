@@ -65,6 +65,11 @@ class PLC : public IOTCallbackInterface {
    DigitalSensor _DigitalSensors[DI_PINS] = {};
    AnalogSensor _AnalogSensors[AI_PINS] = {};
    PWMOutput _PWMOutputs[AO_PINS] = {};
+#elif Lilygo_Relay_4CH
+   Coil _Coils[DO_PINS] = {DO0, DO1, DO2, DO3};
+   DigitalSensor _DigitalSensors[DI_PINS] = {};
+   AnalogSensor _AnalogSensors[AI_PINS] = {};
+   PWMOutput _PWMOutputs[AO_PINS] = {};
 #elif ESP_32Dev
    Coil _Coils[DO_PINS] = {DO0, DO1};
    DigitalSensor _DigitalSensors[DI_PINS] = {DI0, DI1};

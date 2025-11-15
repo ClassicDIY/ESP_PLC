@@ -35,7 +35,7 @@ Thread *_workerThread2 = new Thread();
 Thread *_workerThread3 = new Thread();
 
 esp_err_t Main::setup() {
-#ifdef Waveshare_Relay_6CH
+#if defined(Waveshare_Relay_6CH) || defined(Lilygo_Relay_4CH)
    delay(5000);
 #else
    Serial.begin(115200);
@@ -75,7 +75,7 @@ esp_err_t Main::setup() {
    logi("Date Time: %s", now.timestamp().c_str());
 #endif
 #ifdef Has_OLED_Display
-   if (!oled_display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+   if (!oled_display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
       loge("SSD1306 allocation failed");
    } else {
       oled_display.clearDisplay();
