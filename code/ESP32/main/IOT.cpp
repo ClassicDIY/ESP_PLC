@@ -58,6 +58,7 @@ void IOT::Init(IOTCallbackInterface *iotCB, AsyncWebServer *pwebServer) {
       logi("Factory Reset");
       EEPROM.write(0, 0);
       EEPROM.commit();
+      saveSettings();
    }
 #else // use analog pin for factory reset
    EEPROM.begin(EEPROM_SIZE);

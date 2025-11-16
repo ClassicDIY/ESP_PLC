@@ -17,7 +17,6 @@ PLC::~PLC() { logd("PLC destructor"); }
 // #region Setup
 
 void PLC::setup() {
-   logd("setup");
    _iot.Init(this, &_asyncServer);
    uint16_t coilCount = _iot.ModbusBridgeEnabled() ? _coilCount + DO_PINS : DO_PINS;
    _digitalOutputCoils.Init(coilCount);

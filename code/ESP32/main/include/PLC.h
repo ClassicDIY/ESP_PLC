@@ -1,8 +1,6 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <AsyncTCP.h>
-#include <WiFi.h>
-#include <DNSServer.h>
 #include <ESPAsyncWebServer.h>
 #include <ModbusServerTCPasync.h>
 #include "Defines.h"
