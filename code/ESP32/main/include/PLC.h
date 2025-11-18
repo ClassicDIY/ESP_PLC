@@ -14,9 +14,8 @@ class PLC : public Device, public IOTCallbackInterface {
  public:
    PLC();
    ~PLC();
-   void setup();
+   void Setup();
    void CleanUp();
-   void Monitor();
    void Process();
 #ifdef HasMQTT
    void onMqttConnect();

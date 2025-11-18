@@ -5,7 +5,6 @@
 #include <WiFi.h>
 #include <time.h>
 #include <Wire.h>
-#include <Adafruit_ADS1X15.h>
 #ifdef Has_OLED_Display
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
@@ -25,11 +24,9 @@ RTC_PCF8563 rtc;
 
 static Main my_main;
 PLC _plc = PLC();
-Adafruit_ADS1115 ads; /* Use this for the 16-bit version */
 ThreadController _controller = ThreadController();
 Thread *_workerThread1 = new Thread();
 Thread *_workerThread2 = new Thread();
-Thread *_workerThread3 = new Thread();
 
 esp_err_t Main::setup() {
    // wait for Serial to connect, give up after 5 seconds, USB may not be connected
@@ -54,22 +51,14 @@ esp_err_t Main::setup() {
    logd("------------ESP32 specifications ---------------");
 
    Wire.begin(I2C_SDA, I2C_SCL);
-   if (!ads.begin(0x48, &Wire)) {
-      loge("Failed to initialize ADS.");
-   }
-
-
-   _plc.setup();
+   _plc.Setup();
    // Configure main worker thread
    _workerThread1->onRun([]() { _plc.CleanUp(); });
    _workerThread1->setInterval(5000);
    _controller.add(_workerThread1);
-   _workerThread2->onRun([]() { _plc.Monitor(); });
+   _workerThread2->onRun([]() { _plc.Process(); });
    _workerThread2->setInterval(200);
    _controller.add(_workerThread2);
-   _workerThread3->onRun([]() { _plc.Process(); });
-   _workerThread3->setInterval(200);
-   _controller.add(_workerThread3);
    esp_task_wdt_init(60, true); // 60-second timeout, panic on timeout
    esp_task_wdt_add(NULL);
    logd("Setup Done");

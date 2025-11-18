@@ -10,7 +10,8 @@
 #include <Adafruit_SSD1306.h>
 Adafruit_SSD1306 oled_display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 #endif
-
+#include <Adafruit_ADS1X15.h>
+Adafruit_ADS1115 ads; /* Use this for the 16-bit version */
 namespace CLASSICDIY {
 
 #ifdef ESP_32Dev
@@ -25,7 +26,7 @@ void Device::Init() {
    }
 #endif
    for (int i = 0; i < DO_PINS; i++) {
-     pinMode(_Coils[i], OUTPUT);
+      pinMode(_Coils[i], OUTPUT);
    }
    pinMode(FACTORY_RESET_PIN, INPUT_PULLUP);
    pinMode(WIFI_STATUS_PIN, OUTPUT);
@@ -45,7 +46,6 @@ void Device::Run() {
       digitalWrite(WIFI_STATUS_PIN, HIGH);
    }
 }
-
 
 void Device::SetRelay(const uint8_t index, const uint8_t value) { digitalWrite(_Coils[index], value); }
 
@@ -66,17 +66,20 @@ void Device::Init() {
    }
 #endif
    for (int i = 0; i < DO_PINS; i++) {
-     pinMode(_Coils[i], OUTPUT);
+      pinMode(_Coils[i], OUTPUT);
    }
    pinMode(FACTORY_RESET_PIN, INPUT_PULLUP);
-   #ifndef LOG_TO_SERIAL_PORT // disable logs to use LED wifi status
-// use LED if the log level is none (edgeBox shares the LED pin with the serial TX gpio)
+#ifndef LOG_TO_SERIAL_PORT // disable logs to use LED wifi status
+                           // use LED if the log level is none (edgeBox shares the LED pin with the serial TX gpio)
    pinMode(WIFI_STATUS_PIN, OUTPUT);
-   #endif
+#endif
+   if (!ads.begin(0x48, &Wire)) {
+      loge("Failed to initialize ADS.");
+   }
 }
 
 void Device::Run() {
-   #ifndef LOG_TO_SERIAL_PORT // disable logs to use LED wifi status
+#ifndef LOG_TO_SERIAL_PORT // disable logs to use LED wifi status
    // handle blink led, fast : NotConnected slow: AP connected On: Station connected
    if (_networkState != OnLine) {
       unsigned long binkRate = _networkState == ApState ? AP_BLINK_RATE : NC_BLINK_RATE;
@@ -89,7 +92,16 @@ void Device::Run() {
    } else {
       digitalWrite(WIFI_STATUS_PIN, HIGH);
    }
-   #endif
+#endif
+   // transfer analog data from sensors to RegisterSet
+   for (int i = 0; i < AI_PINS; i++) {
+      _AnalogSensors[i].Run();
+      _analogInputRegisters.set(i, _AnalogSensors[i].Level());
+   }
+   // transfer digital data from sensors to CoilData
+   for (int i = 0; i < DI_PINS; i++) {
+      _digitalInputDiscretes.set(i, GetDigitalLevel(i));
+   }
 }
 
 void Device::SetRelay(const uint8_t index, const uint8_t value) { digitalWrite(_Coils[index], value); }
@@ -111,12 +123,11 @@ void Device::Init() {
    }
 #endif
    for (int i = 0; i < DO_PINS; i++) {
-     pinMode(_Coils[i], OUTPUT);
+      pinMode(_Coils[i], OUTPUT);
    }
 }
 
-void Device::Run() {
-}
+void Device::Run() {}
 
 void Device::SetRelay(const uint8_t index, const uint8_t value) { digitalWrite(_Coils[index], value); }
 
@@ -126,7 +137,6 @@ bool Device::GetDigitalLevel(const uint8_t index) { return (bool)digitalRead(_Di
 
 #endif
 #ifdef LILYGO_T_SIM7600G
-
 
 void Device::Init() {
    Wire.begin(I2C_SDA, I2C_SCL);
@@ -138,7 +148,7 @@ void Device::Init() {
    }
 #endif
    for (int i = 0; i < DO_PINS; i++) {
-     pinMode(_Coils[i], OUTPUT);
+      pinMode(_Coils[i], OUTPUT);
    }
    pinMode(FACTORY_RESET_PIN, INPUT_PULLUP);
    pinMode(WIFI_STATUS_PIN, OUTPUT);
@@ -308,6 +318,5 @@ boolean Device::GetRelay(const uint8_t index) { return digitalRead(_Coils[index]
 bool Device::GetDigitalLevel(const uint8_t index) { return (bool)digitalRead(_DigitalSensors[index]); }
 
 #endif
-
 
 } // namespace CLASSICDIY

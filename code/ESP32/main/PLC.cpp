@@ -14,9 +14,7 @@ PLC::PLC() {}
 
 PLC::~PLC() { logd("PLC destructor"); }
 
-// #region Setup
-
-void PLC::setup() {
+void PLC::Setup() {
    Init();
    _iot.Init(this, &_asyncServer);
    uint16_t coilCount = _iot.ModbusBridgeEnabled() ? _coilCount + DO_PINS : DO_PINS;
@@ -300,60 +298,10 @@ void PLC::CleanUp() {
 #endif
 }
 
-void PLC::Monitor() {
-// transfer digital data from sensors to CoilData
-#if DI_PINS > 0
-   for (int i = 0; i < DI_PINS; i++) {
-      _digitalInputDiscretes.set(i, GetDigitalLevel(i));
-   }
-#endif
-// transfer analog data from sensors to RegisterSet
-#if AI_PINS > 0
-   for (int i = 0; i < AI_PINS; i++) {
-      _AnalogSensors[i].Run();
-      _analogInputRegisters.set(i, _AnalogSensors[i].Level());
-   }
-#endif
-#ifdef HasModbus
-   unsigned long now = millis();
-   if (MODBUS_POLL_RATE < now - _lastModbusPollTime) {
-      _lastModbusPollTime = now;
-
-      if (_iot.getNetworkState() == OnLine && _iot.ModbusBridgeEnabled()) {
-         if (_discreteCount > 0) {
-            ModbusMessage forward;
-            uint8_t err = forward.setMessage(_discreteID, READ_DISCR_INPUT, _discreteAddress, _discreteCount);
-            if (err == SUCCESS) {
-               Modbus::Error error = _iot.SendToModbusBridgeAsync(forward);
-               if (error != SUCCESS) {
-                  logd("Error forwarding FC02 to modbus bridge device Id:%d Error: %02X - %s", _discreteID, error,
-                       (const char *)ModbusError(error));
-               }
-            } else {
-               loge("poll discrete error: 0X%x", err);
-            }
-         }
-         if (_inputCount > 0) {
-            ModbusMessage forward;
-            uint8_t err = forward.setMessage(_inputID, READ_INPUT_REGISTER, _inputAddress, _inputCount);
-            if (err == SUCCESS) {
-               Modbus::Error error = _iot.SendToModbusBridgeAsync(forward);
-               if (error != SUCCESS) {
-                  logd("Error forwarding FC03 to modbus bridge device Id:%d Error: %02X - %s", _inputID, error,
-                       (const char *)ModbusError(error));
-               }
-            } else {
-               loge("poll holding error: 0X%x", err);
-            }
-         }
-      }
-   }
-#endif
-}
-
 void PLC::Process() {
    _iot.Run();
    Run(); // base class
+
    if (_iot.getNetworkState() == OnLine) {
       JsonDocument doc;
       doc.clear();
@@ -393,10 +341,43 @@ void PLC::Process() {
       _lastMessagePublished = s;
       _webSocket.textAll(s);
       logv("Published readings: %s", s.c_str());
+#ifdef HasModbus
+      unsigned long now = millis();
+      if (MODBUS_POLL_RATE < now - _lastModbusPollTime) {
+         _lastModbusPollTime = now;
+
+         if (_iot.ModbusBridgeEnabled()) {
+            if (_discreteCount > 0) {
+               ModbusMessage forward;
+               uint8_t err = forward.setMessage(_discreteID, READ_DISCR_INPUT, _discreteAddress, _discreteCount);
+               if (err == SUCCESS) {
+                  Modbus::Error error = _iot.SendToModbusBridgeAsync(forward);
+                  if (error != SUCCESS) {
+                     logd("Error forwarding FC02 to modbus bridge device Id:%d Error: %02X - %s", _discreteID, error,
+                          (const char *)ModbusError(error));
+                  }
+               } else {
+                  loge("poll discrete error: 0X%x", err);
+               }
+            }
+            if (_inputCount > 0) {
+               ModbusMessage forward;
+               uint8_t err = forward.setMessage(_inputID, READ_INPUT_REGISTER, _inputAddress, _inputCount);
+               if (err == SUCCESS) {
+                  Modbus::Error error = _iot.SendToModbusBridgeAsync(forward);
+                  if (error != SUCCESS) {
+                     logd("Error forwarding FC03 to modbus bridge device Id:%d Error: %02X - %s", _inputID, error,
+                          (const char *)ModbusError(error));
+                  }
+               } else {
+                  loge("poll holding error: 0X%x", err);
+               }
+            }
+         }
+      }
+#endif
    }
 }
-
-// #endregion
 
 void PLC::onNetworkState(NetworkState state) {
    _networkState = state;
