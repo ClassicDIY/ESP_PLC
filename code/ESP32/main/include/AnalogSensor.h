@@ -9,7 +9,7 @@ class AnalogSensor {
  public:
    AnalogSensor(int channel);
    ~AnalogSensor();
-   std::string Channel();
+
    float Level();
    void Run();
    float minV() { return _minV; }
@@ -29,7 +29,6 @@ class AnalogSensor {
       adcReadingMax = maxV * 2635;
    }
    void SetMaxT(float maxT) { _maxT = maxT; }
-   void SetChannel(int channel) { _channel = channel; }
 
  private:
    int _channel;

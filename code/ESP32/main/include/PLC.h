@@ -4,17 +4,13 @@
 #include <ESPAsyncWebServer.h>
 #include <ModbusServerTCPasync.h>
 #include "Defines.h"
-#include "CoilSet.h"
-#include "RegisterSet.h"
-#include "AnalogSensor.h"
-#include "DigitalSensor.h"
-#include "PWMOutput.h"
-#include "Coil.h"
+#include "Device.h"
+
 #include "IOTCallbackInterface.h"
 #include "Enumerations.h"
 
 namespace CLASSICDIY {
-class PLC : public IOTCallbackInterface {
+class PLC : public Device, public IOTCallbackInterface {
  public:
    PLC();
    ~PLC();
@@ -28,55 +24,21 @@ class PLC : public IOTCallbackInterface {
 #endif
 #ifdef HasModbus
    bool onModbusMessage(ModbusMessage &msg);
-   void onNetworkConnect();
-   #else
-   void onNetworkConnect() {}; // noop
 #endif
+   void onNetworkState(NetworkState state);
    void addApplicationConfigs(String &page);
    void onSubmitForm(AsyncWebServerRequest *request);
    void onSaveSetting(JsonDocument &doc);
    void onLoadSetting(JsonDocument &doc);
 
  protected:
- #ifdef HasMQTT
+#ifdef HasMQTT
    boolean PublishDiscoverySub(IOTypes type, const char *entityName, const char *unit_of_meas = nullptr, const char *icon = nullptr);
 #endif
  private:
    boolean _discoveryPublished = false;
    String _lastMessagePublished;
    unsigned long _lastModbusPollTime = 0;
-#ifdef EDGEBOX
-   Coil _Coils[DO_PINS] = {DO0, DO1, DO2, DO3, DO4, DO5};
-   DigitalSensor _DigitalSensors[DI_PINS] = {DI0, DI1, DI2, DI3};
-   AnalogSensor _AnalogSensors[AI_PINS] = {AI0, AI1, AI2, AI3};
-   PWMOutput _PWMOutputs[AO_PINS] = {AO0, AO1};
-#elif NORVI_GSM_AE02
-   Coil _Coils[DO_PINS] = {DO0, DO1};
-   DigitalSensor _DigitalSensors[DI_PINS] = {DI0, DI1, DI2, DI3, DI4, DI5, DI6, DI7};
-   AnalogSensor _AnalogSensors[AI_PINS] = {AI0, AI1, AI2, AI3};
-#elif LILYGO_T_SIM7600G
-   Coil _Coils[DO_PINS] = {DO0, DO1};
-   DigitalSensor _DigitalSensors[DI_PINS] = {DI0, DI1};
-   AnalogSensor _AnalogSensors[AI_PINS] = {};
-#elif Waveshare_Relay_6CH
-   Coil _Coils[DO_PINS] = {DO0, DO1, DO2, DO3, DO4, DO5};
-   DigitalSensor _DigitalSensors[DI_PINS] = {};
-   AnalogSensor _AnalogSensors[AI_PINS] = {};
-   PWMOutput _PWMOutputs[AO_PINS] = {};
-#elif Lilygo_Relay_4CH
-   Coil _Coils[DO_PINS] = {DO0, DO1, DO2, DO3};
-   DigitalSensor _DigitalSensors[DI_PINS] = {};
-   AnalogSensor _AnalogSensors[AI_PINS] = {};
-   PWMOutput _PWMOutputs[AO_PINS] = {};
-#elif ESP_32Dev
-   Coil _Coils[DO_PINS] = {DO0, DO1};
-   DigitalSensor _DigitalSensors[DI_PINS] = {DI0, DI1};
-#endif
-
-   CoilSet _digitalOutputCoils;
-   CoilSet _digitalInputDiscretes;
-   RegisterSet _analogOutputRegisters;
-   RegisterSet _analogInputRegisters;
 
    // Modbus Bridge settings
    uint8_t _inputID = 0;

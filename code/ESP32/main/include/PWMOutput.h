@@ -12,7 +12,6 @@ class PWMOutput {
 
  public:
    void SetDutyCycle(uint8_t dutyCycle);
-   uint8_t GetDutyCycle();
 
  private:
    int _pin;

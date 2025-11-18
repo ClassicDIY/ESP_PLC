@@ -19,6 +19,4 @@ void PWMOutput::SetDutyCycle(uint8_t dutyCycle) {
    return;
 }
 
-uint8_t PWMOutput::GetDutyCycle() { return _dutyCycle; }
-
 } // namespace CLASSICDIY

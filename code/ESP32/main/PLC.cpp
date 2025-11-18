@@ -17,6 +17,7 @@ PLC::~PLC() { logd("PLC destructor"); }
 // #region Setup
 
 void PLC::setup() {
+   Init();
    _iot.Init(this, &_asyncServer);
    uint16_t coilCount = _iot.ModbusBridgeEnabled() ? _coilCount + DO_PINS : DO_PINS;
    _digitalOutputCoils.Init(coilCount);
@@ -303,7 +304,7 @@ void PLC::Monitor() {
 // transfer digital data from sensors to CoilData
 #if DI_PINS > 0
    for (int i = 0; i < DI_PINS; i++) {
-      _digitalInputDiscretes.set(i, _DigitalSensors[i].Level());
+      _digitalInputDiscretes.set(i, GetDigitalLevel(i));
    }
 #endif
 // transfer analog data from sensors to RegisterSet
@@ -352,6 +353,7 @@ void PLC::Monitor() {
 
 void PLC::Process() {
    _iot.Run();
+   Run(); // base class
    if (_iot.getNetworkState() == OnLine) {
       JsonDocument doc;
       doc.clear();
@@ -396,96 +398,159 @@ void PLC::Process() {
 
 // #endregion
 
+void PLC::onNetworkState(NetworkState state) {
+   _networkState = state;
+   if (state == OnLine) {
+
 #ifdef HasModbus
-void PLC::onNetworkConnect() {
-   // READ_INPUT_REGISTER
-   auto modbusFC04 = [this](ModbusMessage request) -> ModbusMessage {
-      ModbusMessage response;
-      uint16_t addr = 0;
-      uint16_t words = 0;
-      request.get(2, addr);
-      request.get(4, words);
-      logd("READ_INPUT_REGISTER %d %d[%d]", request.getFunctionCode(), addr, words);
-      addr -= _iot.getMBBaseAddress(AnalogInputs);
-      if ((addr + words) <= _analogInputRegisters.size()) {
-         response.add(request.getServerID(), request.getFunctionCode(), (uint8_t)(words * 2));
-         for (int i = addr; i < (addr + words); i++) {
-            response.add((uint16_t)_analogInputRegisters[i]);
+
+      // READ_INPUT_REGISTER
+      auto modbusFC04 = [this](ModbusMessage request) -> ModbusMessage {
+         ModbusMessage response;
+         uint16_t addr = 0;
+         uint16_t words = 0;
+         request.get(2, addr);
+         request.get(4, words);
+         logd("READ_INPUT_REGISTER %d %d[%d]", request.getFunctionCode(), addr, words);
+         addr -= _iot.getMBBaseAddress(AnalogInputs);
+         if ((addr + words) <= _analogInputRegisters.size()) {
+            response.add(request.getServerID(), request.getFunctionCode(), (uint8_t)(words * 2));
+            for (int i = addr; i < (addr + words); i++) {
+               response.add((uint16_t)_analogInputRegisters[i]);
+            }
+         } else {
+            logw("READ_INPUT_REGISTER Address overflow: %d", (addr + words));
+            response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_ADDRESS);
          }
-      } else {
-         logw("READ_INPUT_REGISTER Address overflow: %d", (addr + words));
-         response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_ADDRESS);
-      }
-      return response;
-   };
+         return response;
+      };
 
-   // READ_DISCR_INPUT
-   auto modbusFC02 = [this](ModbusMessage request) -> ModbusMessage {
-      ModbusMessage response;
-      uint16_t addr = 0;
-      uint16_t numdisc = 0;
-      request.get(2, addr, numdisc);
-      logd("READ_DISCR_INPUT FC%d %d[%d]", request.getFunctionCode(), addr, numdisc);
-      addr -= _iot.getMBBaseAddress(DigitalInputs);
-      if ((addr + numdisc) <= _digitalInputDiscretes.coils()) {
-         vector<uint8_t> discreteSet = _digitalInputDiscretes.slice(addr, numdisc);
-         response.add(request.getServerID(), request.getFunctionCode(), (uint8_t)discreteSet.size(), discreteSet);
-      } else {
-         logw("READ_DISCR_INPUT Address overflow: %d", (addr + numdisc));
-         response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_ADDRESS);
-      }
-      return response;
-   };
+      // READ_DISCR_INPUT
+      auto modbusFC02 = [this](ModbusMessage request) -> ModbusMessage {
+         ModbusMessage response;
+         uint16_t addr = 0;
+         uint16_t numdisc = 0;
+         request.get(2, addr, numdisc);
+         logd("READ_DISCR_INPUT FC%d %d[%d]", request.getFunctionCode(), addr, numdisc);
+         addr -= _iot.getMBBaseAddress(DigitalInputs);
+         if ((addr + numdisc) <= _digitalInputDiscretes.coils()) {
+            vector<uint8_t> discreteSet = _digitalInputDiscretes.slice(addr, numdisc);
+            response.add(request.getServerID(), request.getFunctionCode(), (uint8_t)discreteSet.size(), discreteSet);
+         } else {
+            logw("READ_DISCR_INPUT Address overflow: %d", (addr + numdisc));
+            response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_ADDRESS);
+         }
+         return response;
+      };
 
-   // READ_COIL
-   auto modbusFC01 = [this](ModbusMessage request) -> ModbusMessage {
-      ModbusMessage response;
-      uint16_t addr = 0;
-      uint16_t numCoils = 0;
-      request.get(2, addr, numCoils);
-      logd("READ_COIL %d %d[%d]", request.getFunctionCode(), addr, numCoils);
-      // Address overflow?
-      addr -= _iot.getMBBaseAddress(DigitalOutputs);
-      if ((addr + numCoils) <= _digitalOutputCoils.coils()) {
-         vector<uint8_t> coilset = _digitalOutputCoils.slice(addr, numCoils);
-         response.add(request.getServerID(), request.getFunctionCode(), (uint8_t)coilset.size(), coilset);
-      } else {
-         logw("READ_COIL Address overflow: %d", (addr + numCoils));
-         response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_ADDRESS);
-      }
-      return response;
-   };
+      // READ_COIL
+      auto modbusFC01 = [this](ModbusMessage request) -> ModbusMessage {
+         ModbusMessage response;
+         uint16_t addr = 0;
+         uint16_t numCoils = 0;
+         request.get(2, addr, numCoils);
+         logd("READ_COIL %d %d[%d]", request.getFunctionCode(), addr, numCoils);
+         // Address overflow?
+         addr -= _iot.getMBBaseAddress(DigitalOutputs);
+         if ((addr + numCoils) <= _digitalOutputCoils.coils()) {
+            vector<uint8_t> coilset = _digitalOutputCoils.slice(addr, numCoils);
+            response.add(request.getServerID(), request.getFunctionCode(), (uint8_t)coilset.size(), coilset);
+         } else {
+            logw("READ_COIL Address overflow: %d", (addr + numCoils));
+            response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_ADDRESS);
+         }
+         return response;
+      };
 
-   // WRITE_COIL
-   auto modbusFC05 = [this](ModbusMessage request) -> ModbusMessage {
-      ModbusMessage response;
-      // Request parameters are coil number and 0x0000 (OFF) or 0xFF00 (ON)
-      uint16_t addr = 0;
-      uint16_t state = 0;
-      request.get(2, addr, state);
-      logd("WRITE_COIL %d %d:%d", request.getFunctionCode(), addr, state);
-      addr -= _iot.getMBBaseAddress(DigitalOutputs);
-      // Is the coil number within the range of the coils?
-      if (addr < _digitalOutputCoils.coils()) {
-         // Looks like it. Is the ON/OFF parameter correct?
-         if (state == 0x0000 || state == 0xFF00) {
-            if (_digitalOutputCoils.set(addr, state)) {
-               if (addr < DO_PINS) {
+      // WRITE_COIL
+      auto modbusFC05 = [this](ModbusMessage request) -> ModbusMessage {
+         ModbusMessage response;
+         // Request parameters are coil number and 0x0000 (OFF) or 0xFF00 (ON)
+         uint16_t addr = 0;
+         uint16_t state = 0;
+         request.get(2, addr, state);
+         logd("WRITE_COIL %d %d:%d", request.getFunctionCode(), addr, state);
+         addr -= _iot.getMBBaseAddress(DigitalOutputs);
+         // Is the coil number within the range of the coils?
+         if (addr < _digitalOutputCoils.coils()) {
+            // Looks like it. Is the ON/OFF parameter correct?
+            if (state == 0x0000 || state == 0xFF00) {
+               if (_digitalOutputCoils.set(addr, state)) {
+                  if (addr < DO_PINS) {
 #if DO_PINS > 0
-                  // Set the native coil
-                  _Coils[addr].Set(state == 0xFF00 ? HIGH : LOW);
-                  response = ECHO_RESPONSE;
+                     // Set the native coil
+                     SetRelay(addr, state == 0xFF00 ? HIGH : LOW);
+                     response = ECHO_RESPONSE;
 #endif
-               } else // bridge coil
-               {
-                  addr -= DO_PINS; // start of bridge coils
+                  } else // bridge coil
+                  {
+                     addr -= DO_PINS; // start of bridge coils
+                     ModbusMessage forward;
+                     Error err = forward.setMessage(_coilID, request.getFunctionCode(), addr, state);
+                     if (err == SUCCESS) {
+                        err = _iot.SendToModbusBridgeAsync(forward);
+                        if (err == SUCCESS) {
+                           // All fine, return shortened echo response, like the standard says
+                           response = ECHO_RESPONSE;
+                        } else {
+                           ModbusError e(err);
+                           logd("Error forwarding FC%d to modbus bridge device Id:%d Error:  %02X - %s", request.getFunctionCode(), _coilID,
+                                (int)e, (const char *)e);
+                           response.setError(request.getServerID(), request.getFunctionCode(), (Error)e);
+                        }
+                     } else {
+                        loge("ModbusMessage Write coil error: 0X%x", err);
+                        response.setError(request.getServerID(), request.getFunctionCode(), err);
+                     }
+                  }
+               } else {
+                  response.setError(request.getServerID(), request.getFunctionCode(), SERVER_DEVICE_FAILURE);
+               }
+            } else {
+               // Wrong data parameter
+               response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_VALUE);
+            }
+         } else {
+            // Wrong data parameter
+            response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_ADDRESS);
+         }
+         return response;
+      };
+
+      // WRITE_MULT_COILS
+      auto modbusFC0F = [this](ModbusMessage request) -> ModbusMessage {
+         ModbusMessage response;
+         // Request parameters are first coil to be set, number of coils, number of bytes and packed coil bytes
+         uint16_t addr = 0;
+         uint16_t numCoils = 0;
+         uint8_t numBytes = 0;
+         uint16_t offset = 2; // Parameters addr after serverID and FC
+         offset = request.get(offset, addr, numCoils, numBytes);
+         logd("WRITE_MULT_COILS %d %d[%d]", request.getFunctionCode(), addr, numCoils);
+         addr -= _iot.getMBBaseAddress(DigitalOutputs);
+         if ((addr + numCoils) <= _digitalOutputCoils.coils()) {
+            // Packed coils will fit in our storage
+            if (numBytes == ((numCoils - 1) >> 3) + 1) {
+               // Byte count seems okay, so get the packed coil bytes now
+               vector<uint8_t> coilset;
+               request.get(offset, coilset, numBytes);
+               logd("offset: %d coilset: %d numCoils: %d numBytes: %d addr: %d", offset, coilset.size(), numCoils, numBytes, addr);
+               // Now set the coils
+               if (_digitalOutputCoils.set(addr, numCoils, coilset)) {
+#if DO_PINS > 0
+                  // set native DO pins
+                  for (int i = 0; i < DO_PINS; i++) {
+                     SetRelay(i, _digitalOutputCoils[i] ? HIGH : LOW);
+                  }
+#endif
+                  CoilSet bridgeCoilset = _digitalOutputCoils.slice(DO_PINS, _coilCount); // bridge coils are forwarded to the modbus bridge
                   ModbusMessage forward;
-                  Error err = forward.setMessage(_coilID, request.getFunctionCode(), addr, state);
+                  Error err = forward.setMessage(_coilID, request.getFunctionCode(), 0, bridgeCoilset.coils(), bridgeCoilset.size(),
+                                                 bridgeCoilset.data());
                   if (err == SUCCESS) {
                      err = _iot.SendToModbusBridgeAsync(forward);
                      if (err == SUCCESS) {
-                        // All fine, return shortened echo response, like the standard says
-                        response = ECHO_RESPONSE;
+                        response = ECHO_RESPONSE; // All fine, return shortened echo response, like the standard says
                      } else {
                         ModbusError e(err);
                         logd("Error forwarding FC%d to modbus bridge device Id:%d Error:  %02X - %s", request.getFunctionCode(), _coilID,
@@ -493,7 +558,79 @@ void PLC::onNetworkConnect() {
                         response.setError(request.getServerID(), request.getFunctionCode(), (Error)e);
                      }
                   } else {
-                     loge("ModbusMessage Write coil error: 0X%x", err);
+                     loge("ModbusMessage Write multiple coils error: 0X%x", err);
+                     response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_VALUE);
+                  }
+               } else {
+                  logd("SERVER_DEVICE_FAILURE Setting the coils seems to have failed");
+                  response.setError(request.getServerID(), request.getFunctionCode(), SERVER_DEVICE_FAILURE);
+               }
+            } else {
+               logd("ILLEGAL_DATA_VALUE numBytes had a wrong value");
+               response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_VALUE);
+            }
+         } else {
+            logd("ILLEGAL_DATA_VALUE The given set will not fit to our coil storage");
+            response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_ADDRESS);
+         }
+         return response;
+      };
+
+      // READ_HOLD_REGISTER
+      auto modbusFC03 = [this](ModbusMessage request) -> ModbusMessage {
+         ModbusMessage response;
+         uint16_t addr = 0;
+         uint16_t words = 0;
+         request.get(2, addr);
+         request.get(4, words);
+         logd("READ_HOLD_REGISTER FC%d %d[%d]", request.getFunctionCode(), addr, words);
+         addr -= _iot.getMBBaseAddress(AnalogOutputs);
+         if ((addr + words) <= _analogOutputRegisters.size()) {
+            response.add(request.getServerID(), request.getFunctionCode(), (uint8_t)(words * 2));
+            for (int i = addr; i < (addr + words); i++) {
+               response.add((uint16_t)_analogOutputRegisters[i]);
+            }
+         } else {
+            logw("READ_HOLD_REGISTER  Address overflow: %d", (addr + words));
+            response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_ADDRESS);
+         }
+         return response;
+      };
+
+      // WRITE_HOLD_REGISTER
+      auto modbusFC06 = [this](ModbusMessage request) -> ModbusMessage {
+         ModbusMessage response;
+         uint16_t addr = 0;  // register address
+         uint16_t value = 0; // register value
+         request.get(2, addr, value);
+         logd("WRITE_HOLD_REGISTER FC%d %d[%d]", request.getFunctionCode(), addr, value);
+         addr -= _iot.getMBBaseAddress(AnalogOutputs);
+         if (addr < _analogOutputRegisters.size()) {
+            if (_analogOutputRegisters.set(addr, value)) {
+               if (addr < AO_PINS) {
+#if AO_PINS > 0
+                  // Set the native coil
+                  _PWMOutputs[addr].SetDutyCycle(value);
+                  response = ECHO_RESPONSE;
+#endif
+               } else // bridge coil
+               {
+                  addr -= AO_PINS; // start of bridge registers
+                  ModbusMessage forward;
+                  Error err = forward.setMessage(_holdingID, request.getFunctionCode(), addr, value);
+                  if (err == SUCCESS) {
+                     err = _iot.SendToModbusBridgeAsync(forward);
+                     if (err == SUCCESS) {
+                        // All fine, return shortened echo response, like the standard says
+                        response = ECHO_RESPONSE;
+                     } else {
+                        ModbusError e(err);
+                        logd("Error forwarding FC%d to modbus bridge device Id:%d Error:  %02X - %s", request.getFunctionCode(), _holdingID,
+                             (int)e, (const char *)e);
+                        response.setError(request.getServerID(), request.getFunctionCode(), (Error)e);
+                     }
+                  } else {
+                     loge("ModbusMessage write holding error: 0X%x", err);
                      response.setError(request.getServerID(), request.getFunctionCode(), err);
                   }
                }
@@ -501,212 +638,84 @@ void PLC::onNetworkConnect() {
                response.setError(request.getServerID(), request.getFunctionCode(), SERVER_DEVICE_FAILURE);
             }
          } else {
-            // Wrong data parameter
-            response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_VALUE);
+            logd("ILLEGAL_DATA_VALUE The given set will not fit to our storage");
+            response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_ADDRESS);
          }
-      } else {
-         // Wrong data parameter
-         response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_ADDRESS);
-      }
-      return response;
-   };
+         return response;
+      };
 
-   // WRITE_MULT_COILS
-   auto modbusFC0F = [this](ModbusMessage request) -> ModbusMessage {
-      ModbusMessage response;
-      // Request parameters are first coil to be set, number of coils, number of bytes and packed coil bytes
-      uint16_t addr = 0;
-      uint16_t numCoils = 0;
-      uint8_t numBytes = 0;
-      uint16_t offset = 2; // Parameters addr after serverID and FC
-      offset = request.get(offset, addr, numCoils, numBytes);
-      logd("WRITE_MULT_COILS %d %d[%d]", request.getFunctionCode(), addr, numCoils);
-      addr -= _iot.getMBBaseAddress(DigitalOutputs);
-      if ((addr + numCoils) <= _digitalOutputCoils.coils()) {
-         // Packed coils will fit in our storage
-         if (numBytes == ((numCoils - 1) >> 3) + 1) {
-            // Byte count seems okay, so get the packed coil bytes now
-            vector<uint8_t> coilset;
-            request.get(offset, coilset, numBytes);
-            logd("offset: %d coilset: %d numCoils: %d numBytes: %d addr: %d", offset, coilset.size(), numCoils, numBytes, addr);
-            // Now set the coils
-            if (_digitalOutputCoils.set(addr, numCoils, coilset)) {
-#if DO_PINS > 0
-               // set native DO pins
-               for (int i = 0; i < DO_PINS; i++) {
-                  _Coils[i].Set(_digitalOutputCoils[i]);
-               }
+      // WRITE_MULT_REGISTERS
+      auto modbusFC10 = [this](ModbusMessage request) -> ModbusMessage {
+         ModbusMessage response;
+         uint16_t addr = 0;
+         uint16_t numRegs = 0;
+         uint8_t numBytes = 0;
+         uint16_t offset = 2; // Parameters start after serverID and FC
+         offset = request.get(offset, addr, numRegs, numBytes);
+         logd("WRITE_MULT_REGISTERS %d %d[%d] (%d bytes)", request.getFunctionCode(), addr, numRegs, numBytes);
+         addr -= _iot.getMBBaseAddress(AnalogOutputs);
+         if (addr < _analogOutputRegisters.size()) {
+            if (numRegs == numBytes / 2) {
+               vector<uint8_t> regset;
+               request.get(offset, regset, numBytes);
+               logd("offset: %d regset: %d numRegisters: %d numBytes: %d addr: %d", offset, regset.size(), numRegs, numBytes, addr);
+               // Now set the registers
+               bool rVal = _analogOutputRegisters.set(addr, numRegs, (uint8_t *)regset.data());
+               if (rVal) {
+#if AO_PINS > 0
+                  // set native AO pins
+                  for (int i = 0; i < AO_PINS; i++) {
+                     _PWMOutputs[i].SetDutyCycle(_analogOutputRegisters[i]);
+                  }
 #endif
-               CoilSet bridgeCoilset = _digitalOutputCoils.slice(DO_PINS, _coilCount); // bridge coils are forwarded to the modbus bridge
-               ModbusMessage forward;
-               Error err = forward.setMessage(_coilID, request.getFunctionCode(), 0, bridgeCoilset.coils(), bridgeCoilset.size(),
-                                              bridgeCoilset.data());
-               if (err == SUCCESS) {
-                  err = _iot.SendToModbusBridgeAsync(forward);
+                  RegisterSet bridgeRegset =
+                      _analogOutputRegisters.slice(AO_PINS, numRegs); // bridge registers are forwarded to the modbus bridge
+                  ModbusMessage forward;
+                  Error err = forward.setMessage(_holdingID, request.getFunctionCode(), 0, bridgeRegset.size(), bridgeRegset.size() * 2,
+                                                 bridgeRegset.data());
                   if (err == SUCCESS) {
-                     response = ECHO_RESPONSE; // All fine, return shortened echo response, like the standard says
+                     err = _iot.SendToModbusBridgeAsync(forward);
+                     if (err == SUCCESS) {
+                        response = ECHO_RESPONSE; // All fine, return shortened echo response, like the standard says
+                     } else {
+                        ModbusError e(err);
+                        logd("Error forwarding FC%d to modbus bridge device Id:%d Error:  %02X - %s", request.getFunctionCode(), _holdingID,
+                             (int)e, (const char *)e);
+                        response.setError(request.getServerID(), request.getFunctionCode(), (Error)e);
+                     }
                   } else {
                      ModbusError e(err);
-                     logd("Error forwarding FC%d to modbus bridge device Id:%d Error:  %02X - %s", request.getFunctionCode(), _coilID,
-                          (int)e, (const char *)e);
-                     response.setError(request.getServerID(), request.getFunctionCode(), (Error)e);
+                     loge("ModbusMessage Write multiple registers error: %02X - %s", (int)e, (const char *)e);
+                     response.setError(request.getServerID(), request.getFunctionCode(), err);
                   }
                } else {
-                  loge("ModbusMessage Write multiple coils error: 0X%x", err);
-                  response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_VALUE);
+                  logd("SERVER_DEVICE_FAILURE Setting the registers seems to have failed");
+                  response.setError(request.getServerID(), request.getFunctionCode(), SERVER_DEVICE_FAILURE);
                }
             } else {
-               logd("SERVER_DEVICE_FAILURE Setting the coils seems to have failed");
-               response.setError(request.getServerID(), request.getFunctionCode(), SERVER_DEVICE_FAILURE);
+               logd("ILLEGAL_DATA_VALUE numBytes had a wrong value");
+               response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_VALUE);
             }
          } else {
-            logd("ILLEGAL_DATA_VALUE numBytes had a wrong value");
-            response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_VALUE);
+            logd("ILLEGAL_DATA_VALUE The given set will not fit to our register storage");
+            response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_ADDRESS);
          }
-      } else {
-         logd("ILLEGAL_DATA_VALUE The given set will not fit to our coil storage");
-         response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_ADDRESS);
-      }
-      return response;
-   };
+         return response;
+      };
 
-   // READ_HOLD_REGISTER
-   auto modbusFC03 = [this](ModbusMessage request) -> ModbusMessage {
-      ModbusMessage response;
-      uint16_t addr = 0;
-      uint16_t words = 0;
-      request.get(2, addr);
-      request.get(4, words);
-      logd("READ_HOLD_REGISTER FC%d %d[%d]", request.getFunctionCode(), addr, words);
-      addr -= _iot.getMBBaseAddress(AnalogOutputs);
-      if ((addr + words) <= _analogOutputRegisters.size()) {
-         response.add(request.getServerID(), request.getFunctionCode(), (uint8_t)(words * 2));
-         for (int i = addr; i < (addr + words); i++) {
-            response.add((uint16_t)_analogOutputRegisters[i]);
-         }
-      } else {
-         logw("READ_HOLD_REGISTER  Address overflow: %d", (addr + words));
-         response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_ADDRESS);
-      }
-      return response;
-   };
-
-   // WRITE_HOLD_REGISTER
-   auto modbusFC06 = [this](ModbusMessage request) -> ModbusMessage {
-      ModbusMessage response;
-      uint16_t addr = 0;  // register address
-      uint16_t value = 0; // register value
-      request.get(2, addr, value);
-      logd("WRITE_HOLD_REGISTER FC%d %d[%d]", request.getFunctionCode(), addr, value);
-      addr -= _iot.getMBBaseAddress(AnalogOutputs);
-      if (addr < _analogOutputRegisters.size()) {
-         if (_analogOutputRegisters.set(addr, value)) {
-            if (addr < AO_PINS) {
-#if AO_PINS > 0
-               // Set the native coil
-               _PWMOutputs[addr].SetDutyCycle(value);
-               response = ECHO_RESPONSE;
+      _iot.registerMBTCPWorkers(READ_INPUT_REGISTER, modbusFC04);
+      _iot.registerMBTCPWorkers(READ_DISCR_INPUT, modbusFC02);
+      _iot.registerMBTCPWorkers(READ_COIL, modbusFC01);
+      _iot.registerMBTCPWorkers(WRITE_COIL, modbusFC05);
+      _iot.registerMBTCPWorkers(WRITE_MULT_COILS, modbusFC0F);
+      _iot.registerMBTCPWorkers(READ_HOLD_REGISTER, modbusFC03);
+      _iot.registerMBTCPWorkers(WRITE_HOLD_REGISTER, modbusFC06);
+      _iot.registerMBTCPWorkers(WRITE_MULT_REGISTERS, modbusFC10);
 #endif
-            } else // bridge coil
-            {
-               addr -= AO_PINS; // start of bridge registers
-               ModbusMessage forward;
-               Error err = forward.setMessage(_holdingID, request.getFunctionCode(), addr, value);
-               if (err == SUCCESS) {
-                  err = _iot.SendToModbusBridgeAsync(forward);
-                  if (err == SUCCESS) {
-                     // All fine, return shortened echo response, like the standard says
-                     response = ECHO_RESPONSE;
-                  } else {
-                     ModbusError e(err);
-                     logd("Error forwarding FC%d to modbus bridge device Id:%d Error:  %02X - %s", request.getFunctionCode(), _holdingID,
-                          (int)e, (const char *)e);
-                     response.setError(request.getServerID(), request.getFunctionCode(), (Error)e);
-                  }
-               } else {
-                  loge("ModbusMessage write holding error: 0X%x", err);
-                  response.setError(request.getServerID(), request.getFunctionCode(), err);
-               }
-            }
-         } else {
-            response.setError(request.getServerID(), request.getFunctionCode(), SERVER_DEVICE_FAILURE);
-         }
-      } else {
-         logd("ILLEGAL_DATA_VALUE The given set will not fit to our storage");
-         response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_ADDRESS);
-      }
-      return response;
-   };
-
-   // WRITE_MULT_REGISTERS
-   auto modbusFC10 = [this](ModbusMessage request) -> ModbusMessage {
-      ModbusMessage response;
-      uint16_t addr = 0;
-      uint16_t numRegs = 0;
-      uint8_t numBytes = 0;
-      uint16_t offset = 2; // Parameters start after serverID and FC
-      offset = request.get(offset, addr, numRegs, numBytes);
-      logd("WRITE_MULT_REGISTERS %d %d[%d] (%d bytes)", request.getFunctionCode(), addr, numRegs, numBytes);
-      addr -= _iot.getMBBaseAddress(AnalogOutputs);
-      if (addr < _analogOutputRegisters.size()) {
-         if (numRegs == numBytes / 2) {
-            vector<uint8_t> regset;
-            request.get(offset, regset, numBytes);
-            logd("offset: %d regset: %d numRegisters: %d numBytes: %d addr: %d", offset, regset.size(), numRegs, numBytes, addr);
-            // Now set the registers
-            bool rVal = _analogOutputRegisters.set(addr, numRegs, (uint8_t *)regset.data());
-            if (rVal) {
-#if AO_PINS > 0
-               // set native AO pins
-               for (int i = 0; i < AO_PINS; i++) {
-                  _PWMOutputs[i].SetDutyCycle(_analogOutputRegisters[i]);
-               }
-#endif
-               RegisterSet bridgeRegset =
-                   _analogOutputRegisters.slice(AO_PINS, numRegs); // bridge registers are forwarded to the modbus bridge
-               ModbusMessage forward;
-               Error err = forward.setMessage(_holdingID, request.getFunctionCode(), 0, bridgeRegset.size(), bridgeRegset.size() * 2,
-                                              bridgeRegset.data());
-               if (err == SUCCESS) {
-                  err = _iot.SendToModbusBridgeAsync(forward);
-                  if (err == SUCCESS) {
-                     response = ECHO_RESPONSE; // All fine, return shortened echo response, like the standard says
-                  } else {
-                     ModbusError e(err);
-                     logd("Error forwarding FC%d to modbus bridge device Id:%d Error:  %02X - %s", request.getFunctionCode(), _holdingID,
-                          (int)e, (const char *)e);
-                     response.setError(request.getServerID(), request.getFunctionCode(), (Error)e);
-                  }
-               } else {
-                  ModbusError e(err);
-                  loge("ModbusMessage Write multiple registers error: %02X - %s", (int)e, (const char *)e);
-                  response.setError(request.getServerID(), request.getFunctionCode(), err);
-               }
-            } else {
-               logd("SERVER_DEVICE_FAILURE Setting the registers seems to have failed");
-               response.setError(request.getServerID(), request.getFunctionCode(), SERVER_DEVICE_FAILURE);
-            }
-         } else {
-            logd("ILLEGAL_DATA_VALUE numBytes had a wrong value");
-            response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_VALUE);
-         }
-      } else {
-         logd("ILLEGAL_DATA_VALUE The given set will not fit to our register storage");
-         response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_ADDRESS);
-      }
-      return response;
-   };
-
-   _iot.registerMBTCPWorkers(READ_INPUT_REGISTER, modbusFC04);
-   _iot.registerMBTCPWorkers(READ_DISCR_INPUT, modbusFC02);
-   _iot.registerMBTCPWorkers(READ_COIL, modbusFC01);
-   _iot.registerMBTCPWorkers(WRITE_COIL, modbusFC05);
-   _iot.registerMBTCPWorkers(WRITE_MULT_COILS, modbusFC0F);
-   _iot.registerMBTCPWorkers(READ_HOLD_REGISTER, modbusFC03);
-   _iot.registerMBTCPWorkers(WRITE_HOLD_REGISTER, modbusFC06);
-   _iot.registerMBTCPWorkers(WRITE_MULT_REGISTERS, modbusFC10);
+   }
 }
 
+#ifdef HasModbus
 bool PLC::onModbusMessage(ModbusMessage &msg) {
    bool rval = false;
 
@@ -899,7 +908,6 @@ void PLC::onMqttMessage(char *topic, char *payload) {
                      logi("Write Coil %d HIGH", i);
                   } else if (input == "off" || input == "low" || input == "0") {
                      _digitalOutputCoils.set(i, false);
-                     // _Coils[i].Set(LOW);
                      logi("Write Coil %d LOW", i);
                   } else {
                      logw("Write Coil %d invalid state: %s", i, input.c_str());
@@ -910,7 +918,7 @@ void PLC::onMqttMessage(char *topic, char *payload) {
 #if DO_PINS > 0
             // set native DO pins
             for (int j = 0; j < DO_PINS; j++) {
-               _Coils[j].Set(_digitalOutputCoils[j]);
+               SetRelay(j, _digitalOutputCoils[j] ? HIGH : LOW);
             }
 #endif
          } else if (dout[0] == 'A') // registers?

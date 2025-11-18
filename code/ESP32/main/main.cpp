@@ -26,22 +26,20 @@ RTC_PCF8563 rtc;
 static Main my_main;
 PLC _plc = PLC();
 Adafruit_ADS1115 ads; /* Use this for the 16-bit version */
-#ifdef Has_OLED_Display
-Adafruit_SSD1306 oled_display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
-#endif
 ThreadController _controller = ThreadController();
 Thread *_workerThread1 = new Thread();
 Thread *_workerThread2 = new Thread();
 Thread *_workerThread3 = new Thread();
 
 esp_err_t Main::setup() {
-#if defined(Waveshare_Relay_6CH) || defined(Lilygo_Relay_4CH)
-   delay(5000);
-#else
+   // wait for Serial to connect, give up after 5 seconds, USB may not be connected
+   unsigned long start = millis();
    Serial.begin(115200);
    while (!Serial) {
+      if (5000 < millis() - start) {
+         break;
+      }
    }
-#endif
    esp_err_t ret = ESP_OK;
 
    logd("------------ESP32 specifications ---------------");
@@ -55,32 +53,12 @@ esp_err_t Main::setup() {
    logd("Free Heap: %d KB", ESP.getFreeHeap() / 1024);
    logd("------------ESP32 specifications ---------------");
 
-   GPIO_Init();
    Wire.begin(I2C_SDA, I2C_SCL);
    if (!ads.begin(0x48, &Wire)) {
       loge("Failed to initialize ADS.");
    }
 
-#ifdef HasRTC
-   if (!rtc.begin(&Wire)) {
-      loge("Couldn't find RTC");
-   }
-   if (rtc.lostPower()) {
-      logw("RTC is NOT initialized, let's set the time!");
-      rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
-   }
-   // rtc.adjust(DateTime("Apr 16 2020","18:34:56"));
-   rtc.start();
-   DateTime now = rtc.now();
-   logi("Date Time: %s", now.timestamp().c_str());
-#endif
-#ifdef Has_OLED_Display
-   if (!oled_display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
-      loge("SSD1306 allocation failed");
-   } else {
-      oled_display.clearDisplay();
-   }
-#endif
+
    _plc.setup();
    // Configure main worker thread
    _workerThread1->onRun([]() { _plc.CleanUp(); });

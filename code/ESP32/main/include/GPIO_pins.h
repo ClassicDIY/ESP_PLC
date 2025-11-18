@@ -73,7 +73,8 @@ void inline GPIO_Init() {}
 #define AO0 GPIO_NUM_42
 #define AO1 GPIO_NUM_41
 
-#elif NORVI_GSM_AE02
+#endif
+#ifdef NORVI_GSM_AE02
 
 #define DI_PINS 8        // Number of digital input pins
 #define DO_PINS 2        // Number of digital output pins
@@ -123,11 +124,13 @@ void inline GPIO_Init() { pinMode(GPIO_NUM_36, INPUT); }
 // No Analog output
 
 // OLED display definitions
+#define SCREEN_ADDRESS 0x3C // OLED 128X64 I2C address
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
 #define OLED_RESET -1    // Reset pin # (or -1 if sharing Arduino reset pin)
 
-#elif LILYGO_T_SIM7600G
+#endif
+#ifdef LILYGO_T_SIM7600G
 
 #define DI_PINS 2 // Number of digital input pins
 #define DO_PINS 2 // Number of digital output pins
@@ -163,7 +166,8 @@ void inline GPIO_Init() {}
 
 // No Analog output
 
-#elif Waveshare_Relay_6CH
+#endif
+#ifdef Waveshare_Relay_6CH
 
 #define DI_PINS 0 // Number of digital input pins
 #define DO_PINS 6 // Number of digital output pins
@@ -223,7 +227,8 @@ void inline GPIO_Init() {
 #define AO2 GPIO_NUM_9
 #define AO3 GPIO_NUM_10
 
-#elif Lilygo_Relay_4CH
+#endif
+#ifdef Lilygo_Relay_4CH
 
 #define DI_PINS 0 // Number of digital input pins
 #define DO_PINS 4 // Number of digital output pins
@@ -232,9 +237,6 @@ void inline GPIO_Init() {
 
 #define FACTORY_RESET_PIN 4 // Clear NVRAM
 #define WIFI_STATUS_PIN 25  // LED Pin
-
-void inline GPIO_Init() {
-}
 
 // I2C
 #define I2C_SDA GPIO_NUM_15
@@ -252,7 +254,8 @@ void inline GPIO_Init() {
 #define DO2 GPIO_NUM_18
 #define DO3 GPIO_NUM_5
 
-#elif ESP_32Dev
+#endif
+#ifdef ESP_32Dev
 
 #define DI_PINS 2 // Number of digital input pins
 #define DO_PINS 2 // Number of digital output pins
@@ -261,8 +264,6 @@ void inline GPIO_Init() {
 
 #define WIFI_STATUS_PIN 2  // LED Pin
 #define FACTORY_RESET_PIN 4 // Clear NVRAM
-
-void inline GPIO_Init() {}
 
 // I2C
 #define I2C_SDA GPIO_NUM_21

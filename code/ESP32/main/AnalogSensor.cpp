@@ -16,13 +16,6 @@ AnalogSensor::AnalogSensor(int channel) {
 
 AnalogSensor::~AnalogSensor() {}
 
-std::string AnalogSensor::Channel() {
-   std::stringstream ss;
-   ss << "AI" << _channel;
-   std::string formattedString = ss.str();
-   return formattedString;
-}
-
 void AnalogSensor::Run() { AddReading(ads.readADC_SingleEnded(_channel)); }
 
 void AnalogSensor::AddReading(uint32_t val) {

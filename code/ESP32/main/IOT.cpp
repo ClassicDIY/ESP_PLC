@@ -60,7 +60,7 @@ void IOT::Init(IOTCallbackInterface *iotCB, AsyncWebServer *pwebServer) {
       EEPROM.commit();
       saveSettings();
    }
-#else // use analog pin for factory reset
+#elif BUTTONS // use analog pin for factory reset
    EEPROM.begin(EEPROM_SIZE);
    uint16_t analogValue = analogRead(BUTTONS);
    logd("button value (%d)", analogValue);
@@ -71,9 +71,7 @@ void IOT::Init(IOTCallbackInterface *iotCB, AsyncWebServer *pwebServer) {
       saveSettings();
    }
 #endif
-   else {
-      loadSettings();
-   }
+   loadSettings();
 #ifdef HasRS485
    if (RS485_RTS != -1) {
       pinMode(RS485_RTS, OUTPUT);
@@ -640,7 +638,6 @@ void IOT::GoOnline() {
          MDNS.addService("http", "tcp", ASYNC_WEBSERVER_PORT);
          logd("Active mDNS services: %d", MDNS.queryService("http", "tcp"));
       }
-      _iotCB->onNetworkConnect();
 #ifdef HasModbus
       if (_useModbus && !_MBserver.isRunning()) {
          if (_ModbusMode == TCP) {
@@ -787,6 +784,7 @@ void IOT::setState(NetworkState newState) {
    default:
       break;
    }
+   _iotCB->onNetworkState(newState);
 }
 
 void IOT::HandleIPEvent(int32_t event_id, void *event_data) {

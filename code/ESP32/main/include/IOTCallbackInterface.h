@@ -5,7 +5,7 @@
 namespace CLASSICDIY {
 class IOTCallbackInterface {
  public:
-   virtual void onNetworkConnect() = 0;
+   virtual void onNetworkState(NetworkState state) = 0;
    virtual void addApplicationConfigs(String &page);
    virtual void onSubmitForm(AsyncWebServerRequest *request);
    virtual void onSaveSetting(JsonDocument &doc);
