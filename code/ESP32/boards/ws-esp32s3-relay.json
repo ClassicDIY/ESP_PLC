@@ -34,9 +34,9 @@
   "frameworks": ["arduino", "espidf"],
   "name": "Waveshare ESP32-S3-Relay",
   "upload": {
-    "flash_size": "4MB",
+    "flash_size": "8MB",
     "maximum_ram_size": 327680,
-    "maximum_size": 4194304,
+    "maximum_size": 8388608,
     "require_upload_port": true,
     "speed": 460800
   },
