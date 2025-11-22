@@ -2,6 +2,12 @@
 #include <Arduino.h>
 
 #ifdef EDGEBOX
+// Modbus setup
+#define CoilsDiv ""
+#define InputRegistersDiv ""
+#define DiscretesDiv ""
+#define HoldingRegistersDiv ""
+
 #define DI_PINS 4          // Number of digital input pins
 #define DO_PINS 6          // Number of digital output pins
 #define AI_PINS 4          // Number of analog input pins
@@ -76,6 +82,12 @@ void inline GPIO_Init() {}
 #endif
 #ifdef NORVI_GSM_AE02
 
+// Modbus setup
+#define CoilsDiv ""
+#define InputRegistersDiv ""
+#define DiscretesDiv ""
+#define HoldingRegistersDiv "class=\"hidden\""
+
 #define DI_PINS 8        // Number of digital input pins
 #define DO_PINS 2        // Number of digital output pins
 #define AI_PINS 4        // Number of analog input pins
@@ -132,6 +144,12 @@ void inline GPIO_Init() { pinMode(GPIO_NUM_36, INPUT); }
 #endif
 #ifdef LILYGO_T_SIM7600G
 
+// Modbus setup
+#define CoilsDiv ""
+#define InputRegistersDiv "class=\"hidden\""
+#define DiscretesDiv ""
+#define HoldingRegistersDiv "class=\"hidden\""
+
 #define DI_PINS 2 // Number of digital input pins
 #define DO_PINS 2 // Number of digital output pins
 #define AI_PINS 0 // Number of analog input pins
@@ -168,6 +186,12 @@ void inline GPIO_Init() {}
 
 #endif
 #ifdef Waveshare_Relay_6CH
+
+// Modbus setup
+#define CoilsDiv ""
+#define InputRegistersDiv "class=\"hidden\""
+#define DiscretesDiv "class=\"hidden\""
+#define HoldingRegistersDiv "class=\"hidden\""
 
 #define DI_PINS 0 // Number of digital input pins
 #define DO_PINS 6 // Number of digital output pins
@@ -230,6 +254,12 @@ void inline GPIO_Init() {
 #endif
 #ifdef Lilygo_Relay_4CH
 
+// Modbus setup
+#define CoilsDiv ""
+#define InputRegistersDiv "class=\"hidden\""
+#define DiscretesDiv "class=\"hidden\""
+#define HoldingRegistersDiv "class=\"hidden\""
+
 #define DI_PINS 0 // Number of digital input pins
 #define DO_PINS 4 // Number of digital output pins
 #define AI_PINS 0 // Number of analog input pins
@@ -256,6 +286,12 @@ void inline GPIO_Init() {
 
 #endif
 #ifdef ESP_32Dev
+
+// Modbus setup
+#define CoilsDiv ""
+#define InputRegistersDiv "class=\"hidden\""
+#define DiscretesDiv ""
+#define HoldingRegistersDiv "class=\"hidden\""
 
 #define DI_PINS 2 // Number of digital input pins
 #define DO_PINS 2 // Number of digital output pins

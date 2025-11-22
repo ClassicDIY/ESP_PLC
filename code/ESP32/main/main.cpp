@@ -29,6 +29,7 @@ Thread *_workerThread1 = new Thread();
 Thread *_workerThread2 = new Thread();
 
 esp_err_t Main::setup() {
+   delay(3000);
    // wait for Serial to connect, give up after 5 seconds, USB may not be connected
    unsigned long start = millis();
    Serial.begin(115200);
