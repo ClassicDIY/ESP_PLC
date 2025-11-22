@@ -216,22 +216,26 @@ void IOT::Init(IOTCallbackInterface *iotCB, AsyncWebServer *pwebServer) {
                modbus.replace("{coilBase}", String(_coil_base_addr));
                modbus.replace("{discreteBase}", String(_discrete_input_base_addr));
                modbus.replace("{holdingRegBase}", String(_holding_register_base_addr));
-               modbus.replace("{modbusBridgechecked}", _useModbusBridge ? "checked" : "unchecked");
-               modbus.replace("{RTU_CLIENT_9600}", _modbusClientBaudRate == 9600 ? "selected" : "");
-               modbus.replace("{RTU_CLIENT_19200}", _modbusClientBaudRate == 19200 ? "selected" : "");
-               modbus.replace("{RTU_CLIENT_38400}", _modbusClientBaudRate == 38400 ? "selected" : "");
-               modbus.replace("{RTU_CLIENT_115200}", _modbusClientBaudRate == 115200 ? "selected" : "");
-               modbus.replace("{RTU_CLIENT_Parity_None}", _modbusClientParity == UART_PARITY_DISABLE ? "selected" : "");
-               modbus.replace("{RTU_CLIENT_Parity_Even}", _modbusClientParity == UART_PARITY_EVEN ? "selected" : "");
-               modbus.replace("{RTU_CLIENT_Parity_Odd}", _modbusClientParity == UART_PARITY_ODD ? "selected" : "");
-               modbus.replace("{RTU_CLIENT_1Stop}", _modbusClientStopBits == UART_STOP_BITS_1 ? "selected" : "");
-               modbus.replace("{RTU_CLIENT_2Stop}", _modbusClientStopBits == UART_STOP_BITS_2 ? "selected" : "");
                // hide unused modbus functions
                modbus.replace("{inputRegDivClass}", InputRegistersDiv);
                modbus.replace("{coilDivClass}", CoilsDiv);
                modbus.replace("{discreteDivClass}", DiscretesDiv);
                modbus.replace("{holdingRegDivClass}", HoldingRegistersDiv);
                fields += modbus;
+               #ifdef HasRS485
+               String modbusBridge = config_modbusBridge;
+               modbusBridge.replace("{modbusBridgechecked}", _useModbusBridge ? "checked" : "unchecked");
+               modbusBridge.replace("{RTU_CLIENT_9600}", _modbusClientBaudRate == 9600 ? "selected" : "");
+               modbusBridge.replace("{RTU_CLIENT_19200}", _modbusClientBaudRate == 19200 ? "selected" : "");
+               modbusBridge.replace("{RTU_CLIENT_38400}", _modbusClientBaudRate == 38400 ? "selected" : "");
+               modbusBridge.replace("{RTU_CLIENT_115200}", _modbusClientBaudRate == 115200 ? "selected" : "");
+               modbusBridge.replace("{RTU_CLIENT_Parity_None}", _modbusClientParity == UART_PARITY_DISABLE ? "selected" : "");
+               modbusBridge.replace("{RTU_CLIENT_Parity_Even}", _modbusClientParity == UART_PARITY_EVEN ? "selected" : "");
+               modbusBridge.replace("{RTU_CLIENT_Parity_Odd}", _modbusClientParity == UART_PARITY_ODD ? "selected" : "");
+               modbusBridge.replace("{RTU_CLIENT_1Stop}", _modbusClientStopBits == UART_STOP_BITS_1 ? "selected" : "");
+               modbusBridge.replace("{RTU_CLIENT_2Stop}", _modbusClientStopBits == UART_STOP_BITS_2 ? "selected" : "");
+               fields += modbusBridge;
+               #endif
 #endif
                String page = network_config_top;
                page.replace("{style}", style);
@@ -635,105 +639,120 @@ void IOT::UpdateOledDisplay() {
          oled_display.println("Offline");
       }
       oled_display.display();
-#endif
    }
-
-   // #pragma endregion Setup
-
-   // #pragma region Network
-
-   void IOT::GoOnline() {
-      logd("GoOnline called");
-      _pwebServer->begin();
-      _webLog.begin(_pwebServer);
-#ifdef HasOTA
-      _OTA.begin(_pwebServer);
+}
 #endif
-      if (_networkState > ApState) {
-         if (_NetworkSelection == EthernetMode || _NetworkSelection == WiFiMode) {
-            MDNS.begin(_AP_SSID.c_str());
-            MDNS.addService("http", "tcp", ASYNC_WEBSERVER_PORT);
-            logd("Active mDNS services: %d", MDNS.queryService("http", "tcp"));
-         }
+// #pragma endregion Setup
+
+// #pragma region Network
+
+void IOT::GoOnline() {
+   logd("GoOnline called");
+   _pwebServer->begin();
+   _webLog.begin(_pwebServer);
+#ifdef HasOTA
+   _OTA.begin(_pwebServer);
+#endif
+   if (_networkState > ApState) {
+      if (_NetworkSelection == EthernetMode || _NetworkSelection == WiFiMode) {
+         MDNS.begin(_AP_SSID.c_str());
+         MDNS.addService("http", "tcp", ASYNC_WEBSERVER_PORT);
+         logd("Active mDNS services: %d", MDNS.queryService("http", "tcp"));
+      }
 #ifdef HasModbus
-         if (_useModbus && !_MBserver.isRunning()) {
-            if (_ModbusMode == TCP) {
-               if (!_MBserver.isRunning()) {
-                  _MBserver.start(_modbusPort, 5, 0); // listen for modbus requests
-                  logd("Modbus TCP started");
-               }
+      if (_useModbus && !_MBserver.isRunning()) {
+         if (_ModbusMode == TCP) {
+            if (!_MBserver.isRunning()) {
+               _MBserver.start(_modbusPort, 5, 0); // listen for modbus requests
+               logd("Modbus TCP started");
+            }
 
 #ifdef HasRS485
-               if (ModbusBridgeEnabled()) {
-                  _MBclientRTU.setTimeout(MODBUS_RTU_TIMEOUT);
-                  _MBclientRTU.begin(Serial2);
-                  _MBclientRTU.useModbusRTU();
-                  _MBclientRTU.onDataHandler([this](ModbusMessage response, uint32_t token) {
-                     logv("RTU Response: serverID=%d, FC=%d, Token=%08X, length=%d", response.getServerID(), response.getFunctionCode(),
-                          token, response.size());
-                     return _iotCB->onModbusMessage(response);
-                  });
-                  _MBclientRTU.onErrorHandler([this](Modbus::Error mbError, uint32_t token) {
-                     logd("Modbus RTU (Token: %d) Error response: %02X - %s", token, (int)mbError, (const char *)ModbusError(mbError));
-                     if (_MBclientRTU.pendingRequests() > 2) {
-                        logd("Modbus RTU clearing queue!");
-                        _MBclientRTU.clearQueue();
-                        Serial2.flush();
-                     }
-                     return true;
-                  });
-               }
-#endif
-            } else {
-               _MBRTUserver.begin(Serial2);
-               _MBRTUserver.useModbusRTU();
-               logd("Modbus RTU started");
+            if (ModbusBridgeEnabled()) {
+               _MBclientRTU.setTimeout(MODBUS_RTU_TIMEOUT);
+               _MBclientRTU.begin(Serial2);
+               _MBclientRTU.useModbusRTU();
+               _MBclientRTU.onDataHandler([this](ModbusMessage response, uint32_t token) {
+                  logv("RTU Response: serverID=%d, FC=%d, Token=%08X, length=%d", response.getServerID(), response.getFunctionCode(), token,
+                       response.size());
+                  return _iotCB->onModbusMessage(response);
+               });
+               _MBclientRTU.onErrorHandler([this](Modbus::Error mbError, uint32_t token) {
+                  logd("Modbus RTU (Token: %d) Error response: %02X - %s", token, (int)mbError, (const char *)ModbusError(mbError));
+                  if (_MBclientRTU.pendingRequests() > 2) {
+                     logd("Modbus RTU clearing queue!");
+                     _MBclientRTU.clearQueue();
+                     Serial2.flush();
+                  }
+                  return true;
+               });
             }
+#endif
+         } else {
+            _MBRTUserver.begin(Serial2);
+            _MBRTUserver.useModbusRTU();
+            logd("Modbus RTU started");
          }
-#endif
-#ifdef HasMQTT
-         xTimerStart(mqttReconnectTimer, 0);
-#endif
-         setState(OnLine);
       }
-   }
-
-   void IOT::GoOffline() {
-      logd("GoOffline");
-#ifdef HasMQTT
-      xTimerStop(mqttReconnectTimer, 0); // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
-      StopMQTT();
 #endif
-      _webLog.end();
-      _dnsServer.stop();
+#ifdef HasMQTT
+      xTimerStart(mqttReconnectTimer, 0);
+#endif
+      setState(OnLine);
+   }
+}
+
+void IOT::GoOffline() {
+   logd("GoOffline");
+#ifdef HasMQTT
+   xTimerStop(mqttReconnectTimer, 0); // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
+   StopMQTT();
+#endif
+   _webLog.end();
+   _dnsServer.stop();
 
 #ifdef HasModbus
-      logd("GoOffline RTU");
-      if (_ModbusMode == RTU) {
-         _MBRTUserver.end();
-      }
-#endif
-      MDNS.end();
-      if (_networkState == OnLine) {
-         setState(OffLine);
-      }
+   logd("GoOffline RTU");
+   if (_ModbusMode == RTU) {
+      _MBRTUserver.end();
    }
+#endif
+   MDNS.end();
+   if (_networkState == OnLine) {
+      setState(OffLine);
+   }
+}
 
-   void IOT::setState(NetworkState newState) {
-      NetworkState oldState = _networkState;
-      _networkState = newState;
-      logd("_networkState: %s", _networkState == Boot         ? "Boot"
-                                : _networkState == ApState    ? "ApState"
-                                : _networkState == Connecting ? "Connecting"
-                                : _networkState == OnLine     ? "OnLine"
-                                                              : "OffLine");
-      UpdateOledDisplay();
-      switch (newState) {
-      case OffLine:
+void IOT::setState(NetworkState newState) {
+   NetworkState oldState = _networkState;
+   _networkState = newState;
+   logd("_networkState: %s", _networkState == Boot         ? "Boot"
+                             : _networkState == ApState    ? "ApState"
+                             : _networkState == Connecting ? "Connecting"
+                             : _networkState == OnLine     ? "OnLine"
+                                                           : "OffLine");
+   UpdateOledDisplay();
+   switch (newState) {
+   case OffLine:
+      if (_NetworkSelection == WiFiMode) {
+         logd("Going offline, set back to AP mode");
+         WiFi.disconnect(true); // true = erase WiFi credentials
+         WiFi.mode(WIFI_AP);
+#ifdef HasEthernet
+      } else if (_NetworkSelection == EthernetMode) {
+         DisconnectEthernet();
+#endif
+#ifdef HasLTE
+      } else if (_NetworkSelection == ModemMode) {
+         DisconnectModem();
+#endif
+      }
+      delay(100);
+      break;
+   case ApState:
+      if ((oldState == Connecting) || (oldState == OnLine)) {
          if (_NetworkSelection == WiFiMode) {
-            logd("Going offline, set back to AP mode");
             WiFi.disconnect(true); // true = erase WiFi credentials
-            WiFi.mode(WIFI_AP);
 #ifdef HasEthernet
          } else if (_NetworkSelection == EthernetMode) {
             DisconnectEthernet();
@@ -744,482 +763,467 @@ void IOT::UpdateOledDisplay() {
 #endif
          }
          delay(100);
-         break;
-      case ApState:
-         if ((oldState == Connecting) || (oldState == OnLine)) {
-            if (_NetworkSelection == WiFiMode) {
-               WiFi.disconnect(true); // true = erase WiFi credentials
-#ifdef HasEthernet
-            } else if (_NetworkSelection == EthernetMode) {
-               DisconnectEthernet();
-#endif
-#ifdef HasLTE
-            } else if (_NetworkSelection == ModemMode) {
-               DisconnectModem();
-#endif
-            }
-            delay(100);
-         }
-         WiFi.mode(WIFI_AP);
-         if (WiFi.softAP(_AP_SSID, _AP_Password)) {
-            IPAddress IP = WiFi.softAPIP();
-            logi("WiFi AP SSID: %s PW: %s", _AP_SSID.c_str(), _AP_Password.c_str());
-            logd("AP IP address: %s", IP.toString().c_str());
-            _dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
-            _dnsServer.start(DNS_PORT, "*", IP);
-         }
-         _waitInAPTimeStamp = millis();
-         break;
-      case Connecting:
-         _NetworkConnectionStart = millis();
-         if (_NetworkSelection == WiFiMode) {
-            logd("WiFiMode, trying to connect to %s", _SSID.c_str());
-            WiFi.setHostname(_AP_SSID.c_str());
-            WiFi.mode(WIFI_STA);
-            WiFi.begin(_SSID, _WiFi_Password);
-         } else if (_NetworkSelection == EthernetMode) {
-#ifdef HasEthernet
-            if (ConnectEthernet() == ESP_OK) {
-               logd("Ethernet succeeded");
-            } else {
-               loge("Failed to connect to Ethernet");
-            }
-#endif
-#ifdef HasLTE
-         } else if (_NetworkSelection == ModemMode) {
-            if (ConnectModem() == ESP_OK) {
-               logd("Modem succeeded");
-            } else {
-               loge("Failed to connect to 4G Modem");
-            }
-#endif
-         }
-         break;
-      case OnLine:
-         logd("State: Online");
-         break;
-      default:
-         break;
       }
-      _iotCB->onNetworkState(newState);
-   }
-
-   void IOT::HandleIPEvent(int32_t event_id, void *event_data) {
-      ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
-      if (event_id == IP_EVENT_PPP_GOT_IP || event_id == IP_EVENT_ETH_GOT_IP) {
-         const esp_netif_ip_info_t *ip_info = &event->ip_info;
-         logi("Got IP Address");
-         logi("~~~~~~~~~~~");
-         logi("IP:" IPSTR, IP2STR(&ip_info->ip));
-         sprintf(_Current_IP, IPSTR, IP2STR(&ip_info->ip));
-         logi("IPMASK:" IPSTR, IP2STR(&ip_info->netmask));
-         logi("Gateway:" IPSTR, IP2STR(&ip_info->gw));
-         logi("~~~~~~~~~~~");
-         GoOnline();
-      } else if (event_id == IP_EVENT_PPP_LOST_IP) {
-         logi("Modem Disconnect from PPP Server");
-         GoOffline();
-      } else if (event_id == IP_EVENT_ETH_LOST_IP) {
-         logi("Ethernet Disconnect");
-         GoOffline();
-      } else if (event_id == IP_EVENT_GOT_IP6) {
-         ip_event_got_ip6_t *event = (ip_event_got_ip6_t *)event_data;
-         logi("Got IPv6 address " IPV6STR, IPV62STR(event->ip6_info.ip));
-      } else {
-         logd("IP event! %d", (int)event_id);
+      WiFi.mode(WIFI_AP);
+      if (WiFi.softAP(_AP_SSID, _AP_Password)) {
+         IPAddress IP = WiFi.softAPIP();
+         logi("WiFi AP SSID: %s PW: %s", _AP_SSID.c_str(), _AP_Password.c_str());
+         logd("AP IP address: %s", IP.toString().c_str());
+         _dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
+         _dnsServer.start(DNS_PORT, "*", IP);
       }
-   }
+      _waitInAPTimeStamp = millis();
+      break;
+   case Connecting:
+      _NetworkConnectionStart = millis();
+      if (_NetworkSelection == WiFiMode) {
+         logd("WiFiMode, trying to connect to %s", _SSID.c_str());
+         WiFi.setHostname(_AP_SSID.c_str());
+         WiFi.mode(WIFI_STA);
+         WiFi.begin(_SSID, _WiFi_Password);
+      } else if (_NetworkSelection == EthernetMode) {
 #ifdef HasEthernet
-   esp_err_t IOT::ConnectEthernet() {
-
-      esp_err_t ret = ESP_OK;
-      logd("ConnectEthernet");
-      if ((ret = gpio_install_isr_service(0)) != ESP_OK) {
-         if (ret == ESP_ERR_INVALID_STATE) {
-            logw("GPIO ISR handler has been already installed");
-            ret = ESP_OK; // ISR handler has been already installed so no issues
+         if (ConnectEthernet() == ESP_OK) {
+            logd("Ethernet succeeded");
          } else {
-            logd("GPIO ISR handler install failed");
+            loge("Failed to connect to Ethernet");
          }
+#endif
+#ifdef HasLTE
+      } else if (_NetworkSelection == ModemMode) {
+         if (ConnectModem() == ESP_OK) {
+            logd("Modem succeeded");
+         } else {
+            loge("Failed to connect to 4G Modem");
+         }
+#endif
       }
-      spi_bus_config_t buscfg = {
-          .mosi_io_num = ETH_MOSI,
-          .miso_io_num = ETH_MISO,
-          .sclk_io_num = ETH_SCK,
-          .quadwp_io_num = -1,
-          .quadhd_io_num = -1,
+      break;
+   case OnLine:
+      logd("State: Online");
+      break;
+   default:
+      break;
+   }
+   _iotCB->onNetworkState(newState);
+}
+
+void IOT::HandleIPEvent(int32_t event_id, void *event_data) {
+   ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
+   if (event_id == IP_EVENT_PPP_GOT_IP || event_id == IP_EVENT_ETH_GOT_IP) {
+      const esp_netif_ip_info_t *ip_info = &event->ip_info;
+      logi("Got IP Address");
+      logi("~~~~~~~~~~~");
+      logi("IP:" IPSTR, IP2STR(&ip_info->ip));
+      sprintf(_Current_IP, IPSTR, IP2STR(&ip_info->ip));
+      logi("IPMASK:" IPSTR, IP2STR(&ip_info->netmask));
+      logi("Gateway:" IPSTR, IP2STR(&ip_info->gw));
+      logi("~~~~~~~~~~~");
+      GoOnline();
+   } else if (event_id == IP_EVENT_PPP_LOST_IP) {
+      logi("Modem Disconnect from PPP Server");
+      GoOffline();
+   } else if (event_id == IP_EVENT_ETH_LOST_IP) {
+      logi("Ethernet Disconnect");
+      GoOffline();
+   } else if (event_id == IP_EVENT_GOT_IP6) {
+      ip_event_got_ip6_t *event = (ip_event_got_ip6_t *)event_data;
+      logi("Got IPv6 address " IPV6STR, IPV62STR(event->ip6_info.ip));
+   } else {
+      logd("IP event! %d", (int)event_id);
+   }
+}
+#ifdef HasEthernet
+esp_err_t IOT::ConnectEthernet() {
+
+   esp_err_t ret = ESP_OK;
+   logd("ConnectEthernet");
+   if ((ret = gpio_install_isr_service(0)) != ESP_OK) {
+      if (ret == ESP_ERR_INVALID_STATE) {
+         logw("GPIO ISR handler has been already installed");
+         ret = ESP_OK; // ISR handler has been already installed so no issues
+      } else {
+         logd("GPIO ISR handler install failed");
+      }
+   }
+   spi_bus_config_t buscfg = {
+       .mosi_io_num = ETH_MOSI,
+       .miso_io_num = ETH_MISO,
+       .sclk_io_num = ETH_SCK,
+       .quadwp_io_num = -1,
+       .quadhd_io_num = -1,
+   };
+   if ((ret = spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_CH_AUTO)) != ESP_OK) {
+      logd("SPI host #1 init failed");
+      return ret;
+   }
+   uint8_t base_mac_addr[6];
+   if ((ret = esp_efuse_mac_get_default(base_mac_addr)) == ESP_OK) {
+      uint8_t local_mac_1[6];
+      esp_derive_local_mac(local_mac_1, base_mac_addr);
+      logi("ETH MAC: %02X:%02X:%02X:%02X:%02X:%02X", local_mac_1[0], local_mac_1[1], local_mac_1[2], local_mac_1[3], local_mac_1[4],
+           local_mac_1[5]);
+      eth_mac_config_t mac_config = ETH_MAC_DEFAULT_CONFIG(); // Init common MAC and PHY configs to default
+      eth_phy_config_t phy_config = ETH_PHY_DEFAULT_CONFIG();
+      phy_config.phy_addr = 1;
+      phy_config.reset_gpio_num = ETH_RST;
+      spi_device_interface_config_t spi_devcfg = {
+          .command_bits = 16, // Actually it's the address phase in W5500 SPI frame
+          .address_bits = 8,  // Actually it's the control phase in W5500 SPI frame
+          .mode = 0,
+          .clock_speed_hz = 25 * 1000 * 1000,
+          .spics_io_num = ETH_SS,
+          .queue_size = 20,
       };
-      if ((ret = spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_CH_AUTO)) != ESP_OK) {
-         logd("SPI host #1 init failed");
+      spi_device_handle_t spi_handle;
+      if ((ret = spi_bus_add_device(SPI2_HOST, &spi_devcfg, &spi_handle)) != ESP_OK) {
+         loge("spi_bus_add_device failed");
          return ret;
       }
-      uint8_t base_mac_addr[6];
-      if ((ret = esp_efuse_mac_get_default(base_mac_addr)) == ESP_OK) {
-         uint8_t local_mac_1[6];
-         esp_derive_local_mac(local_mac_1, base_mac_addr);
-         logi("ETH MAC: %02X:%02X:%02X:%02X:%02X:%02X", local_mac_1[0], local_mac_1[1], local_mac_1[2], local_mac_1[3], local_mac_1[4],
-              local_mac_1[5]);
-         eth_mac_config_t mac_config = ETH_MAC_DEFAULT_CONFIG(); // Init common MAC and PHY configs to default
-         eth_phy_config_t phy_config = ETH_PHY_DEFAULT_CONFIG();
-         phy_config.phy_addr = 1;
-         phy_config.reset_gpio_num = ETH_RST;
-         spi_device_interface_config_t spi_devcfg = {
-             .command_bits = 16, // Actually it's the address phase in W5500 SPI frame
-             .address_bits = 8,  // Actually it's the control phase in W5500 SPI frame
-             .mode = 0,
-             .clock_speed_hz = 25 * 1000 * 1000,
-             .spics_io_num = ETH_SS,
-             .queue_size = 20,
-         };
-         spi_device_handle_t spi_handle;
-         if ((ret = spi_bus_add_device(SPI2_HOST, &spi_devcfg, &spi_handle)) != ESP_OK) {
-            loge("spi_bus_add_device failed");
-            return ret;
-         }
-         eth_w5500_config_t w5500_config = ETH_W5500_DEFAULT_CONFIG(spi_handle);
-         w5500_config.int_gpio_num = ETH_INT;
-         esp_eth_mac_t *mac = esp_eth_mac_new_w5500(&w5500_config, &mac_config);
-         esp_eth_phy_t *phy = esp_eth_phy_new_w5500(&phy_config);
-         _eth_handle = NULL;
-         esp_eth_config_t eth_config_spi = ETH_DEFAULT_CONFIG(mac, phy);
-         if ((ret = esp_eth_driver_install(&eth_config_spi, &_eth_handle)) != ESP_OK) {
-            loge("esp_eth_driver_install failed");
-            return ret;
-         }
-         if ((ret = esp_eth_ioctl(_eth_handle, ETH_CMD_S_MAC_ADDR, local_mac_1)) != ESP_OK) // set mac address
-         {
-            logd("SPI Ethernet MAC address config failed");
-         }
-         esp_netif_config_t cfg = ESP_NETIF_DEFAULT_ETH(); // Initialize the Ethernet interface
-         _netif = esp_netif_new(&cfg);
-         assert(_netif);
-         if (!_useDHCP) {
-            esp_netif_dhcpc_stop(_netif);
-            esp_netif_ip_info_t ipInfo;
-            IPAddress ip;
-            ip.fromString(_Static_IP);
-            ipInfo.ip.addr = static_cast<uint32_t>(ip);
-            ip.fromString(_Subnet_Mask);
-            ipInfo.netmask.addr = static_cast<uint32_t>(ip);
-            ip.fromString(_Gateway_IP);
-            ipInfo.gw.addr = static_cast<uint32_t>(ip);
-            if ((ret = esp_netif_set_ip_info(_netif, &ipInfo)) != ESP_OK) {
-               loge("esp_netif_set_ip_info failed: %d", ret);
-               return ret;
-            }
-         }
-         _eth_netif_glue = esp_eth_new_netif_glue(_eth_handle);
-         if ((ret = esp_netif_attach(_netif, _eth_netif_glue)) != ESP_OK) {
-            loge("esp_netif_attach failed");
-            return ret;
-         }
-         if ((ret = esp_event_handler_register(IP_EVENT, ESP_EVENT_ANY_ID, &on_ip_event, this)) != ESP_OK) {
-            loge("esp_event_handler_register IP_EVENT->IP_EVENT_ETH_GOT_IP failed");
-            return ret;
-         }
-         if ((ret = esp_eth_start(_eth_handle)) != ESP_OK) {
-            loge("esp_netif_attach failed");
+      eth_w5500_config_t w5500_config = ETH_W5500_DEFAULT_CONFIG(spi_handle);
+      w5500_config.int_gpio_num = ETH_INT;
+      esp_eth_mac_t *mac = esp_eth_mac_new_w5500(&w5500_config, &mac_config);
+      esp_eth_phy_t *phy = esp_eth_phy_new_w5500(&phy_config);
+      _eth_handle = NULL;
+      esp_eth_config_t eth_config_spi = ETH_DEFAULT_CONFIG(mac, phy);
+      if ((ret = esp_eth_driver_install(&eth_config_spi, &_eth_handle)) != ESP_OK) {
+         loge("esp_eth_driver_install failed");
+         return ret;
+      }
+      if ((ret = esp_eth_ioctl(_eth_handle, ETH_CMD_S_MAC_ADDR, local_mac_1)) != ESP_OK) // set mac address
+      {
+         logd("SPI Ethernet MAC address config failed");
+      }
+      esp_netif_config_t cfg = ESP_NETIF_DEFAULT_ETH(); // Initialize the Ethernet interface
+      _netif = esp_netif_new(&cfg);
+      assert(_netif);
+      if (!_useDHCP) {
+         esp_netif_dhcpc_stop(_netif);
+         esp_netif_ip_info_t ipInfo;
+         IPAddress ip;
+         ip.fromString(_Static_IP);
+         ipInfo.ip.addr = static_cast<uint32_t>(ip);
+         ip.fromString(_Subnet_Mask);
+         ipInfo.netmask.addr = static_cast<uint32_t>(ip);
+         ip.fromString(_Gateway_IP);
+         ipInfo.gw.addr = static_cast<uint32_t>(ip);
+         if ((ret = esp_netif_set_ip_info(_netif, &ipInfo)) != ESP_OK) {
+            loge("esp_netif_set_ip_info failed: %d", ret);
             return ret;
          }
       }
-      return ret;
+      _eth_netif_glue = esp_eth_new_netif_glue(_eth_handle);
+      if ((ret = esp_netif_attach(_netif, _eth_netif_glue)) != ESP_OK) {
+         loge("esp_netif_attach failed");
+         return ret;
+      }
+      if ((ret = esp_event_handler_register(IP_EVENT, ESP_EVENT_ANY_ID, &on_ip_event, this)) != ESP_OK) {
+         loge("esp_event_handler_register IP_EVENT->IP_EVENT_ETH_GOT_IP failed");
+         return ret;
+      }
+      if ((ret = esp_eth_start(_eth_handle)) != ESP_OK) {
+         loge("esp_netif_attach failed");
+         return ret;
+      }
    }
+   return ret;
+}
 
-   void IOT::DisconnectEthernet() {
-      if (_eth_handle != NULL) {
-         ESP_ERROR_CHECK(esp_eth_stop(_eth_handle));
-         _eth_handle = NULL;
-         if (_eth_netif_glue != NULL) {
-            ESP_ERROR_CHECK(esp_eth_del_netif_glue(_eth_netif_glue));
-            _eth_netif_glue = NULL;
-         }
-         if (_netif != NULL) {
-            esp_netif_destroy(_netif);
-            _netif = NULL;
-         }
-         ESP_ERROR_CHECK(esp_event_handler_unregister(IP_EVENT, ESP_EVENT_ANY_ID, on_ip_event));
+void IOT::DisconnectEthernet() {
+   if (_eth_handle != NULL) {
+      ESP_ERROR_CHECK(esp_eth_stop(_eth_handle));
+      _eth_handle = NULL;
+      if (_eth_netif_glue != NULL) {
+         ESP_ERROR_CHECK(esp_eth_del_netif_glue(_eth_netif_glue));
+         _eth_netif_glue = NULL;
       }
+      if (_netif != NULL) {
+         esp_netif_destroy(_netif);
+         _netif = NULL;
+      }
+      ESP_ERROR_CHECK(esp_event_handler_unregister(IP_EVENT, ESP_EVENT_ANY_ID, on_ip_event));
    }
+}
 
 #endif
 
 #ifdef HasLTE
-   void IOT::wakeup_modem(void) {
-      pinMode(LTE_PWR_EN, OUTPUT);
+void IOT::wakeup_modem(void) {
+   pinMode(LTE_PWR_EN, OUTPUT);
 #ifdef LTE_AIRPLANE_MODE
-      pinMode(LTE_AIRPLANE_MODE, OUTPUT); // turn off airplane mode
-      digitalWrite(LTE_AIRPLANE_MODE, HIGH);
+   pinMode(LTE_AIRPLANE_MODE, OUTPUT); // turn off airplane mode
+   digitalWrite(LTE_AIRPLANE_MODE, HIGH);
 #endif
-      digitalWrite(LTE_PWR_EN, LOW);
-      delay(1000);
-      logd("Power on the modem");
-      digitalWrite(LTE_PWR_EN, HIGH);
-      delay(2000);
-      logd("Modem is powered up and ready");
-   }
+   digitalWrite(LTE_PWR_EN, LOW);
+   delay(1000);
+   logd("Power on the modem");
+   digitalWrite(LTE_PWR_EN, HIGH);
+   delay(2000);
+   logd("Modem is powered up and ready");
+}
 
-   esp_err_t IOT::ConnectModem() {
-      logd("ConnectModem");
-      esp_err_t ret = ESP_OK;
-      wakeup_modem();
-      esp_netif_config_t ppp_netif_config = ESP_NETIF_DEFAULT_PPP(); // Initialize lwip network interface in PPP mode
-      _netif = esp_netif_new(&ppp_netif_config);
-      assert(_netif);
-      ESP_ERROR_CHECK(modem_init_network(_netif, _APN.c_str(),
-                                         _SIM_PIN.c_str())); // Initialize the PPP network and register for IP event
-      if (_SIM_Username.length() > 0) {
-         esp_netif_ppp_set_auth(_netif, NETIF_PPP_AUTHTYPE_PAP, _SIM_Username.c_str(), _SIM_Password.c_str());
-      }
-      ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, ESP_EVENT_ANY_ID, on_ip_event, this));
-      int retryCount = 3;
-      while (retryCount-- != 0) {
-         if (!modem_check_sync()) {
-            logw("Modem does not respond, maybe in DATA mode? ...exiting network mode");
-            modem_stop_network();
-            if (!modem_check_sync()) {
-               logw("Modem does not respond to AT ...restarting");
-               modem_reset();
-               logi("Restarted");
-            }
-            continue;
-         }
-         if (!modem_check_signal()) {
-            logw("Poor signal ...will check after 5s");
-            vTaskDelay(pdMS_TO_TICKS(5000));
-            continue;
-         }
-         if (!modem_start_network()) {
-            loge("Modem could not enter network mode ...will retry after 10s");
-            vTaskDelay(pdMS_TO_TICKS(10000));
-            continue;
-         }
-         break;
-      }
-      logi("Modem has acquired network");
-      return ret;
+esp_err_t IOT::ConnectModem() {
+   logd("ConnectModem");
+   esp_err_t ret = ESP_OK;
+   wakeup_modem();
+   esp_netif_config_t ppp_netif_config = ESP_NETIF_DEFAULT_PPP(); // Initialize lwip network interface in PPP mode
+   _netif = esp_netif_new(&ppp_netif_config);
+   assert(_netif);
+   ESP_ERROR_CHECK(modem_init_network(_netif, _APN.c_str(),
+                                      _SIM_PIN.c_str())); // Initialize the PPP network and register for IP event
+   if (_SIM_Username.length() > 0) {
+      esp_netif_ppp_set_auth(_netif, NETIF_PPP_AUTHTYPE_PAP, _SIM_Username.c_str(), _SIM_Password.c_str());
    }
-
-   void IOT::DisconnectModem() {
-      if (digitalRead(LTE_PWR_EN) == HIGH) {
-#ifdef LTE_AIRPLANE_MODE
-         digitalWrite(LTE_AIRPLANE_MODE, LOW); // turn on airplane mode
-#endif
-         digitalWrite(LTE_PWR_EN, LOW); // turn off power to the modem
+   ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, ESP_EVENT_ANY_ID, on_ip_event, this));
+   int retryCount = 3;
+   while (retryCount-- != 0) {
+      if (!modem_check_sync()) {
+         logw("Modem does not respond, maybe in DATA mode? ...exiting network mode");
          modem_stop_network();
-         modem_deinit_network();
-         if (_netif != NULL) {
-            esp_netif_destroy(_netif);
-            _netif = NULL;
+         if (!modem_check_sync()) {
+            logw("Modem does not respond to AT ...restarting");
+            modem_reset();
+            logi("Restarted");
          }
-         ESP_ERROR_CHECK(esp_event_handler_unregister(IP_EVENT, ESP_EVENT_ANY_ID, on_ip_event));
+         continue;
       }
+      if (!modem_check_signal()) {
+         logw("Poor signal ...will check after 5s");
+         vTaskDelay(pdMS_TO_TICKS(5000));
+         continue;
+      }
+      if (!modem_start_network()) {
+         loge("Modem could not enter network mode ...will retry after 10s");
+         vTaskDelay(pdMS_TO_TICKS(10000));
+         continue;
+      }
+      break;
    }
+   logi("Modem has acquired network");
+   return ret;
+}
+
+void IOT::DisconnectModem() {
+   if (digitalRead(LTE_PWR_EN) == HIGH) {
+#ifdef LTE_AIRPLANE_MODE
+      digitalWrite(LTE_AIRPLANE_MODE, LOW); // turn on airplane mode
+#endif
+      digitalWrite(LTE_PWR_EN, LOW); // turn off power to the modem
+      modem_stop_network();
+      modem_deinit_network();
+      if (_netif != NULL) {
+         esp_netif_destroy(_netif);
+         _netif = NULL;
+      }
+      ESP_ERROR_CHECK(esp_event_handler_unregister(IP_EVENT, ESP_EVENT_ANY_ID, on_ip_event));
+   }
+}
 #endif
 
-   // #pragma endregion Network
+// #pragma endregion Network
 
 #ifdef HasModbus
 
-   void IOT::registerMBTCPWorkers(FunctionCode fc, MBSworker worker) {
-      if (_ModbusMode == TCP) {
-         _MBserver.registerWorker(_modbusID, fc, worker);
-      } else {
-         _MBRTUserver.registerWorker(_modbusID, fc, worker);
-      }
+void IOT::registerMBTCPWorkers(FunctionCode fc, MBSworker worker) {
+   if (_ModbusMode == TCP) {
+      _MBserver.registerWorker(_modbusID, fc, worker);
+   } else {
+      _MBRTUserver.registerWorker(_modbusID, fc, worker);
    }
+}
 
-   boolean IOT::ModbusBridgeEnabled() { return _useModbusBridge && (_ModbusMode == TCP); }
+boolean IOT::ModbusBridgeEnabled() { return _useModbusBridge && (_ModbusMode == TCP); }
 
-   Modbus::Error IOT::SendToModbusBridgeAsync(ModbusMessage & request) {
-      Modbus::Error mbError = INVALID_SERVER;
+Modbus::Error IOT::SendToModbusBridgeAsync(ModbusMessage &request) {
+   Modbus::Error mbError = INVALID_SERVER;
 #ifdef HasRS485
-      if (ModbusBridgeEnabled()) {
-         uint32_t token = nextToken();
-         logv("SendToModbusBridge Token=%08X FC%d", token, request.getFunctionCode());
-         if (_MBclientRTU.pendingRequests() < MODBUS_RTU_REQUEST_QUEUE_SIZE) {
-            mbError = _MBclientRTU.addRequest(request, token);
-            mbError = SUCCESS;
-         } else {
-            mbError = REQUEST_QUEUE_FULL;
-         }
-         delay(100);
+   if (ModbusBridgeEnabled()) {
+      uint32_t token = nextToken();
+      logv("SendToModbusBridge Token=%08X FC%d", token, request.getFunctionCode());
+      if (_MBclientRTU.pendingRequests() < MODBUS_RTU_REQUEST_QUEUE_SIZE) {
+         mbError = _MBclientRTU.addRequest(request, token);
+         mbError = SUCCESS;
+      } else {
+         mbError = REQUEST_QUEUE_FULL;
       }
+      delay(100);
+   }
 #endif
-      return mbError;
+   return mbError;
+}
+
+uint16_t IOT::getMBBaseAddress(IOTypes type) {
+   switch (type) {
+   case DigitalInputs:
+      return _discrete_input_base_addr;
+      break;
+   case DigitalOutputs:
+      return _coil_base_addr;
+      break;
+
+   case AnalogInputs:
+      return _input_register_base_addr;
+      break;
+
+   case AnalogOutputs:
+      return _holding_register_base_addr;
+      break;
    }
-
-   uint16_t IOT::getMBBaseAddress(IOTypes type) {
-      switch (type) {
-      case DigitalInputs:
-         return _discrete_input_base_addr;
-         break;
-      case DigitalOutputs:
-         return _coil_base_addr;
-         break;
-
-      case AnalogInputs:
-         return _input_register_base_addr;
-         break;
-
-      case AnalogOutputs:
-         return _holding_register_base_addr;
-         break;
-      }
-      return 0;
-   }
+   return 0;
+}
 
 #endif
 
 #ifdef HasMQTT
-   void IOT::HandleMQTT(int32_t event_id, void *event_data) {
-      auto event = (esp_mqtt_event_handle_t)event_data;
-      esp_mqtt_client_handle_t client = event->client;
-      JsonDocument doc;
-      switch ((esp_mqtt_event_id_t)event_id) {
-      case MQTT_EVENT_CONNECTED:
-         logi("Connected to MQTT.");
-         char buf[128];
-         sprintf(buf, "%s/set/#", _rootTopicPrefix);
-         esp_mqtt_client_subscribe(client, buf, 0);
-         _iotCB->onMqttConnect();
-         esp_mqtt_client_publish(client, _willTopic, "Online", 0, 1, 0);
-         break;
-      case MQTT_EVENT_DISCONNECTED:
-         logw("Disconnected from MQTT");
-         if (_networkState == OnLine) {
-            xTimerStart(mqttReconnectTimer, 5000);
-         }
-         break;
-
-      case MQTT_EVENT_SUBSCRIBED:
-         logi("MQTT_EVENT_SUBSCRIBED, msg_id=%d", event->msg_id);
-         break;
-      case MQTT_EVENT_UNSUBSCRIBED:
-         logi("MQTT_EVENT_UNSUBSCRIBED, msg_id=%d", event->msg_id);
-         break;
-      case MQTT_EVENT_PUBLISHED:
-         logi("MQTT_EVENT_PUBLISHED, msg_id=%d", event->msg_id);
-         break;
-      case MQTT_EVENT_DATA:
-         char topicBuf[256];
-         snprintf(topicBuf, sizeof(topicBuf), "%.*s", event->topic_len, event->topic);
-         char payloadBuf[256];
-         snprintf(payloadBuf, sizeof(payloadBuf), "%.*s", event->data_len, event->data);
-         logd("MQTT Message arrived [%s] %s", topicBuf, payloadBuf);
-         _iotCB->onMqttMessage(topicBuf, payloadBuf);
-         // if (deserializeJson(doc, event->data)) // not json!
-         // {
-         // 	logd("MQTT payload {%s} is not valid JSON!", event->data);
-         // }
-         // else
-         // {
-         // 	if (doc.containsKey("status"))
-         // 	{
-         // 		doc.clear();
-         // 		doc["sw_version"] = APP_VERSION;
-         // 		// doc["IP"] = WiFi.localIP().toString().c_str();
-         // 		// doc["SSID"] = WiFi.SSID();
-         // 		doc["uptime"] = formatDuration(millis() - _lastBootTimeStamp);
-         // 		Publish("status", doc, true);
-         // 	}
-         // 	else
-         // 	{
-         // 		_iotCB->onMqttMessage(topicBuf, doc);
-         // 	}
-         // }
-         break;
-      case MQTT_EVENT_ERROR:
-         loge("MQTT_EVENT_ERROR");
-         if (event->error_handle->error_type == MQTT_ERROR_TYPE_TCP_TRANSPORT) {
-            logi("Last errno string (%s)", strerror(event->error_handle->esp_transport_sock_errno));
-         }
-         break;
-      default:
-         logi("Other event id:%d", event->event_id);
-         break;
-      }
-   }
-
-   void IOT::ConnectToMQTTServer() {
+void IOT::HandleMQTT(int32_t event_id, void *event_data) {
+   auto event = (esp_mqtt_event_handle_t)event_data;
+   esp_mqtt_client_handle_t client = event->client;
+   JsonDocument doc;
+   switch ((esp_mqtt_event_id_t)event_id) {
+   case MQTT_EVENT_CONNECTED:
+      logi("Connected to MQTT.");
+      char buf[128];
+      sprintf(buf, "%s/set/#", _rootTopicPrefix);
+      esp_mqtt_client_subscribe(client, buf, 0);
+      _iotCB->onMqttConnect();
+      esp_mqtt_client_publish(client, _willTopic, "Online", 0, 1, 0);
+      break;
+   case MQTT_EVENT_DISCONNECTED:
+      logw("Disconnected from MQTT");
       if (_networkState == OnLine) {
-         if (_useMQTT && _mqttServer.length() > 0) // mqtt configured?
-         {
-            logd("Connecting to MQTT: %s:%d", _mqttServer.c_str(), _mqttPort);
-            int len = strlen(_AP_SSID.c_str());
-            strncpy(_rootTopicPrefix, _AP_SSID.c_str(), len);
-            logd("rootTopicPrefix: %s", _rootTopicPrefix);
-            sprintf(_willTopic, "%s/tele/LWT", _rootTopicPrefix);
-            logd("_willTopic: %s", _willTopic);
-            esp_mqtt_client_config_t mqtt_cfg = {};
-            mqtt_cfg.host = _mqttServer.c_str();
-            mqtt_cfg.port = _mqttPort;
-            mqtt_cfg.username = _mqttUserName.c_str();
-            mqtt_cfg.password = _mqttUserPassword.c_str();
-            mqtt_cfg.client_id = _AP_SSID.c_str();
-            mqtt_cfg.lwt_topic = _willTopic;
-            mqtt_cfg.lwt_retain = 1;
-            mqtt_cfg.lwt_msg = "Offline";
-            mqtt_cfg.lwt_msg_len = 7;
-            mqtt_cfg.transport = MQTT_TRANSPORT_OVER_TCP;
-            // mqtt_cfg.cert_pem = (const char *)hivemq_ca_pem_start,
-            // mqtt_cfg.skip_cert_common_name_check = true; // allow self-signed certs
-            _mqtt_client_handle = esp_mqtt_client_init(&mqtt_cfg);
-            esp_mqtt_client_register_event(_mqtt_client_handle, (esp_mqtt_event_id_t)ESP_EVENT_ANY_ID, mqtt_event_handler, this);
-            esp_mqtt_client_start(_mqtt_client_handle);
-         }
+         xTimerStart(mqttReconnectTimer, 5000);
+      }
+      break;
+
+   case MQTT_EVENT_SUBSCRIBED:
+      logi("MQTT_EVENT_SUBSCRIBED, msg_id=%d", event->msg_id);
+      break;
+   case MQTT_EVENT_UNSUBSCRIBED:
+      logi("MQTT_EVENT_UNSUBSCRIBED, msg_id=%d", event->msg_id);
+      break;
+   case MQTT_EVENT_PUBLISHED:
+      logi("MQTT_EVENT_PUBLISHED, msg_id=%d", event->msg_id);
+      break;
+   case MQTT_EVENT_DATA:
+      char topicBuf[256];
+      snprintf(topicBuf, sizeof(topicBuf), "%.*s", event->topic_len, event->topic);
+      char payloadBuf[256];
+      snprintf(payloadBuf, sizeof(payloadBuf), "%.*s", event->data_len, event->data);
+      logd("MQTT Message arrived [%s] %s", topicBuf, payloadBuf);
+      _iotCB->onMqttMessage(topicBuf, payloadBuf);
+      // if (deserializeJson(doc, event->data)) // not json!
+      // {
+      // 	logd("MQTT payload {%s} is not valid JSON!", event->data);
+      // }
+      // else
+      // {
+      // 	if (doc.containsKey("status"))
+      // 	{
+      // 		doc.clear();
+      // 		doc["sw_version"] = APP_VERSION;
+      // 		// doc["IP"] = WiFi.localIP().toString().c_str();
+      // 		// doc["SSID"] = WiFi.SSID();
+      // 		doc["uptime"] = formatDuration(millis() - _lastBootTimeStamp);
+      // 		Publish("status", doc, true);
+      // 	}
+      // 	else
+      // 	{
+      // 		_iotCB->onMqttMessage(topicBuf, doc);
+      // 	}
+      // }
+      break;
+   case MQTT_EVENT_ERROR:
+      loge("MQTT_EVENT_ERROR");
+      if (event->error_handle->error_type == MQTT_ERROR_TYPE_TCP_TRANSPORT) {
+         logi("Last errno string (%s)", strerror(event->error_handle->esp_transport_sock_errno));
+      }
+      break;
+   default:
+      logi("Other event id:%d", event->event_id);
+      break;
+   }
+}
+
+void IOT::ConnectToMQTTServer() {
+   if (_networkState == OnLine) {
+      if (_useMQTT && _mqttServer.length() > 0) // mqtt configured?
+      {
+         logd("Connecting to MQTT: %s:%d", _mqttServer.c_str(), _mqttPort);
+         int len = strlen(_AP_SSID.c_str());
+         strncpy(_rootTopicPrefix, _AP_SSID.c_str(), len);
+         logd("rootTopicPrefix: %s", _rootTopicPrefix);
+         sprintf(_willTopic, "%s/tele/LWT", _rootTopicPrefix);
+         logd("_willTopic: %s", _willTopic);
+         esp_mqtt_client_config_t mqtt_cfg = {};
+         mqtt_cfg.host = _mqttServer.c_str();
+         mqtt_cfg.port = _mqttPort;
+         mqtt_cfg.username = _mqttUserName.c_str();
+         mqtt_cfg.password = _mqttUserPassword.c_str();
+         mqtt_cfg.client_id = _AP_SSID.c_str();
+         mqtt_cfg.lwt_topic = _willTopic;
+         mqtt_cfg.lwt_retain = 1;
+         mqtt_cfg.lwt_msg = "Offline";
+         mqtt_cfg.lwt_msg_len = 7;
+         mqtt_cfg.transport = MQTT_TRANSPORT_OVER_TCP;
+         // mqtt_cfg.cert_pem = (const char *)hivemq_ca_pem_start,
+         // mqtt_cfg.skip_cert_common_name_check = true; // allow self-signed certs
+         _mqtt_client_handle = esp_mqtt_client_init(&mqtt_cfg);
+         esp_mqtt_client_register_event(_mqtt_client_handle, (esp_mqtt_event_id_t)ESP_EVENT_ANY_ID, mqtt_event_handler, this);
+         esp_mqtt_client_start(_mqtt_client_handle);
       }
    }
+}
 
-   boolean IOT::Publish(const char *subtopic, JsonDocument &payload, boolean retained) {
+boolean IOT::Publish(const char *subtopic, JsonDocument &payload, boolean retained) {
+   String s;
+   serializeJson(payload, s);
+   return Publish(subtopic, s.c_str(), retained);
+}
+
+boolean IOT::Publish(const char *subtopic, const char *value, boolean retained) {
+   boolean rVal = false;
+   if (_mqtt_client_handle != 0) {
+      char buf[128];
+      sprintf(buf, "%s/stat/%s", _rootTopicPrefix, subtopic);
+      rVal = (esp_mqtt_client_publish(_mqtt_client_handle, buf, value, strlen(value), 1, retained) != -1);
+      if (!rVal) {
+         loge("**** Failed to publish MQTT message");
+      }
+   }
+   return rVal;
+}
+
+boolean IOT::Publish(const char *topic, float value, boolean retained) {
+   char buf[256];
+   snprintf_P(buf, sizeof(buf), "%.1f", value);
+   return Publish(topic, buf, retained);
+}
+
+boolean IOT::PublishMessage(const char *topic, JsonDocument &payload, boolean retained) {
+   boolean rVal = false;
+   if (_mqtt_client_handle != 0) {
       String s;
       serializeJson(payload, s);
-      return Publish(subtopic, s.c_str(), retained);
-   }
-
-   boolean IOT::Publish(const char *subtopic, const char *value, boolean retained) {
-      boolean rVal = false;
-      if (_mqtt_client_handle != 0) {
-         char buf[128];
-         sprintf(buf, "%s/stat/%s", _rootTopicPrefix, subtopic);
-         rVal = (esp_mqtt_client_publish(_mqtt_client_handle, buf, value, strlen(value), 1, retained) != -1);
-         if (!rVal) {
-            loge("**** Failed to publish MQTT message");
-         }
+      rVal = (esp_mqtt_client_publish(_mqtt_client_handle, topic, s.c_str(), s.length(), 0, retained) != -1);
+      if (!rVal) {
+         loge("**** Configuration payload exceeds MAX MQTT Packet Size, %d [%s] topic: %s", s.length(), s.c_str(), topic);
       }
-      return rVal;
    }
+   return rVal;
+}
 
-   boolean IOT::Publish(const char *topic, float value, boolean retained) {
-      char buf[256];
-      snprintf_P(buf, sizeof(buf), "%.1f", value);
-      return Publish(topic, buf, retained);
+void IOT::StopMQTT() {
+   if (_mqtt_client_handle != 0) {
+      esp_mqtt_client_publish(_mqtt_client_handle, _willTopic, "Offline", 0, 1, 0);
+      esp_mqtt_client_stop(_mqtt_client_handle);
    }
+   return;
+}
 
-   boolean IOT::PublishMessage(const char *topic, JsonDocument &payload, boolean retained) {
-      boolean rVal = false;
-      if (_mqtt_client_handle != 0) {
-         String s;
-         serializeJson(payload, s);
-         rVal = (esp_mqtt_client_publish(_mqtt_client_handle, topic, s.c_str(), s.length(), 0, retained) != -1);
-         if (!rVal) {
-            loge("**** Configuration payload exceeds MAX MQTT Packet Size, %d [%s] topic: %s", s.length(), s.c_str(), topic);
-         }
-      }
-      return rVal;
-   }
-
-   void IOT::StopMQTT() {
-      if (_mqtt_client_handle != 0) {
-         esp_mqtt_client_publish(_mqtt_client_handle, _willTopic, "Offline", 0, 1, 0);
-         esp_mqtt_client_stop(_mqtt_client_handle);
-      }
-      return;
-   }
-
-   std::string IOT::getRootTopicPrefix() {
-      std::string s(_rootTopicPrefix);
-      return s;
-   };
+std::string IOT::getRootTopicPrefix() {
+   std::string s(_rootTopicPrefix);
+   return s;
+};
 
 #endif
 
