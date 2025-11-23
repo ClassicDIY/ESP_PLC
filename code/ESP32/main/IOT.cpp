@@ -222,7 +222,7 @@ void IOT::Init(IOTCallbackInterface *iotCB, AsyncWebServer *pwebServer) {
                modbus.replace("{discreteDivClass}", DiscretesDiv);
                modbus.replace("{holdingRegDivClass}", HoldingRegistersDiv);
                fields += modbus;
-               #ifdef HasRS485
+#ifdef HasRS485
                String modbusBridge = config_modbusBridge;
                modbusBridge.replace("{modbusBridgechecked}", _useModbusBridge ? "checked" : "unchecked");
                modbusBridge.replace("{RTU_CLIENT_9600}", _modbusClientBaudRate == 9600 ? "selected" : "");
@@ -235,7 +235,7 @@ void IOT::Init(IOTCallbackInterface *iotCB, AsyncWebServer *pwebServer) {
                modbusBridge.replace("{RTU_CLIENT_1Stop}", _modbusClientStopBits == UART_STOP_BITS_1 ? "selected" : "");
                modbusBridge.replace("{RTU_CLIENT_2Stop}", _modbusClientStopBits == UART_STOP_BITS_2 ? "selected" : "");
                fields += modbusBridge;
-               #endif
+#endif
 #endif
                String page = network_config_top;
                page.replace("{style}", style);
@@ -640,8 +640,9 @@ void IOT::UpdateOledDisplay() {
       }
       oled_display.display();
    }
-}
 #endif
+}
+
 // #pragma endregion Setup
 
 // #pragma region Network
