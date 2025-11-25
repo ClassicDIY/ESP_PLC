@@ -51,7 +51,6 @@ esp_err_t Main::setup() {
    logd("Free Heap: %d KB", ESP.getFreeHeap() / 1024);
    logd("------------ESP32 specifications ---------------");
 
-   Wire.begin(I2C_SDA, I2C_SCL);
    _plc.Setup();
    // Configure main worker thread
    _workerThread1->onRun([]() { _plc.CleanUp(); });
