@@ -75,6 +75,7 @@ void IOT::Init(IOTCallbackInterface *iotCB, AsyncWebServer *pwebServer) {
 #ifdef HasRS485
    if (RS485_RTS != -1) {
       pinMode(RS485_RTS, OUTPUT);
+      digitalWrite(RS485_RTS, LOW); 
    }
    if (_ModbusMode == RTU) {
       // Set up Serial2 connected to Modbus RTU server

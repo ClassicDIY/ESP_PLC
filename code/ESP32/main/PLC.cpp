@@ -100,21 +100,20 @@ void PLC::Setup() {
          next();
       }
    });
-   _webSocket.onEvent(
-       [this](AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
-          (void)len;
-          if (type == WS_EVT_CONNECT) {
-             _lastMessagePublished.clear(); // force a broadcast
-             client->setCloseClientOnQueueFull(false);
-             client->ping();
-          } else if (type == WS_EVT_DISCONNECT) {
-             // logi("Home Page Disconnected!");
-          } else if (type == WS_EVT_ERROR) {
-             loge("ws error");
-             // } else if (type == WS_EVT_PONG) {
-             // 	logd("ws pong");
-          }
-       });
+   _webSocket.onEvent([this](AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
+      (void)len;
+      if (type == WS_EVT_CONNECT) {
+         _lastMessagePublished.clear(); // force a broadcast
+         client->setCloseClientOnQueueFull(false);
+         client->ping();
+      } else if (type == WS_EVT_DISCONNECT) {
+         // logi("Home Page Disconnected!");
+      } else if (type == WS_EVT_ERROR) {
+         loge("ws error");
+         // } else if (type == WS_EVT_PONG) {
+         // 	logd("ws pong");
+      }
+   });
 }
 
 void PLC::onSaveSetting(JsonDocument &doc) {
@@ -524,7 +523,8 @@ void PLC::onNetworkState(NetworkState state) {
                      SetRelay(i, _digitalOutputCoils[i] ? HIGH : LOW);
                   }
 #endif
-                  CoilSet bridgeCoilset = _digitalOutputCoils.slice(DO_PINS, _coilCount); // bridge coils are forwarded to the modbus bridge
+                  numCoils -= DO_PINS;
+                  CoilSet bridgeCoilset = _digitalOutputCoils.slice(DO_PINS, numCoils); // bridge coils are forwarded to the modbus bridge
                   ModbusMessage forward;
                   Error err = forward.setMessage(_coilID, request.getFunctionCode(), 0, bridgeCoilset.coils(), bridgeCoilset.size(),
                                                  bridgeCoilset.data());
@@ -534,8 +534,8 @@ void PLC::onNetworkState(NetworkState state) {
                         response = ECHO_RESPONSE; // All fine, return shortened echo response, like the standard says
                      } else {
                         ModbusError e(err);
-                        logd("Error forwarding FC%d to modbus bridge device Id:%d Error:  %02X - %s", request.getFunctionCode(), _coilID,
-                             (int)e, (const char *)e);
+                        logd("Error forwarding FC%d to modbus bridge device Id:%d Error:  %02X - %s", request.getFunctionCode(), _coilID, (int)e,
+                             (const char *)e);
                         response.setError(request.getServerID(), request.getFunctionCode(), (Error)e);
                      }
                   } else {
@@ -649,8 +649,9 @@ void PLC::onNetworkState(NetworkState state) {
                      _PWMOutputs[i].SetDutyCycle(_analogOutputRegisters[i]);
                   }
 #endif
-                  RegisterSet bridgeRegset =
-                      _analogOutputRegisters.slice(AO_PINS, numRegs); // bridge registers are forwarded to the modbus bridge
+                  numRegs -= AO_PINS; // start of bridge registers
+                  RegisterSet bridgeRegset = _analogOutputRegisters.slice(AO_PINS, numRegs);
+                  // bridge registers are forwarded to the modbus bridge
                   ModbusMessage forward;
                   Error err = forward.setMessage(_holdingID, request.getFunctionCode(), 0, bridgeRegset.size(), bridgeRegset.size() * 2,
                                                  bridgeRegset.data());
@@ -712,14 +713,13 @@ bool PLC::onModbusMessage(ModbusMessage &msg) {
       if (receivedRegisters != slicedRegisters) {
          logd("Make sure holding registers have the same value as _analogOutputRegisters");
          ModbusMessage forward;
-         Error err = forward.setMessage(_holdingID, WRITE_MULT_REGISTERS, 0, slicedRegisters.size(), slicedRegisters.size() * 2,
-                                        slicedRegisters.data());
+         Error err =
+             forward.setMessage(_holdingID, WRITE_MULT_REGISTERS, 0, slicedRegisters.size(), slicedRegisters.size() * 2, slicedRegisters.data());
          if (err == SUCCESS) {
             err = _iot.SendToModbusBridgeAsync(forward);
             if (err != SUCCESS) {
                ModbusError e(err);
-               logd("Error forwarding Holding registers to modbus bridge device Id:%d Error:  %02X - %s", _holdingID, (int)e,
-                    (const char *)e);
+               logd("Error forwarding Holding registers to modbus bridge device Id:%d Error:  %02X - %s", _holdingID, (int)e, (const char *)e);
             }
          }
       }
