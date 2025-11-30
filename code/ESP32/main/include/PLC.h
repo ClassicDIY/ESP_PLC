@@ -26,7 +26,6 @@ class PLC : public Device, public IOTCallbackInterface {
 #endif
    void onNetworkState(NetworkState state);
    void addApplicationConfigs(String &page);
-   void onSubmitForm(AsyncWebServerRequest *request);
    void onSaveSetting(JsonDocument &doc);
    void onLoadSetting(JsonDocument &doc);
 

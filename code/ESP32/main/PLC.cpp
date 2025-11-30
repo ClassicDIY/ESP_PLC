@@ -2,8 +2,8 @@
 #include "Log.h"
 #include "IOT.h"
 #include "PLC.h"
-#include "style.html"
-#include "PLC.html"
+#include "style.htm"
+#include "PLC.htm"
 
 namespace CLASSICDIY {
 static AsyncWebServer _asyncServer(ASYNC_WEBSERVER_PORT);
@@ -90,6 +90,13 @@ void PLC::Setup() {
       page.replace("{analogOutputs}", s.c_str());
       request->send(200, "text/html", page);
    });
+   _asyncServer.on("/appsettings", HTTP_GET, [this](AsyncWebServerRequest *request) {
+      JsonDocument app;
+      onSaveSetting(app);
+      String s;
+      serializeJson(app, s);
+      request->send(200, "text/html", s);
+   });
    _asyncServer.addHandler(&_webSocket).addMiddleware([this](AsyncWebServerRequest *request, ArMiddlewareNext next) {
       // ws.count() is the current count of WS clients: this one is trying to upgrade its HTTP connection
       if (_webSocket.count() > 1) {
@@ -110,14 +117,14 @@ void PLC::Setup() {
          // logi("Home Page Disconnected!");
       } else if (type == WS_EVT_ERROR) {
          loge("ws error");
-         // } else if (type == WS_EVT_PONG) {
-         // 	logd("ws pong");
+      } else if (type == WS_EVT_PONG) {
+         logd("ws pong");
+         _lastMessagePublished.clear(); // force a broadcast
       }
    });
 }
 
-void PLC::onSaveSetting(JsonDocument &doc) {
-   JsonObject plc = doc["plc"].to<JsonObject>();
+void PLC::onSaveSetting(JsonDocument &plc) {
 #if AI_PINS > 0
    for (int i = 0; i < AI_PINS; i++) {
       String ain = "A" + String(i);
@@ -142,8 +149,7 @@ void PLC::onSaveSetting(JsonDocument &doc) {
    plc["holdingRegBridgeCount"] = _holdingCount;
 }
 
-void PLC::onLoadSetting(JsonDocument &doc) {
-   JsonObject plc = doc["plc"].as<JsonObject>();
+void PLC::onLoadSetting(JsonDocument &plc) {
 #if AI_PINS > 0
    for (int i = 0; i < AI_PINS; i++) {
       String ain = "A" + String(i);
@@ -177,91 +183,31 @@ void PLC::addApplicationConfigs(String &page) {
       String conv_script(app_validateInputs);
       conv_flds.replace("{An}", "A" + String(i));
       conv_script.replace("{An}", "A" + String(i));
-      conv_flds.replace("{minV}", String(_AnalogSensors[i].minV(), 1));
-      conv_flds.replace("{minT}", String(_AnalogSensors[i].minT(), 1));
-      conv_flds.replace("{maxV}", String(_AnalogSensors[i].maxV(), 1));
-      conv_flds.replace("{maxT}", String(_AnalogSensors[i].maxT(), 1));
       scriptConvs += conv_script;
       appConvs += conv_flds;
    }
    appFields.replace("{aconv}", appConvs);
    page += appFields;
    page.replace("{validateInputs}", scriptConvs);
+   page.replace("{script}", ""); // future app script
 #endif
 #ifdef HasModbus
    // Bridge app settings
    String appBridgeFields = app_modbusBridge;
-   appBridgeFields.replace("{inputBridgeID}", String(_inputID));
-   appBridgeFields.replace("{inputRegBridge}", String(_inputAddress));
-   appBridgeFields.replace("{inputRegBridgeCount}", String(_inputCount));
-   appBridgeFields.replace("{coilBridgeID}", String(_coilID));
-   appBridgeFields.replace("{coilBridge}", String(_coilAddress));
-   appBridgeFields.replace("{coilBridgeCount}", String(_coilCount));
-   appBridgeFields.replace("{discreteBridgeID}", String(_discreteID));
-   appBridgeFields.replace("{discreteBridge}", String(_discreteAddress));
-   appBridgeFields.replace("{discreteBridgeCount}", String(_discreteCount));
-   appBridgeFields.replace("{holdingBridgeID}", String(_holdingID));
-   appBridgeFields.replace("{holdingRegBridge}", String(_holdingAddress));
-   appBridgeFields.replace("{holdingRegBridgeCount}", String(_holdingCount));
+   // appBridgeFields.replace("{inputBridgeID}", String(_inputID));
+   // appBridgeFields.replace("{inputRegBridge}", String(_inputAddress));
+   // appBridgeFields.replace("{inputRegBridgeCount}", String(_inputCount));
+   // appBridgeFields.replace("{coilBridgeID}", String(_coilID));
+   // appBridgeFields.replace("{coilBridge}", String(_coilAddress));
+   // appBridgeFields.replace("{coilBridgeCount}", String(_coilCount));
+   // appBridgeFields.replace("{discreteBridgeID}", String(_discreteID));
+   // appBridgeFields.replace("{discreteBridge}", String(_discreteAddress));
+   // appBridgeFields.replace("{discreteBridgeCount}", String(_discreteCount));
+   // appBridgeFields.replace("{holdingBridgeID}", String(_holdingID));
+   // appBridgeFields.replace("{holdingRegBridge}", String(_holdingAddress));
+   // appBridgeFields.replace("{holdingRegBridgeCount}", String(_holdingCount));
    page.replace("{modbusBridgeAppSettings}", appBridgeFields);
 #endif
-}
-
-void PLC::onSubmitForm(AsyncWebServerRequest *request) {
-#if AI_PINS > 0
-   for (int i = 0; i < AI_PINS; i++) {
-      String ain = "A" + String(i);
-      if (request->hasParam(ain + "_min", true)) {
-         _AnalogSensors[i].SetMinV(request->getParam(ain + "_min", true)->value().toFloat());
-      }
-      if (request->hasParam(ain + "_min_t", true)) {
-         _AnalogSensors[i].SetMinT(request->getParam(ain + "_min_t", true)->value().toFloat());
-      }
-      if (request->hasParam(ain + "_max", true)) {
-         _AnalogSensors[i].SetMaxV(request->getParam(ain + "_max", true)->value().toFloat());
-      }
-      if (request->hasParam(ain + "_max_t", true)) {
-         _AnalogSensors[i].SetMaxT(request->getParam(ain + "_max_t", true)->value().toFloat());
-      }
-   }
-#endif
-   // Bridge app settings
-   if (request->hasParam("inputBridgeID", true)) {
-      _inputID = request->getParam("inputBridgeID", true)->value().toInt();
-   }
-   if (request->hasParam("inputRegBridge", true)) {
-      _inputAddress = request->getParam("inputRegBridge", true)->value().toInt();
-   }
-   if (request->hasParam("inputRegBridgeCount", true)) {
-      _inputCount = request->getParam("inputRegBridgeCount", true)->value().toInt();
-   }
-   if (request->hasParam("coilBridgeID", true)) {
-      _coilID = request->getParam("coilBridgeID", true)->value().toInt();
-   }
-   if (request->hasParam("coilBridge", true)) {
-      _coilAddress = request->getParam("coilBridge", true)->value().toInt();
-   }
-   if (request->hasParam("coilBridgeCount", true)) {
-      _coilCount = request->getParam("coilBridgeCount", true)->value().toInt();
-   }
-   if (request->hasParam("discreteBridgeID", true)) {
-      _discreteID = request->getParam("discreteBridgeID", true)->value().toInt();
-   }
-   if (request->hasParam("discreteBridge", true)) {
-      _discreteAddress = request->getParam("discreteBridge", true)->value().toInt();
-   }
-   if (request->hasParam("discreteBridgeCount", true)) {
-      _discreteCount = request->getParam("discreteBridgeCount", true)->value().toInt();
-   }
-   if (request->hasParam("holdingBridgeID", true)) {
-      _holdingID = request->getParam("holdingBridgeID", true)->value().toInt();
-   }
-   if (request->hasParam("holdingRegBridge", true)) {
-      _holdingAddress = request->getParam("holdingRegBridge", true)->value().toInt();
-   }
-   if (request->hasParam("holdingRegBridgeCount", true)) {
-      _holdingCount = request->getParam("holdingRegBridgeCount", true)->value().toInt();
-   }
 }
 
 void PLC::CleanUp() {

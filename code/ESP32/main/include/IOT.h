@@ -48,7 +48,7 @@ class IOT : public IOTServiceInterface {
    Modbus::Error SendToModbusBridgeAsync(ModbusMessage &request);
    uint16_t getMBBaseAddress(IOTypes type);
 #else
-boolean ModbusBridgeEnabled() {return false;};
+   boolean ModbusBridgeEnabled() { return false; };
 #endif
 
  private:
@@ -132,12 +132,15 @@ boolean ModbusBridgeEnabled() {return false;};
    unsigned long _lastBootTimeStamp = millis();
    unsigned long _waitInAPTimeStamp = millis();
    unsigned long _NetworkConnectionStart = 0;
+   unsigned long _GPIO0_PressedCountdown = 0;
    unsigned long _FlasherIPConfigStart = millis();
    void RedirectToHome(AsyncWebServerRequest *request);
    void UpdateOledDisplay();
    void GoOffline();
    void saveSettings();
    void loadSettings();
+   void loadSettingsFromJson(JsonDocument &doc);
+   void saveSettingsToJson(JsonDocument &doc);
    void setState(NetworkState newState);
 #ifdef HasLTE
    void wakeup_modem(void);

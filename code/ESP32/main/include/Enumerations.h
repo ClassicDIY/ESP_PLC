@@ -8,4 +8,5 @@ enum NetworkState { Boot, ApState, Connecting, OnLine, OffLine };
 enum IOTypes { DigitalInputs, AnalogInputs, DigitalOutputs, AnalogOutputs };
 
 enum ModbusMode { TCP, RTU };
+
 } // namespace CLASSICDIY
