@@ -136,8 +136,6 @@ void IOT::Init(IOTCallbackInterface *iotCB, AsyncWebServer *pwebServer) {
          serializeJson(doc, s);
          s += '\n';
          Serial.printf(s.c_str()); // send json to flash tool
-         configTime(0, 0, NTP_SERVER);
-         printLocalTime();
          GoOnline();
          break;
       case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
@@ -269,9 +267,7 @@ void IOT::RedirectToHome(AsyncWebServerRequest *request) {
 }
 
 void IOT::loadSettingsFromJson(JsonDocument &iot) {
-   String output;
-   serializeJsonPretty(iot, output);
-   logd("Loading: %s", output.c_str());
+   logd("%s", formattedJson(iot).c_str());
    _AP_SSID = iot["AP_SSID"].isNull() ? TAG : iot["AP_SSID"].as<String>();
    _AP_Password = iot["AP_Pw"].isNull() ? DEFAULT_AP_PASSWORD : iot["AP_Pw"].as<String>();
    _NetworkSelection = iot["Network"].isNull() ? APMode : iot["Network"].as<NetworkSelection>();
@@ -381,9 +377,7 @@ void IOT::saveSettings() {
    JsonDocument doc;
    saveSettingsToJson(doc);
    _iotCB->onSaveSetting(doc);
-   String output;
-   serializeJsonPretty(doc, output);
-   logd("Saving: %s", output.c_str());
+   logd("Saving: %s", formattedJson(doc).c_str());
    String jsonString;
    serializeJson(doc, jsonString);
    uint32_t sum = 0;

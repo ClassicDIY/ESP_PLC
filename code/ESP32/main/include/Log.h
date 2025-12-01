@@ -59,3 +59,16 @@ void inline printLocalTime() {
 #endif
 }
 
+inline String formattedJson(const JsonDocument &doc) {
+#if APP_LOG_LEVEL >= ARDUHAL_LOG_LEVEL_DEBUG
+   size_t size = measureJsonPretty(doc);
+   String out;
+   if (out.reserve(size + 1) == false) { // +1 for null terminator
+      logd("Did not reserve string!!!");
+   }
+   serializeJsonPretty(doc, out);
+   return out;
+#else
+   return "";
+#endif
+}
