@@ -251,7 +251,6 @@ void IOT::Init(IOTCallbackInterface *iotCB, AsyncWebServer *pwebServer) {
           for (size_t i = 0; i < len; i++) {
              bodyBuffer += (char)data[i];
           }
-          // Optional: detect completion
           if (index + len == total) {
              logd("Upload complete!");
           }
@@ -267,7 +266,7 @@ void IOT::RedirectToHome(AsyncWebServerRequest *request) {
 }
 
 void IOT::loadSettingsFromJson(JsonDocument &iot) {
-   logd("%s", formattedJson(iot).c_str());
+   logd("Loading: %s", formattedJson(iot).c_str());
    _AP_SSID = iot["AP_SSID"].isNull() ? TAG : iot["AP_SSID"].as<String>();
    _AP_Password = iot["AP_Pw"].isNull() ? DEFAULT_AP_PASSWORD : iot["AP_Pw"].as<String>();
    _NetworkSelection = iot["Network"].isNull() ? APMode : iot["Network"].as<NetworkSelection>();
