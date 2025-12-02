@@ -186,10 +186,13 @@ void PLC::addApplicationConfigs(String &page) {
       scriptConvs += conv_script;
       appConvs += conv_flds;
    }
+
    appFields.replace("{aconv}", appConvs);
    page += appFields;
    page.replace("{validateInputs}", scriptConvs);
    page.replace("{script}", ""); // future app script
+   page.replace("{onload}", "");
+   page.replace("{validate}", "");
 #endif
 #ifdef HasModbus
    // Bridge app settings

@@ -5,7 +5,7 @@
 #include <WiFi.h>
 #include <time.h>
 #include <Wire.h>
-#ifdef Has_OLED_Display
+#ifdef Has_OLED
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #endif
