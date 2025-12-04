@@ -185,18 +185,6 @@ function setIotValues(cfg) {
     }
 }
 
-// function setAppValues(cfg) {
-//     const form = document.getElementById('settingsForm');
-//     for (const [k, v] of Object.entries(cfg)) {
-//         const el = form.elements.namedItem(k);
-//         if (!el) continue;
-//         if (el.type === 'checkbox') {
-//             el.checked = !!v;
-//         } else {
-//             el.value = v;
-//         }
-//     }
-// }
 function setAppValues(cfg, prefix = "") {
   const form = document.getElementById("settingsForm");
 
