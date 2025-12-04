@@ -11,6 +11,7 @@ namespace CLASSICDIY {
 class Device {
  protected:
    void Init();
+   void InitCommon();
    void Run();
    void SetRelay(const uint8_t index, const uint8_t value);
    boolean GetRelay(const uint8_t index);

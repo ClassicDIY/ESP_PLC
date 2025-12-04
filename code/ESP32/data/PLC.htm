@@ -5,7 +5,7 @@ const char home_html[] PROGMEM = R"rawliteral(
 	<html lang=\"en\">
 	<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, user-scalable=no\"/>
 	<title>{n}</title>
-
+	<link rel="stylesheet" href="/style.css">
 	<script>
 		function initWebSocket() {
 		  const socket = new WebSocket('ws://' + window.location.hostname + '/ws_home');
@@ -87,41 +87,44 @@ const char app_config_fields[] PROGMEM = R"rawliteral(
 	<fieldset id="app" class="fs">
 	<legend>Application</legend>
 		<div class="conv">
-			{aconv}
+			%acf%
 		</div>
 	</fieldset>
 )rawliteral";
 
 const char analog_conv_flds[] PROGMEM = R"rawliteral(
-  <div class="app-range-row">
-    <label for="{An}_minV">{An} Min V:</label>
-    <input type="number" id="{An}_minV" name="{An}_minV" step="0.1" min="0" max="10" required>
-    <label for="{An}_minT">=></label>
-    <input type="number" id="{An}_minT" name="{An}_minT" required>
+	<div class="fld">
+	<div class="app-range-row">
+		<label for="conversions[{An}].minV">A{An} Min V:</label>
+		<input type="number" id="conversions[{An}].minV" name="conversions[{An}].minV" step="0.1" min="0" max="10" required>
+		<label for="conversions[{An}].minT">=></label>
+		<input type="number" id="conversions[{An}].minT" name="conversions[{An}].minT" required>
 
-    <label for="{An}_maV">{An} Max V:</label>
-    <input type="number" id="{An}_maxV" name="{An}_maxV" step="0.1" min="0" max="10" required>
-    <label for="{An}_maxT">=></label>
-    <input type="number" id="{An}_maxT" name="{An}_maxT" required>
+		<label for="conversions[{An}].maxV">A{An} Max V:</label>
+		<input type="number" id="conversions[{An}].maxV" name="conversions[{An}].maxV" step="0.1" min="0" max="10" required>
+		<label for="conversions[{An}].maxT">=></label>
+		<input type="number" id="conversions[{An}].maxT" name="conversions[{An}].maxT" required>
+	</div>
   </div>
 )rawliteral";
 
 const char app_validateInputs[] PROGMEM = R"rawliteral(
-	const {An}_minval = parseFloat(document.getElementById('{An}_minV').value);
-	const {An}_maxval = parseFloat(document.getElementById('{An}_maxV').value);
-	if ({An}_minval >= {An}_maxval) {
-		alert('The {An} min must be lower than {An} max.');
+	const A{An}_minval = parseFloat(document.getElementById('conversions[{An}].minV').value);
+	const A{An}_maxval = parseFloat(document.getElementById('conversions[{An}].maxV').value);
+	if (A{An}_minval >= A{An}_maxval) {
+		alert('The A{An} min must be lower than A{An} max.');
 		return false;
 	}
-	const {An}_min_tval = parseFloat(document.getElementById('{An}_minT').value);
-	const {An}_max_tval = parseFloat(document.getElementById('{An}_maxT').value);
-	if ({An}_min_tval >= {An}_max_tval) {
-		alert('The {An} min => must be lower than {An} => max.');
+	const A{An}_min_tval = parseFloat(document.getElementById('conversions[{An}].minT').value);
+	const A{An}_max_tval = parseFloat(document.getElementById('conversions[{An}].maxT').value);
+	if (A{An}_min_tval >= A{An}_max_tval) {
+		alert('The A{An} min => must be lower than A{An} => max.');
 		return false;
 	}
 )rawliteral";
 
 const char app_modbusBridge[] PROGMEM = R"rawliteral(
+<div id="mbflds">
 	<div class="modbus-bridge-row">
 		<label>Input</label>
 		<label for="inputBridgeID">ID</label><input type="number" id="inputBridgeID" name="inputBridgeID"  step="1">
@@ -146,4 +149,5 @@ const char app_modbusBridge[] PROGMEM = R"rawliteral(
 		<label for="holdingRegBridge">Address</label><input type="number" id="holdingRegBridge" name="holdingRegBridge" step="1" min="0" max="65531">
 		<label for="holdingRegBridgeCount">Count</label><input type="number" id="holdingRegBridgeCount" name="holdingRegBridgeCount" step="1" min="0" max="16">
 	</div>
+</div>
 )rawliteral";

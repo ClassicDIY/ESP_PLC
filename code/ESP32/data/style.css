@@ -1,4 +1,4 @@
-const char style[] PROGMEM = R"rawliteral(
+const char iot_style[] PROGMEM = R"rawliteral(
 <style>
     .container {
         display: flex;
@@ -209,6 +209,10 @@ const char style[] PROGMEM = R"rawliteral(
         border-radius: 8px;
         padding: 10px;
         font-size: 0.95rem;
+    }
+
+    .fld {
+        margin-bottom: 8px;
     }
 
     .check {

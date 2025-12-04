@@ -1,8 +1,12 @@
 #include <Arduino.h>
+#ifdef UseLittleFS
+#include <LittleFS.h>
+#else
+#include "app_script.js"
+#endif
 #include "Log.h"
 #include "IOT.h"
 #include "PLC.h"
-#include "style.htm"
 #include "PLC.htm"
 
 namespace CLASSICDIY {
@@ -28,7 +32,6 @@ void PLC::Setup() {
 
    _asyncServer.on("/", HTTP_GET, [this](AsyncWebServerRequest *request) {
       String page = home_html;
-      page.replace("{style}", style);
       page.replace("{n}", _iot.getThingName().c_str());
       page.replace("{v}", APP_VERSION);
       std::string s;
@@ -93,10 +96,40 @@ void PLC::Setup() {
    _asyncServer.on("/appsettings", HTTP_GET, [this](AsyncWebServerRequest *request) {
       JsonDocument app;
       onSaveSetting(app);
+      logv("HTTP_GET app_fields: %s", formattedJson(app).c_str());
       String s;
       serializeJson(app, s);
       request->send(200, "text/html", s);
    });
+   _asyncServer.on(
+       "/app_fields", HTTP_POST,
+       [this](AsyncWebServerRequest *request) {
+          // Called after all chunks are received
+          logv("Full body received: %s", _bodyBuffer.c_str());
+          // Parse JSON safely
+          JsonDocument doc; // adjust size to expected payload
+          DeserializationError err = deserializeJson(doc, _bodyBuffer);
+          if (err) {
+             logd("JSON parse failed: %s", err.c_str());
+          } else {
+             logv("HTTP_POST app_fields: %s", formattedJson(doc).c_str());
+             onLoadSetting(doc);
+          }
+          request->send(200, "application/json", "{\"status\":\"ok\"}");
+          _bodyBuffer = ""; // clear for next request
+       },
+       NULL, // file upload handler (not used here)
+       [this](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+          logv("Chunk received: len=%d, index=%d, total=%d", len, index, total);
+          // Append chunk to buffer
+          _bodyBuffer.reserve(total); // reserve once for efficiency
+          for (size_t i = 0; i < len; i++) {
+             _bodyBuffer += (char)data[i];
+          }
+          if (index + len == total) {
+             logd("Upload complete!");
+          }
+       });
    _asyncServer.addHandler(&_webSocket).addMiddleware([this](AsyncWebServerRequest *request, ArMiddlewareNext next) {
       // ws.count() is the current count of WS clients: this one is trying to upgrade its HTTP connection
       if (_webSocket.count() > 1) {
@@ -126,12 +159,13 @@ void PLC::Setup() {
 
 void PLC::onSaveSetting(JsonDocument &plc) {
 #if AI_PINS > 0
+   JsonArray rth = plc["conversions"].to<JsonArray>();
    for (int i = 0; i < AI_PINS; i++) {
-      String ain = "A" + String(i);
-      plc[ain + "_minV"] = _AnalogSensors[i].minV();
-      plc[ain + "_minT"] = _AnalogSensors[i].minT();
-      plc[ain + "_maxV"] = _AnalogSensors[i].maxV();
-      plc[ain + "_maxT"] = _AnalogSensors[i].maxT();
+      JsonObject obj = rth.add<JsonObject>();
+      obj["minV"] = _AnalogSensors[i].minV();
+      obj["minT"] = _AnalogSensors[i].minT();
+      obj["maxV"] = _AnalogSensors[i].maxV();
+      obj["maxT"] = _AnalogSensors[i].maxT();
    }
 #endif
    // Bridge app settings
@@ -151,12 +185,16 @@ void PLC::onSaveSetting(JsonDocument &plc) {
 
 void PLC::onLoadSetting(JsonDocument &plc) {
 #if AI_PINS > 0
-   for (int i = 0; i < AI_PINS; i++) {
-      String ain = "A" + String(i);
-      plc[ain + "_minV"].isNull() ? _AnalogSensors[i].SetMinV(1.0) : _AnalogSensors[i].SetMinV(plc[ain + "_minV"].as<float>());
-      plc[ain + "_minT"].isNull() ? _AnalogSensors[i].SetMinT(0.0) : _AnalogSensors[i].SetMinT(plc[ain + "_minT"].as<float>());
-      plc[ain + "_maxV"].isNull() ? _AnalogSensors[i].SetMaxV(5.0) : _AnalogSensors[i].SetMaxV(plc[ain + "_maxV"].as<float>());
-      plc[ain + "_maxT"].isNull() ? _AnalogSensors[i].SetMaxT(100.0) : _AnalogSensors[i].SetMaxT(plc[ain + "_maxT"].as<float>());
+   JsonArray conv = plc["conversions"].as<JsonArray>();
+   int i = 0;
+   for (JsonObject obj : conv) {
+      if (i < AI_PINS) {
+         _AnalogSensors[i].SetMinV(obj["minV"].as<float>());
+         _AnalogSensors[i].SetMinT(obj["minT"].as<float>());
+         _AnalogSensors[i].SetMaxV(obj["maxV"].as<float>());
+         _AnalogSensors[i].SetMaxT(obj["maxT"].as<float>());
+         i++;
+      }
    }
 #endif
    _inputID = plc["inputBridgeID"].isNull() ? 0 : plc["inputBridgeID"].as<uint8_t>();
@@ -173,44 +211,31 @@ void PLC::onLoadSetting(JsonDocument &plc) {
    _holdingCount = plc["holdingRegBridgeCount"].isNull() ? 0 : plc["holdingRegBridgeCount"].as<uint8_t>();
 }
 
-void PLC::addApplicationConfigs(String &page) {
-#if AI_PINS > 0
-   String appFields = app_config_fields;
-   String appConvs;
-   String scriptConvs;
-   for (int i = 0; i < AI_PINS; i++) {
-      String conv_flds(analog_conv_flds);
-      String conv_script(app_validateInputs);
-      conv_flds.replace("{An}", "A" + String(i));
-      conv_script.replace("{An}", "A" + String(i));
-      scriptConvs += conv_script;
-      appConvs += conv_flds;
+String PLC::appTemplateProcessor(const String &var) {
+   logd("appTemplate template: %s", var.c_str());
+   if (var == "app_fields") {
+      return String(app_config_fields);
    }
-
-   appFields.replace("{aconv}", appConvs);
-   page += appFields;
-   page.replace("{validateInputs}", scriptConvs);
-   page.replace("{script}", ""); // future app script
-   page.replace("{onload}", "");
-   page.replace("{validate}", "");
+#if AI_PINS > 0
+   if (var == "acf") {
+      String appConvs;
+      for (int i = 0; i < AI_PINS; i++) {
+         String conv_flds(analog_conv_flds);
+         conv_flds.replace("{An}", String(i));
+         appConvs += conv_flds;
+      }
+      return appConvs;
+   }
 #endif
 #ifdef HasModbus
-   // Bridge app settings
-   String appBridgeFields = app_modbusBridge;
-   // appBridgeFields.replace("{inputBridgeID}", String(_inputID));
-   // appBridgeFields.replace("{inputRegBridge}", String(_inputAddress));
-   // appBridgeFields.replace("{inputRegBridgeCount}", String(_inputCount));
-   // appBridgeFields.replace("{coilBridgeID}", String(_coilID));
-   // appBridgeFields.replace("{coilBridge}", String(_coilAddress));
-   // appBridgeFields.replace("{coilBridgeCount}", String(_coilCount));
-   // appBridgeFields.replace("{discreteBridgeID}", String(_discreteID));
-   // appBridgeFields.replace("{discreteBridge}", String(_discreteAddress));
-   // appBridgeFields.replace("{discreteBridgeCount}", String(_discreteCount));
-   // appBridgeFields.replace("{holdingBridgeID}", String(_holdingID));
-   // appBridgeFields.replace("{holdingRegBridge}", String(_holdingAddress));
-   // appBridgeFields.replace("{holdingRegBridgeCount}", String(_holdingCount));
-   page.replace("{modbusBridgeAppSettings}", appBridgeFields);
+   if (var == "modbusBridgeAppSettings") {
+      return String(app_modbusBridge);
+   }
 #endif
+   if (var == "app_script_js") {
+      return String(app_script_js);
+   }
+   return String("");
 }
 
 void PLC::CleanUp() {

@@ -25,9 +25,9 @@ class PLC : public Device, public IOTCallbackInterface {
    bool onModbusMessage(ModbusMessage &msg);
 #endif
    void onNetworkState(NetworkState state);
-   void addApplicationConfigs(String &page);
    void onSaveSetting(JsonDocument &doc);
    void onLoadSetting(JsonDocument &doc);
+   String appTemplateProcessor(const String &var);
 
  protected:
 #ifdef HasMQTT
@@ -37,6 +37,7 @@ class PLC : public Device, public IOTCallbackInterface {
    boolean _discoveryPublished = false;
    String _lastMessagePublished;
    unsigned long _lastModbusPollTime = 0;
+   String _bodyBuffer;
 
    // Modbus Bridge settings
    uint8_t _inputID = 0;

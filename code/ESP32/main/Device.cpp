@@ -2,6 +2,9 @@
 #include <memory>
 #include "Wire.h"
 #include <ArduinoJson.h>
+#ifdef UseLittleFS
+#include <LittleFS.h>
+#endif
 #include "Log.h"
 #include "Device.h"
 
@@ -13,6 +16,15 @@ Adafruit_SSD1306 oled_display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 #include <Adafruit_ADS1X15.h>
 Adafruit_ADS1115 ads; /* Use this for the 16-bit version */
 namespace CLASSICDIY {
+
+void Device::InitCommon() {
+   Wire.begin(I2C_SDA, I2C_SCL);
+#ifdef UseLittleFS
+   if (!LittleFS.begin()) {
+      loge("LittleFS mount failed");
+   }
+#endif
+}
 
 #ifdef ESP_32Dev
 
@@ -235,8 +247,7 @@ bool Device::GetDigitalLevel(const uint8_t index) { return (bool)digitalRead(_Di
 #ifdef Lilygo_Relay_6CH
 
 #include <ShiftRegister74HC595.h>
-std::shared_ptr<ShiftRegister74HC595<1>> HT74HC595 =
-    std::make_shared<ShiftRegister74HC595<1>>(HT74HC595_DATA, HT74HC595_CLOCK, HT74HC595_LATCH);
+std::shared_ptr<ShiftRegister74HC595<1>> HT74HC595 = std::make_shared<ShiftRegister74HC595<1>>(HT74HC595_DATA, HT74HC595_CLOCK, HT74HC595_LATCH);
 
 void Device::Init() {
    pinMode(HT74HC595_OUT_EN, OUTPUT);
