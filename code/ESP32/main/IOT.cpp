@@ -43,7 +43,7 @@ TimerHandle_t mqttReconnectTimer;
 #endif
 #ifdef HasModbus
 static ModbusServerTCPasync _MBserver;
-static ModbusServerRTU _MBRTUserver(MODBUS_RTU_TIMEOUT);
+static ModbusServerRTU _MBRTUserver(MODBUS_RTU_TIMEOUT, RS485_RTS);
 #endif
 
 static AsyncAuthenticationMiddleware basicAuth;
