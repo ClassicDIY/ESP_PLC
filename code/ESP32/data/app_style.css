@@ -1,0 +1,15 @@
+const char app_style[] PROGMEM = R"rawliteral(    
+    .modbus-bridge-row {
+
+        display: grid;
+        grid-template-columns: 80px 40px 50px 60px 80px 60px 40px;
+        gap: 6px 6px;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    .modbus-bridge-row label {
+        font-size: 0.9em;
+        text-align: right;
+    }
+)rawliteral";

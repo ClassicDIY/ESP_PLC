@@ -70,19 +70,6 @@ const char iot_style[] PROGMEM = R"rawliteral(
         /* Horizontally center the content */
     }
 
-    .modbus-bridge-row {
-        display: grid;
-        grid-template-columns: 80px 40px 50px 60px 80px 60px 40px;
-        gap: 6px 6px;
-        align-items: center;
-        margin-bottom: 10px;
-    }
-
-    .modbus-bridge-row label {
-        font-size: 0.9em;
-        text-align: right;
-    }
-
     .desc {
         font-size: .8em;
     }
@@ -307,5 +294,6 @@ const char iot_style[] PROGMEM = R"rawliteral(
         justify-content: center; /* Horizontally center the content */
         font-size:1.5rem;
     }
+    %style%
 </style>
 )rawliteral";

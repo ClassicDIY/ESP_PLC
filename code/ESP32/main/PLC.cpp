@@ -3,6 +3,7 @@
 #include <LittleFS.h>
 #else
 #include "app_script.js"
+#include "app_style.css"
 #endif
 #include "Log.h"
 #include "IOT.h"
@@ -14,6 +15,10 @@ static AsyncWebServer _asyncServer(ASYNC_WEBSERVER_PORT);
 static AsyncWebSocket _webSocket("/ws_home");
 IOT _iot = IOT();
 
+#if defined(HasRS485) & defined(RTUBridge) & defined(HasModbus)
+ModbusClientRTU _MBclientRTU(RS485_RTS, MODBUS_RTU_REQUEST_QUEUE_SIZE);
+#endif
+
 PLC::PLC() {}
 
 PLC::~PLC() { logd("PLC destructor"); }
@@ -21,13 +26,13 @@ PLC::~PLC() { logd("PLC destructor"); }
 void PLC::Setup() {
    Init();
    _iot.Init(this, &_asyncServer);
-   uint16_t coilCount = _iot.ModbusBridgeEnabled() ? _coilCount + DO_PINS : DO_PINS;
+   uint16_t coilCount = _useModbusBridge ? _coilCount + DO_PINS : DO_PINS;
    _digitalOutputCoils.Init(coilCount);
-   uint16_t discreteCount = _iot.ModbusBridgeEnabled() ? _discreteCount + DI_PINS : DI_PINS;
+   uint16_t discreteCount = _useModbusBridge ? _discreteCount + DI_PINS : DI_PINS;
    _digitalInputDiscretes.Init(discreteCount, false);
-   uint16_t analogOutputCount = _iot.ModbusBridgeEnabled() ? _holdingCount + AO_PINS : AO_PINS;
+   uint16_t analogOutputCount = _useModbusBridge ? _holdingCount + AO_PINS : AO_PINS;
    _analogOutputRegisters.Init(analogOutputCount);
-   uint16_t analogInputCount = _iot.ModbusBridgeEnabled() ? _inputCount + AI_PINS : AI_PINS;
+   uint16_t analogInputCount = _useModbusBridge ? _inputCount + AI_PINS : AI_PINS;
    _analogInputRegisters.Init(analogInputCount);
 
    _asyncServer.on("/", HTTP_GET, [this](AsyncWebServerRequest *request) {
@@ -96,7 +101,7 @@ void PLC::Setup() {
    _asyncServer.on("/appsettings", HTTP_GET, [this](AsyncWebServerRequest *request) {
       JsonDocument app;
       onSaveSetting(app);
-      logv("HTTP_GET app_fields: %s", formattedJson(app).c_str());
+      logd("HTTP_GET app_fields: %s", formattedJson(app).c_str());
       String s;
       serializeJson(app, s);
       request->send(200, "text/html", s);
@@ -112,7 +117,7 @@ void PLC::Setup() {
           if (err) {
              logd("JSON parse failed: %s", err.c_str());
           } else {
-             logv("HTTP_POST app_fields: %s", formattedJson(doc).c_str());
+             logd("HTTP_POST app_fields: %s", formattedJson(doc).c_str());
              onLoadSetting(doc);
           }
           request->send(200, "application/json", "{\"status\":\"ok\"}");
@@ -169,6 +174,11 @@ void PLC::onSaveSetting(JsonDocument &plc) {
    }
 #endif
    // Bridge app settings
+   plc["useModbusBridge"] = _useModbusBridge;
+   plc["clientRTUBaud"] = _clientRTUBaud;
+   plc["clientRTUParity"] = _clientRTUParity;
+   plc["clientRTUStopBits"] = _clientRTUStopBits;
+
    plc["inputBridgeID"] = _inputID;
    plc["inputRegBridge"] = _inputAddress;
    plc["inputRegBridgeCount"] = _inputCount;
@@ -197,6 +207,10 @@ void PLC::onLoadSetting(JsonDocument &plc) {
       }
    }
 #endif
+   _useModbusBridge = plc["useModbusBridge"].isNull() ? false : plc["useModbusBridge"].as<bool>();
+   _clientRTUBaud = plc["clientRTUBaud"].isNull() ? 9600 : plc["clientRTUBaud"].as<uint32_t>();
+   _clientRTUParity = plc["clientRTUParity"].isNull() ? UART_PARITY_DISABLE : plc["clientRTUParity"].as<uart_parity_t>();
+   _clientRTUStopBits = plc["clientRTUStopBits"].isNull() ? UART_STOP_BITS_1 : plc["clientRTUStopBits"].as<uart_stop_bits_t>();
    _inputID = plc["inputBridgeID"].isNull() ? 0 : plc["inputBridgeID"].as<uint8_t>();
    _inputAddress = plc["inputRegBridge"].isNull() ? 0 : plc["inputRegBridge"].as<uint16_t>();
    _inputCount = plc["inputRegBridgeCount"].isNull() ? 0 : plc["inputRegBridgeCount"].as<uint8_t>();
@@ -212,10 +226,35 @@ void PLC::onLoadSetting(JsonDocument &plc) {
 }
 
 String PLC::appTemplateProcessor(const String &var) {
-   logd("appTemplate template: %s", var.c_str());
+   if (var == "style") {
+      return String(app_style);
+   }
    if (var == "app_fields") {
       return String(app_config_fields);
    }
+   if (var == "appScript") {
+      return String(rtuBridge_js);
+   }
+   #if defined(HasRS485) & defined(RTUBridge) & defined(HasModbus)
+   if (var == "getClientRTUValues") {
+      return String(getClientRTUValues);
+   }
+   if (var == "setClientRTUValues") {
+      return String(setClientRTUValues);
+   }
+   if (var == "setModbusBridgeFieldset") {
+      return String(setModbusBridgeFieldset);
+   }
+   if (var == "appshowMBFields") {
+      return String("toggleMDBridgeFieldset();");
+   }
+   if (var == "modbusBridgeAppSettings") {
+      return String(config_modbusBridge);
+   }
+   #endif
+   // if (var == "validateInputs") {
+   //    return String(app_validateInputs);
+   // }
 #if AI_PINS > 0
    if (var == "acf") {
       String appConvs;
@@ -227,28 +266,24 @@ String PLC::appTemplateProcessor(const String &var) {
       return appConvs;
    }
 #endif
-#ifdef HasModbus
-   if (var == "modbusBridgeAppSettings") {
-      return String(app_modbusBridge);
-   }
-#endif
    if (var == "app_script_js") {
       return String(app_script_js);
    }
+   logd("Did not find app template for: %s", var.c_str());
    return String("");
 }
 
 void PLC::CleanUp() {
    _webSocket.cleanupClients(); // cleanup disconnected clients or too many clients
-#ifdef HasModbus
+#if defined(HasRS485) & defined(RTUBridge) & defined(HasModbus)
    // read modbus bridge outputs to compare with current set.
-   if (_iot.getNetworkState() == OnLine && _iot.ModbusBridgeEnabled()) {
+   if (_iot.getNetworkState() == OnLine && _useModbusBridge) {
       // fetch the actual coil info to compare with coilset
       if (_coilCount > 0) {
          ModbusMessage forward;
          uint8_t err = forward.setMessage(_coilID, READ_COIL, _coilAddress, _coilCount);
          if (err == SUCCESS) {
-            Modbus::Error error = _iot.SendToModbusBridgeAsync(forward);
+            Modbus::Error error = SendToModbusBridgeAsync(forward);
             if (error != SUCCESS) {
                logd("Error forwarding READ_COIL to modbus bridge device Id:%d Error: %02X - %s", _coilID, error,
                     (const char *)ModbusError(error));
@@ -260,7 +295,7 @@ void PLC::CleanUp() {
          ModbusMessage forward;
          uint8_t err = forward.setMessage(_holdingID, READ_HOLD_REGISTER, _holdingAddress, _holdingCount);
          if (err == SUCCESS) {
-            Modbus::Error error = _iot.SendToModbusBridgeAsync(forward);
+            Modbus::Error error = SendToModbusBridgeAsync(forward);
             if (error != SUCCESS) {
                logd("Error forwarding WRITE_MULT_REGISTERS to modbus bridge device Id:%d Error: %02X - %s", _holdingID, error,
                     (const char *)ModbusError(error));
@@ -314,17 +349,17 @@ void PLC::Process() {
       _lastMessagePublished = s;
       _webSocket.textAll(s);
       logv("Published readings: %s", s.c_str());
-#ifdef HasModbus
+#if defined(HasRS485) & defined(RTUBridge) & defined(HasModbus)
       unsigned long now = millis();
       if (MODBUS_POLL_RATE < now - _lastModbusPollTime) {
          _lastModbusPollTime = now;
 
-         if (_iot.ModbusBridgeEnabled()) {
+         if (_useModbusBridge) {
             if (_discreteCount > 0) {
                ModbusMessage forward;
                uint8_t err = forward.setMessage(_discreteID, READ_DISCR_INPUT, _discreteAddress, _discreteCount);
                if (err == SUCCESS) {
-                  Modbus::Error error = _iot.SendToModbusBridgeAsync(forward);
+                  Modbus::Error error = SendToModbusBridgeAsync(forward);
                   if (error != SUCCESS) {
                      logd("Error forwarding FC02 to modbus bridge device Id:%d Error: %02X - %s", _discreteID, error,
                           (const char *)ModbusError(error));
@@ -337,7 +372,7 @@ void PLC::Process() {
                ModbusMessage forward;
                uint8_t err = forward.setMessage(_inputID, READ_INPUT_REGISTER, _inputAddress, _inputCount);
                if (err == SUCCESS) {
-                  Modbus::Error error = _iot.SendToModbusBridgeAsync(forward);
+                  Modbus::Error error = SendToModbusBridgeAsync(forward);
                   if (error != SUCCESS) {
                      logd("Error forwarding FC03 to modbus bridge device Id:%d Error: %02X - %s", _inputID, error,
                           (const char *)ModbusError(error));
@@ -436,13 +471,14 @@ void PLC::onNetworkState(NetworkState state) {
                      SetRelay(addr, state == 0xFF00 ? HIGH : LOW);
                      response = ECHO_RESPONSE;
 #endif
+#if defined(HasRS485) & defined(RTUBridge) & defined(HasModbus)
                   } else // bridge coil
                   {
                      addr -= DO_PINS; // start of bridge coils
                      ModbusMessage forward;
                      Error err = forward.setMessage(_coilID, request.getFunctionCode(), addr, state);
                      if (err == SUCCESS) {
-                        err = _iot.SendToModbusBridgeAsync(forward);
+                        err = SendToModbusBridgeAsync(forward);
                         if (err == SUCCESS) {
                            // All fine, return shortened echo response, like the standard says
                            response = ECHO_RESPONSE;
@@ -456,6 +492,7 @@ void PLC::onNetworkState(NetworkState state) {
                         loge("ModbusMessage Write coil error: 0X%x", err);
                         response.setError(request.getServerID(), request.getFunctionCode(), err);
                      }
+#endif
                   }
                } else {
                   response.setError(request.getServerID(), request.getFunctionCode(), SERVER_DEVICE_FAILURE);
@@ -496,14 +533,16 @@ void PLC::onNetworkState(NetworkState state) {
                   for (int i = 0; i < DO_PINS; i++) {
                      SetRelay(i, _digitalOutputCoils[i] ? HIGH : LOW);
                   }
+                  response = ECHO_RESPONSE;
 #endif
+#if defined(HasRS485) & defined(RTUBridge) & defined(HasModbus)
                   numCoils -= DO_PINS;
                   CoilSet bridgeCoilset = _digitalOutputCoils.slice(DO_PINS, numCoils); // bridge coils are forwarded to the modbus bridge
                   ModbusMessage forward;
                   Error err = forward.setMessage(_coilID, request.getFunctionCode(), 0, bridgeCoilset.coils(), bridgeCoilset.size(),
                                                  bridgeCoilset.data());
                   if (err == SUCCESS) {
-                     err = _iot.SendToModbusBridgeAsync(forward);
+                     err = SendToModbusBridgeAsync(forward);
                      if (err == SUCCESS) {
                         response = ECHO_RESPONSE; // All fine, return shortened echo response, like the standard says
                      } else {
@@ -516,6 +555,7 @@ void PLC::onNetworkState(NetworkState state) {
                      loge("ModbusMessage Write multiple coils error: 0X%x", err);
                      response.setError(request.getServerID(), request.getFunctionCode(), ILLEGAL_DATA_VALUE);
                   }
+#endif
                } else {
                   logd("SERVER_DEVICE_FAILURE Setting the coils seems to have failed");
                   response.setError(request.getServerID(), request.getFunctionCode(), SERVER_DEVICE_FAILURE);
@@ -568,13 +608,14 @@ void PLC::onNetworkState(NetworkState state) {
                   _PWMOutputs[addr].SetDutyCycle(value);
                   response = ECHO_RESPONSE;
 #endif
+#if defined(HasRS485) & defined(RTUBridge) & defined(HasModbus)
                } else // bridge coil
                {
                   addr -= AO_PINS; // start of bridge registers
                   ModbusMessage forward;
                   Error err = forward.setMessage(_holdingID, request.getFunctionCode(), addr, value);
                   if (err == SUCCESS) {
-                     err = _iot.SendToModbusBridgeAsync(forward);
+                     err = SendToModbusBridgeAsync(forward);
                      if (err == SUCCESS) {
                         // All fine, return shortened echo response, like the standard says
                         response = ECHO_RESPONSE;
@@ -588,6 +629,7 @@ void PLC::onNetworkState(NetworkState state) {
                      loge("ModbusMessage write holding error: 0X%x", err);
                      response.setError(request.getServerID(), request.getFunctionCode(), err);
                   }
+#endif
                }
             } else {
                response.setError(request.getServerID(), request.getFunctionCode(), SERVER_DEVICE_FAILURE);
@@ -622,7 +664,9 @@ void PLC::onNetworkState(NetworkState state) {
                   for (int i = 0; i < AO_PINS; i++) {
                      _PWMOutputs[i].SetDutyCycle(_analogOutputRegisters[i]);
                   }
+                  response = ECHO_RESPONSE;
 #endif
+#if defined(HasRS485) & defined(RTUBridge) & defined(HasModbus)
                   numRegs -= AO_PINS; // start of bridge registers
                   RegisterSet bridgeRegset = _analogOutputRegisters.slice(AO_PINS, numRegs);
                   // bridge registers are forwarded to the modbus bridge
@@ -630,7 +674,7 @@ void PLC::onNetworkState(NetworkState state) {
                   Error err = forward.setMessage(_holdingID, request.getFunctionCode(), 0, bridgeRegset.size(), bridgeRegset.size() * 2,
                                                  bridgeRegset.data());
                   if (err == SUCCESS) {
-                     err = _iot.SendToModbusBridgeAsync(forward);
+                     err = SendToModbusBridgeAsync(forward);
                      if (err == SUCCESS) {
                         response = ECHO_RESPONSE; // All fine, return shortened echo response, like the standard says
                      } else {
@@ -644,6 +688,7 @@ void PLC::onNetworkState(NetworkState state) {
                      loge("ModbusMessage Write multiple registers error: %02X - %s", (int)e, (const char *)e);
                      response.setError(request.getServerID(), request.getFunctionCode(), err);
                   }
+#endif
                } else {
                   logd("SERVER_DEVICE_FAILURE Setting the registers seems to have failed");
                   response.setError(request.getServerID(), request.getFunctionCode(), SERVER_DEVICE_FAILURE);
@@ -667,6 +712,28 @@ void PLC::onNetworkState(NetworkState state) {
       _iot.registerMBTCPWorkers(READ_HOLD_REGISTER, modbusFC03);
       _iot.registerMBTCPWorkers(WRITE_HOLD_REGISTER, modbusFC06);
       _iot.registerMBTCPWorkers(WRITE_MULT_REGISTERS, modbusFC10);
+
+#if defined(HasRS485) & defined(RTUBridge) & defined(HasModbus)
+      if (_useModbusBridge) {
+         _MBclientRTU.setTimeout(MODBUS_RTU_TIMEOUT);
+         _MBclientRTU.begin(Serial2);
+         _MBclientRTU.useModbusRTU();
+         _MBclientRTU.onDataHandler([this](ModbusMessage response, uint32_t token) {
+            logv("RTU Response: serverID=%d, FC=%d, Token=%08X, length=%d", response.getServerID(), response.getFunctionCode(), token,
+                 response.size());
+            return onModbusMessage(response);
+         });
+         _MBclientRTU.onErrorHandler([this](Modbus::Error mbError, uint32_t token) {
+            logd("Modbus RTU (Token: %d) Error response: %02X - %s", token, (int)mbError, (const char *)ModbusError(mbError));
+            if (_MBclientRTU.pendingRequests() > 2) {
+               logd("Modbus RTU clearing queue!");
+               _MBclientRTU.clearQueue();
+               Serial2.flush();
+            }
+            return true;
+         });
+      }
+#endif
 #endif
    }
 }
@@ -690,7 +757,7 @@ bool PLC::onModbusMessage(ModbusMessage &msg) {
          Error err =
              forward.setMessage(_holdingID, WRITE_MULT_REGISTERS, 0, slicedRegisters.size(), slicedRegisters.size() * 2, slicedRegisters.data());
          if (err == SUCCESS) {
-            err = _iot.SendToModbusBridgeAsync(forward);
+            err = SendToModbusBridgeAsync(forward);
             if (err != SUCCESS) {
                ModbusError e(err);
                logd("Error forwarding Holding registers to modbus bridge device Id:%d Error:  %02X - %s", _holdingID, (int)e, (const char *)e);
@@ -709,7 +776,7 @@ bool PLC::onModbusMessage(ModbusMessage &msg) {
          ModbusMessage forward;
          Error err = forward.setMessage(_coilID, WRITE_MULT_COILS, 0, slicedCoils.coils(), slicedCoils.size(), slicedCoils.data());
          if (err == SUCCESS) {
-            err = _iot.SendToModbusBridgeAsync(forward);
+            err = SendToModbusBridgeAsync(forward);
             if (err != SUCCESS) {
                ModbusError e(err);
                logd("Error forwarding Coils to modbus bridge device Id:%d Error:  %02X - %s", _coilID, (int)e, (const char *)e);
@@ -737,7 +804,23 @@ bool PLC::onModbusMessage(ModbusMessage &msg) {
 }
 
 #endif
-
+Modbus::Error PLC::SendToModbusBridgeAsync(ModbusMessage &request) {
+   Modbus::Error mbError = INVALID_SERVER;
+#if defined(HasRS485) & defined(RTUBridge) & defined(HasModbus)
+   if (_useModbusBridge) {
+      uint32_t token = nextToken();
+      logv("SendToModbusBridge Token=%08X FC%d", token, request.getFunctionCode());
+      if (_MBclientRTU.pendingRequests() < MODBUS_RTU_REQUEST_QUEUE_SIZE) {
+         mbError = _MBclientRTU.addRequest(request, token);
+         mbError = SUCCESS;
+      } else {
+         mbError = REQUEST_QUEUE_FULL;
+      }
+      delay(100);
+   }
+#endif
+   return mbError;
+}
 #ifdef HasMQTT
 
 void PLC::onMqttConnect() {

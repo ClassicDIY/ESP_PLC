@@ -45,7 +45,6 @@ const char home_html[] PROGMEM = R"rawliteral(
 		  initWebSocket();
 		}
 	</script>
-	{style}
 	</head>
   	<body>
 		<div id="home">
@@ -84,6 +83,7 @@ const char home_html[] PROGMEM = R"rawliteral(
 	)rawliteral";
 
 const char app_config_fields[] PROGMEM = R"rawliteral(
+	%modbusBridgeAppSettings%
 	<fieldset id="app" class="fs">
 	<legend>Application</legend>
 		<div class="conv">
@@ -123,31 +123,59 @@ const char app_validateInputs[] PROGMEM = R"rawliteral(
 	}
 )rawliteral";
 
-const char app_modbusBridge[] PROGMEM = R"rawliteral(
-<div id="mbflds">
-	<div class="modbus-bridge-row">
-		<label>Input</label>
-		<label for="inputBridgeID">ID</label><input type="number" id="inputBridgeID" name="inputBridgeID"  step="1">
-		<label for="inputRegBridge">Address</label><input type="number" id="inputRegBridge" name="inputRegBridge" step="1" min="0" max="65531">
-		<label for="inputRegBridgeCount">Count</label><input type="number" id="inputRegBridgeCount" name="inputRegBridgeCount" step="1" min="0" max="16">
-	</div>
-	<div class="modbus-bridge-row">
-    	<label>Coil</label>
-		<label for="coilBridgeID">ID</label><input type="number" id="coilBridgeID" name="coilBridgeID" step="1">
-		<label for="coilBridge">Address</label><input type="number" id="coilBridge" name="coilBridge" step="1" min="0" max="65529">
-		<label for="coilBridgeCount">Count</label><input type="number" id="coilBridgeCount" name="coilBridgeCount" step="1" min="0" max="16">
-	</div>
-	<div class="modbus-bridge-row">
-    	<label>Discrete</label>
-		<label for="discreteBridgeID">ID</label><input type="number" id="discreteBridgeID" name="discreteBridgeID" step="1">
-		<label for="discreteBridge">Address</label><input type="number" id="discreteBridge" name="discreteBridge" step="1" min="0" max="65531">
-		<label for="discreteBridgeCount">Count</label><input type="number" id="discreteBridgeCount" name="discreteBridgeCount" step="1" min="0" max="16">
-	</div>
-	<div class="modbus-bridge-row">
-		<label>Holding</label>
-		<label for="holdingBridgeID">ID</label><input type="number" id="holdingBridgeID" name="holdingBridgeID" step="1">
-		<label for="holdingRegBridge">Address</label><input type="number" id="holdingRegBridge" name="holdingRegBridge" step="1" min="0" max="65531">
-		<label for="holdingRegBridgeCount">Count</label><input type="number" id="holdingRegBridgeCount" name="holdingRegBridgeCount" step="1" min="0" max="16">
-	</div>
+const char config_modbusBridge[] PROGMEM = R"rawliteral(
+<div id="mbflds">	
+	<fieldset id="modbusBridge" class="fs">
+	<legend><label><input type="checkbox" id="modbusBridgeCheckbox" name="useModbusBridge" onclick="modbusBridgeFieldset(this)" {modbusBridgechecked}> Modbus Bridge</label></legend>
+		<div class="form-grid">
+			<label for="clientRTUBaud">RTU Baud Rate</label>
+			<select id="clientRTUBaud" name="clientRTUBaud">
+				<option value="9600" {RTU_CLIENT_9600} >9600</option>
+				<option value="19200" {RTU_CLIENT_19200} >19200</option>
+				<option value="38400" {RTU_CLIENT_38400} >38400</option>
+				<option value="115200" {RTU_CLIENT_115200} >115200</option>
+			</select>
+		</div>
+		<div class="form-grid">
+			<label for="clientRTUParity">RTU Parity</label>
+			<select id="clientRTUParity" name="clientRTUParity">
+				<option value="none" {RTU_CLIENT_Parity_None}>None</option>
+				<option value="even" {RTU_CLIENT_Parity_Even}>Even</option>
+				<option value="odd" {RTU_CLIENT_Parity_Odd}>Odd</option>
+			</select>
+		</div>
+		<div class="form-grid">
+			<label for="clientRTUStopBits">RTU Stop Bits</label>
+			<select id="clientRTUStopBits" name="clientRTUStopBits">
+				<option value="1" {RTU_CLIENT_1Stop}>1</option>
+				<option value="2" {RTU_CLIENT_2Stop}>2</option>
+			</select>
+		</div>
+		<div class="modbus-bridge-row">
+			<label>Input</label>
+			<label for="inputBridgeID">ID</label><input type="number" id="inputBridgeID" name="inputBridgeID"  step="1">
+			<label for="inputRegBridge">Address</label><input type="number" id="inputRegBridge" name="inputRegBridge" step="1" min="0" max="65531">
+			<label for="inputRegBridgeCount">Count</label><input type="number" id="inputRegBridgeCount" name="inputRegBridgeCount" step="1" min="0" max="16">
+		</div>
+		<div class="modbus-bridge-row">
+			<label>Coil</label>
+			<label for="coilBridgeID">ID</label><input type="number" id="coilBridgeID" name="coilBridgeID" step="1">
+			<label for="coilBridge">Address</label><input type="number" id="coilBridge" name="coilBridge" step="1" min="0" max="65529">
+			<label for="coilBridgeCount">Count</label><input type="number" id="coilBridgeCount" name="coilBridgeCount" step="1" min="0" max="16">
+		</div>
+		<div class="modbus-bridge-row">
+			<label>Discrete</label>
+			<label for="discreteBridgeID">ID</label><input type="number" id="discreteBridgeID" name="discreteBridgeID" step="1">
+			<label for="discreteBridge">Address</label><input type="number" id="discreteBridge" name="discreteBridge" step="1" min="0" max="65531">
+			<label for="discreteBridgeCount">Count</label><input type="number" id="discreteBridgeCount" name="discreteBridgeCount" step="1" min="0" max="16">
+		</div>
+		<div class="modbus-bridge-row">
+			<label>Holding</label>
+			<label for="holdingBridgeID">ID</label><input type="number" id="holdingBridgeID" name="holdingBridgeID" step="1">
+			<label for="holdingRegBridge">Address</label><input type="number" id="holdingRegBridge" name="holdingRegBridge" step="1" min="0" max="65531">
+			<label for="holdingRegBridgeCount">Count</label><input type="number" id="holdingRegBridgeCount" name="holdingRegBridgeCount" step="1" min="0" max="16">
+		</div>
+
+  	</fieldset>
 </div>
 )rawliteral";

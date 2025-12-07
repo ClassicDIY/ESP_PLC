@@ -13,7 +13,7 @@ try {
             maxT: parseInt(maxT.value, 10)
         });
     });
-    const mbflds = getFormValues("#mbflds input");
+    const mbflds = getFormValues("#mbflds input, #mbflds select");
     const payload = { conversions, ... mbflds };
     // console.log(mbflds);
     // console.log(payload);
@@ -28,4 +28,44 @@ try {
 } catch (e) {
     status.innerHTML = '<span class="err">' + e.message + '</span>';
 }
+)rawliteral";
+
+const char rtuBridge_js[] PROGMEM = R"rawliteral(
+function modbusBridgeFieldset(checkbox) {
+    const fieldset = document.getElementById("modbusBridge");
+    fieldset.disabled = !checkbox.checked;
+}
+
+function toggleMDBridgeFieldset() {
+    const selector = document.getElementById("modbusModeSelector");
+    const fieldset = document.getElementById("modbusBridge");
+    if (fieldset) {
+        fieldset.classList.toggle("hidden", selector.value === "rtu");
+    }
+}
+)rawliteral";
+
+const char setClientRTUValues[] PROGMEM = R"rawliteral(
+    if (k === "clientRTUParity") {
+        el.value = UART_Parity[v];
+    } else if (k === "clientRTUStopBits") {
+        el.value = UART_StopBits[v];
+    } else {
+        el.value = v;
+    }
+)rawliteral";
+
+const char getClientRTUValues[] PROGMEM = R"rawliteral(
+    } else if (el.name === "clientRTUParity") {
+        data[el.name] = UART_ParityEnum[el.value];
+    } else if (el.name === "clientRTUStopBits") {
+        data[el.name] = UART_StopBitsEnum[el.value];
+)rawliteral";
+
+const char setModbusBridgeFieldset[] PROGMEM = R"rawliteral(
+    var modbusBcb = document.getElementById('modbusBridgeCheckbox');
+    if (modbusBcb) {
+        modbusBridgeFieldset(document.getElementById("modbusBridgeCheckbox"));
+    }
+    toggleMDBridgeFieldset();
 )rawliteral";

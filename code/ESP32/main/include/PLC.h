@@ -40,6 +40,17 @@ class PLC : public Device, public IOTCallbackInterface {
    String _bodyBuffer;
 
    // Modbus Bridge settings
+   bool _useModbusBridge = false;
+   unsigned long _clientRTUBaud = 9600;
+   uart_parity_t _clientRTUParity = UART_PARITY_DISABLE;
+   uart_stop_bits_t _clientRTUStopBits = UART_STOP_BITS_1;
+   uint32_t _Token = 1000;
+   uint32_t nextToken() {
+      _Token++;
+      _Token %= 65535;
+      return _Token;
+   }
+   Modbus::Error SendToModbusBridgeAsync(ModbusMessage &request);
    uint8_t _inputID = 0;
    uint16_t _inputAddress = 0;
    uint8_t _inputCount = 0;
