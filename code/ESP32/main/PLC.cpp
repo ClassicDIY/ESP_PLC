@@ -738,6 +738,11 @@ void PLC::onNetworkState(NetworkState state) {
    }
 }
 
+#ifdef Has_OLED
+void PLC::update(const char *mode, const char *detail) { _oled.update(_iot.getThingName().c_str(), mode, detail); }
+void PLC::update(const char *mode, int count) { _oled.update(_iot.getThingName().c_str(), mode, count); }
+#endif
+
 #ifdef HasModbus
 bool PLC::onModbusMessage(ModbusMessage &msg) {
    bool rval = false;
@@ -909,7 +914,7 @@ boolean PLC::PublishDiscoverySub(IOTypes type, const char *entityName, const cha
 
    char buffer[STR_LEN];
    JsonObject device = payload["device"].to<JsonObject>();
-   device["name"] = _iot.getThingName();
+   device["name"] = _iot.getThingName().c_str();
    device["sw_version"] = APP_VERSION;
    device["manufacturer"] = "ClassicDIY";
    sprintf(buffer, "%s (%X)", TAG, _iot.getUniqueId());
@@ -924,7 +929,9 @@ boolean PLC::PublishDiscoverySub(IOTypes type, const char *entityName, const cha
 
 void PLC::onMqttMessage(char *topic, char *payload) {
    logd("onMqttMessage [%s] %s", topic, payload);
-   std::string cmnd = _iot.getRootTopicPrefix() + "/set/";
+   String prefix = _iot.getRootTopicPrefix();
+   prefix += "/set/";
+   std::string cmnd = prefix.c_str();
    std::string fullPath = topic;
    if (strncmp(topic, cmnd.c_str(), cmnd.length()) == 0) {
       // Handle set commands

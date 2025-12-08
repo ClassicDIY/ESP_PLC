@@ -28,7 +28,10 @@ class PLC : public Device, public IOTCallbackInterface {
    void onSaveSetting(JsonDocument &doc);
    void onLoadSetting(JsonDocument &doc);
    String appTemplateProcessor(const String &var);
-
+#ifdef Has_OLED
+   void update(const char *mode, const char *detail);
+   void update(const char *mode, int count);
+#endif
  protected:
 #ifdef HasMQTT
    boolean PublishDiscoverySub(IOTypes type, const char *entityName, const char *unit_of_meas = nullptr, const char *icon = nullptr);

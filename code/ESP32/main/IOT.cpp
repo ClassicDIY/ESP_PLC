@@ -23,16 +23,8 @@
 #include "Log.h"
 #include "WebLog.h"
 #include "IOT.h"
-
 #include "IOT.htm"
 #include "HelperFunctions.h"
-
-#ifdef Has_OLED
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
-
-extern Adafruit_SSD1306 oled_display;
-#endif
 
 namespace CLASSICDIY {
 
@@ -43,10 +35,12 @@ TimerHandle_t mqttReconnectTimer;
 #endif
 #ifdef HasModbus
 static ModbusServerTCPasync _MBserver;
-static ModbusServerRTU _MBRTUserver(MODBUS_RTU_TIMEOUT, RS485_RTS);
+static ModbusServerRTU _MBRTUserver(MODBUS_RTU_TIMEOUT);
 #endif
 
 static AsyncAuthenticationMiddleware basicAuth;
+const char *NetworkSelectionStrings[] = {"", "AP Mode", "WiFi", "Ethernet", "Modem"};
+const char *NetworkStateStrings[] = {"Boot", "Ap State", "Connecting", "OnLine", "OffLine"};
 
 // #pragma region Setup
 void IOT::Init(IOTCallbackInterface *iotCB, AsyncWebServer *pwebServer) {
@@ -171,9 +165,7 @@ void IOT::Init(IOTCallbackInterface *iotCB, AsyncWebServer *pwebServer) {
          request->send(LittleFS, "/style.css", "text/css");
       }
 #else
-      request->send(200, "text/css", iot_style, [this](const String &var) {
-         return _iotCB->appTemplateProcessor(var);
-      });
+      request->send(200, "text/css", iot_style);
 #endif
    });
    _pwebServer->on("/script.js", HTTP_GET, [this](AsyncWebServerRequest *request) {
@@ -187,6 +179,7 @@ void IOT::Init(IOTCallbackInterface *iotCB, AsyncWebServer *pwebServer) {
       }
 #else
       request->send(200, "application/javascript", iot_script, [this](const String &var) {
+         logd("script template: %s", var.c_str());
          return _iotCB->appTemplateProcessor(var);
       });
 #endif
@@ -411,10 +404,7 @@ void IOT::saveSettings() {
       logd("******* Need to reboot! ***");
 }
 
-std::string IOT::getThingName() {
-   std::string s(_AP_SSID.c_str());
-   return s;
-}
+String IOT::getThingName() { return _AP_SSID; }
 
 void IOT::Run() {
    uint32_t now = millis();
@@ -457,7 +447,10 @@ void IOT::Run() {
                   setState(Connecting);
                }
             } else {
-               UpdateOledDisplay(); // update countdown
+#ifdef Has_OLED
+               int countdown = (AP_TIMEOUT - (millis() - _waitInAPTimeStamp)) / 1000;
+               _iotCB->update("AP Mode", countdown);
+#endif
             }
          }
       }
@@ -521,41 +514,6 @@ void IOT::Run() {
    }
    vTaskDelay(pdMS_TO_TICKS(20));
    return;
-}
-
-void IOT::UpdateOledDisplay() {
-#ifdef Has_OLED
-   oled_display.clearDisplay();
-   oled_display.setTextSize(2);
-   oled_display.setTextColor(SSD1306_WHITE);
-   oled_display.setCursor(0, 0);
-   oled_display.println("ESP_PLC");
-   oled_display.setTextSize(1);
-   oled_display.println(APP_VERSION);
-   oled_display.setTextSize(2);
-   oled_display.setCursor(0, 30);
-
-   if (_networkState == OnLine) {
-
-      if (_networkState == OnLine) {
-         oled_display.println(_NetworkSelection == APMode ? "AP Mode" : _NetworkSelection == WiFiMode ? "WiFi: " : _NetworkSelection == EthernetMode ? "Ethernet" : "LTE: ");
-         oled_display.setTextSize(1);
-         oled_display.println(_Current_IP);
-      } else if (_networkState == Connecting) {
-         oled_display.println("Connecting...");
-      } else if (_networkState == ApState) {
-         oled_display.println("AP Mode");
-         int countdown = (AP_TIMEOUT - (millis() - _waitInAPTimeStamp)) / 1000;
-         if (countdown > 0) {
-            oled_display.setTextSize(2);
-            oled_display.printf("%d", countdown);
-         }
-      } else {
-         oled_display.println("Offline");
-      }
-      oled_display.display();
-   }
-#endif
 }
 
 // #pragma endregion Setup
@@ -628,7 +586,19 @@ void IOT::setState(NetworkState newState) {
                              : _networkState == Connecting ? "Connecting"
                              : _networkState == OnLine     ? "OnLine"
                                                            : "OffLine");
-   UpdateOledDisplay();
+
+#ifdef Has_OLED
+   String mode;
+   String detail;
+   if (_networkState == OnLine) {
+      mode = NetworkSelectionStrings[_NetworkSelection];
+      detail = _Current_IP;
+   } else {
+      mode = NetworkStateStrings[_networkState];
+      detail = "...";
+   }
+   _iotCB->update(mode.c_str(), detail.c_str());
+#endif
    switch (newState) {
    case OffLine:
       if (_NetworkSelection == WiFiMode) {
@@ -1094,8 +1064,8 @@ void IOT::StopMQTT() {
    return;
 }
 
-std::string IOT::getRootTopicPrefix() {
-   std::string s(_rootTopicPrefix);
+String IOT::getRootTopicPrefix() {
+   String s(_rootTopicPrefix);
    return s;
 };
 

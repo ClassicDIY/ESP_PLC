@@ -8,11 +8,6 @@
 #include "Log.h"
 #include "Device.h"
 
-#ifdef Has_OLED
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
-Adafruit_SSD1306 oled_display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
-#endif
 #include <Adafruit_ADS1X15.h>
 Adafruit_ADS1115 ads; /* Use this for the 16-bit version */
 namespace CLASSICDIY {
@@ -24,19 +19,15 @@ void Device::InitCommon() {
       loge("LittleFS mount failed");
    }
 #endif
+#ifdef Has_OLED
+   _oled.Init();
+#endif
 }
 
 #ifdef ESP_32Dev
 
 void Device::Init() {
-   Wire.begin(I2C_SDA, I2C_SCL);
-#ifdef Has_OLED
-   if (!oled_display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
-      loge("SSD1306 allocation failed");
-   } else {
-      oled_display.clearDisplay();
-   }
-#endif
+   InitCommon();
    for (int i = 0; i < DO_PINS; i++) {
       pinMode(_Coils[i], OUTPUT);
    }
@@ -69,14 +60,7 @@ bool Device::GetDigitalLevel(const uint8_t index) { return (bool)digitalRead(_Di
 #ifdef EDGEBOX
 
 void Device::Init() {
-   Wire.begin(I2C_SDA, I2C_SCL);
-#ifdef Has_OLED
-   if (!oled_display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
-      loge("SSD1306 allocation failed");
-   } else {
-      oled_display.clearDisplay();
-   }
-#endif
+   InitCommon();
    for (int i = 0; i < DO_PINS; i++) {
       pinMode(_Coils[i], OUTPUT);
    }
@@ -126,14 +110,7 @@ bool Device::GetDigitalLevel(const uint8_t index) { return (bool)digitalRead(_Di
 #ifdef NORVI_GSM_AE02
 
 void Device::Init() {
-   Wire.begin(I2C_SDA, I2C_SCL);
-#ifdef Has_OLED
-   if (!oled_display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
-      loge("SSD1306 allocation failed");
-   } else {
-      oled_display.clearDisplay();
-   }
-#endif
+   InitCommon();
    for (int i = 0; i < DO_PINS; i++) {
       pinMode(_Coils[i], OUTPUT);
    }
@@ -152,13 +129,6 @@ bool Device::GetDigitalLevel(const uint8_t index) { return (bool)digitalRead(_Di
 
 void Device::Init() {
    Wire.begin(I2C_SDA, I2C_SCL);
-#ifdef Has_OLED
-   if (!oled_display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
-      loge("SSD1306 allocation failed");
-   } else {
-      oled_display.clearDisplay();
-   }
-#endif
    for (int i = 0; i < DO_PINS; i++) {
       pinMode(_Coils[i], OUTPUT);
    }
@@ -191,14 +161,7 @@ bool Device::GetDigitalLevel(const uint8_t index) { return (bool)digitalRead(_Di
 #ifdef Waveshare_Relay_6CH
 
 void Device::Init() {
-   Wire.begin(I2C_SDA, I2C_SCL);
-#ifdef Has_OLED
-   if (!oled_display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
-      loge("SSD1306 allocation failed");
-   } else {
-      oled_display.clearDisplay();
-   }
-#endif
+   InitCommon();
 #ifdef HasRTC
    if (!rtc.begin(&Wire)) {
       loge("Couldn't find RTC");
@@ -250,20 +213,12 @@ bool Device::GetDigitalLevel(const uint8_t index) { return (bool)digitalRead(_Di
 std::shared_ptr<ShiftRegister74HC595<1>> HT74HC595 = std::make_shared<ShiftRegister74HC595<1>>(HT74HC595_DATA, HT74HC595_CLOCK, HT74HC595_LATCH);
 
 void Device::Init() {
+   InitCommon();
    pinMode(HT74HC595_OUT_EN, OUTPUT);
    digitalWrite(HT74HC595_OUT_EN, HIGH);
    HT74HC595->setAllLow();
    logd("Set HT74HC595_OUT_EN to low level to enable relay output");
    digitalWrite(HT74HC595_OUT_EN, LOW);
-
-   Wire.begin(I2C_SDA, I2C_SCL);
-#ifdef Has_OLED
-   if (!oled_display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
-      loge("SSD1306 allocation failed");
-   } else {
-      oled_display.clearDisplay();
-   }
-#endif
 }
 
 void Device::Run() {
@@ -292,14 +247,7 @@ bool Device::GetDigitalLevel(const uint8_t index) { return (bool)digitalRead(_Di
 #ifdef Lilygo_Relay_4CH
 
 void Device::Init() {
-   Wire.begin(I2C_SDA, I2C_SCL);
-#ifdef Has_OLED
-   if (!oled_display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
-      loge("SSD1306 allocation failed");
-   } else {
-      oled_display.clearDisplay();
-   }
-#endif
+   InitCommon();
    for (int i = 0; i < DO_PINS; i++) {
       pinMode(_Coils[i], OUTPUT);
    }

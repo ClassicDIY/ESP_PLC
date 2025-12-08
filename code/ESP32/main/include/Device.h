@@ -6,6 +6,7 @@
 #include "RegisterSet.h"
 #include "GPIO_pins.h"
 #include "Enumerations.h"
+#include "Oled.h"
 
 namespace CLASSICDIY {
 class Device {
@@ -16,7 +17,9 @@ class Device {
    void SetRelay(const uint8_t index, const uint8_t value);
    boolean GetRelay(const uint8_t index);
    bool GetDigitalLevel(const uint8_t index);
-
+#ifdef Has_OLED
+   Oled _oled = Oled();
+#endif
    CoilSet _digitalOutputCoils;
    CoilSet _digitalInputDiscretes;
    RegisterSet _analogOutputRegisters;
