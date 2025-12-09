@@ -34,69 +34,8 @@ void PLC::Setup() {
    _analogOutputRegisters.Init(analogOutputCount);
    uint16_t analogInputCount = _useModbusBridge ? _inputCount + AI_PINS : AI_PINS;
    _analogInputRegisters.Init(analogInputCount);
-
    _asyncServer.on("/", HTTP_GET, [this](AsyncWebServerRequest *request) {
-      String page = home_html;
-      page.replace("{n}", _iot.getThingName().c_str());
-      page.replace("{v}", APP_VERSION);
-      std::string s;
-      for (int i = 0; i < _digitalInputDiscretes.coils(); i++) {
-         s += "<div class='box' id=DI";
-         s += std::to_string(i);
-         s += "> DI";
-         s += std::to_string(i);
-         s += "</div>";
-      }
-      page.replace("{digitalInputs}", s.c_str());
-      s.clear();
-      for (int i = 0; i < _digitalOutputCoils.coils(); i++) {
-         s += "<div class='box' id=DO";
-         s += std::to_string(i);
-         s += "> DO";
-         s += std::to_string(i);
-         s += "</div>";
-      }
-      page.replace("{digitalOutputs}", s.c_str());
-      s.clear();
-      for (int i = 0; i < _analogInputRegisters.size(); i++) {
-         s += "<div class='box' id=AI";
-         s += std::to_string(i);
-         s += "> AI";
-         s += std::to_string(i);
-         s += "</div>";
-      }
-      page.replace("{analogInputs}", s.c_str());
-      s.clear();
-      for (int i = 0; i < _analogOutputRegisters.size(); i++) {
-         s += "<div class='box' id=AO";
-         s += std::to_string(i);
-         s += "> AO";
-         s += std::to_string(i);
-         s += "</div>";
-      }
-#ifdef HasModbus
-      char desc_buf[64];
-      sprintf(desc_buf, "Modbus Coils: %d-%d", _iot.getMBBaseAddress(IOTypes::DigitalOutputs),
-              _iot.getMBBaseAddress(IOTypes::DigitalOutputs) + _digitalOutputCoils.coils());
-      page.replace("{digitalOutputDesc}", desc_buf);
-      sprintf(desc_buf, "Modbus Input Registers: %d-%d", _iot.getMBBaseAddress(IOTypes::AnalogInputs),
-              _iot.getMBBaseAddress(IOTypes::AnalogInputs) + _analogInputRegisters.size());
-      page.replace("{analogInputDesc}", desc_buf);
-      sprintf(desc_buf, "Modbus Discretes: %d-%d", _iot.getMBBaseAddress(IOTypes::DigitalInputs),
-              _iot.getMBBaseAddress(IOTypes::DigitalInputs) + _digitalInputDiscretes.coils());
-      page.replace("{digitalInputDesc}", desc_buf);
-      sprintf(desc_buf, "Modbus Holding Registers: %d-%d", _iot.getMBBaseAddress(IOTypes::AnalogOutputs),
-              _iot.getMBBaseAddress(IOTypes::AnalogOutputs) + _analogOutputRegisters.size());
-      page.replace("{analogOutputDesc}", desc_buf);
-#else
-      page.replace("{digitalOutputDesc}", "");
-      page.replace("{analogInputDesc}", "");
-      page.replace("{digitalInputDesc}", "");
-      page.replace("{analogOutputDesc}", "");
-#endif
-
-      page.replace("{analogOutputs}", s.c_str());
-      request->send(200, "text/html", page);
+      request->send(200, "text/html", home_html, [this](const String &var) { return appTemplateProcessor(var); });
    });
    _asyncServer.on("/appsettings", HTTP_GET, [this](AsyncWebServerRequest *request) {
       JsonDocument app;
@@ -226,6 +165,12 @@ void PLC::onLoadSetting(JsonDocument &plc) {
 }
 
 String PLC::appTemplateProcessor(const String &var) {
+   if (var == "title") {
+      return String(_iot.getThingName().c_str());
+   }
+   if (var == "version") {
+      return String(APP_VERSION);
+   }
    if (var == "style") {
       return String(app_style);
    }
@@ -235,7 +180,90 @@ String PLC::appTemplateProcessor(const String &var) {
    if (var == "appScript") {
       return String(rtuBridge_js);
    }
-   #if defined(HasRS485) & defined(RTUBridge) & defined(HasModbus)
+   if (var == "digitalInputs") {
+      std::string s;
+      for (int i = 0; i < _digitalInputDiscretes.coils(); i++) {
+         s += "<div class='box' id=DI";
+         s += std::to_string(i);
+         s += "> DI";
+         s += std::to_string(i);
+         s += "</div>";
+      }
+      return String(s.c_str());
+   }
+   if (var == "digitalOutputs") {
+      std::string s;
+      for (int i = 0; i < _digitalOutputCoils.coils(); i++) {
+         s += "<div class='box' id=DO";
+         s += std::to_string(i);
+         s += "> DO";
+         s += std::to_string(i);
+         s += "</div>";
+      }
+      return String(s.c_str());
+   }
+   if (var == "analogInputs") {
+      std::string s;
+      for (int i = 0; i < _analogInputRegisters.size(); i++) {
+         s += "<div class='box' id=AI";
+         s += std::to_string(i);
+         s += "> AI";
+         s += std::to_string(i);
+         s += "</div>";
+      }
+      return String(s.c_str());
+   }
+   if (var == "analogOutputs") {
+      std::string s;
+      for (int i = 0; i < _analogOutputRegisters.size(); i++) {
+         s += "<div class='box' id=AO";
+         s += std::to_string(i);
+         s += "> AO";
+         s += std::to_string(i);
+         s += "</div>";
+      }
+      return String(s.c_str());
+   }
+#ifdef HasModbus
+   if (var == "digitalOutputDesc") {
+      char desc_buf[64];
+      sprintf(desc_buf, "Modbus Coils: %d-%d", _iot.getMBBaseAddress(IOTypes::DigitalOutputs),
+              _iot.getMBBaseAddress(IOTypes::DigitalOutputs) + _digitalOutputCoils.coils());
+      return String(desc_buf);
+   }
+   if (var == "analogInputDesc") {
+      char desc_buf[64];
+      sprintf(desc_buf, "Modbus Input Registers: %d-%d", _iot.getMBBaseAddress(IOTypes::AnalogInputs),
+              _iot.getMBBaseAddress(IOTypes::AnalogInputs) + _analogInputRegisters.size());
+      return String(desc_buf);
+   }
+   if (var == "digitalInputDesc") {
+      char desc_buf[64];
+      sprintf(desc_buf, "Modbus Discretes: %d-%d", _iot.getMBBaseAddress(IOTypes::DigitalInputs),
+              _iot.getMBBaseAddress(IOTypes::DigitalInputs) + _digitalInputDiscretes.coils());
+      return String(desc_buf);
+   }
+   if (var == "analogOutputDesc") {
+      char desc_buf[64];
+      sprintf(desc_buf, "Modbus Holding Registers: %d-%d", _iot.getMBBaseAddress(IOTypes::AnalogOutputs),
+              _iot.getMBBaseAddress(IOTypes::AnalogOutputs) + _analogOutputRegisters.size());
+      return String(desc_buf);
+   }
+#else
+   if (var == "digitalOutputDesc") {
+      return String("");
+   }
+   if (var == "analogInputDesc") {
+      return String("");
+   }
+   if (var == "digitalInputDesc") {
+      return String("");
+   }
+   if (var == "analogOutputDesc") {
+      return String("");
+   }
+#endif
+#if defined(HasRS485) & defined(RTUBridge) & defined(HasModbus)
    if (var == "getClientRTUValues") {
       return String(getClientRTUValues);
    }
@@ -251,7 +279,7 @@ String PLC::appTemplateProcessor(const String &var) {
    if (var == "modbusBridgeAppSettings") {
       return String(config_modbusBridge);
    }
-   #endif
+#endif
    // if (var == "validateInputs") {
    //    return String(app_validateInputs);
    // }

@@ -86,7 +86,7 @@ void Device::Run() {
          digitalWrite(WIFI_STATUS_PIN, _blinkStateOn ? HIGH : LOW);
       }
    } else {
-      digitalWrite(WIFI_STATUS_PIN, HIGH);
+      digitalWrite(WIFI_STATUS_PIN, LOW);
    }
 #endif
    // transfer analog data from sensors to RegisterSet

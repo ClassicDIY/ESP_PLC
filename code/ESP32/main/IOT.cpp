@@ -47,8 +47,8 @@ void IOT::Init(IOTCallbackInterface *iotCB, AsyncWebServer *pwebServer) {
    _iotCB = iotCB;
    _pwebServer = pwebServer;
 #ifdef WIFI_STATUS_PIN
-   pinMode(WIFI_STATUS_PIN,
-           OUTPUT); // use LED for wifi AP status (note:edgeBox shares the LED pin with the serial TX gpio)
+   // use LED for wifi AP status (note:edgeBox shares the LED pin with the serial TX gpio)
+   pinMode(WIFI_STATUS_PIN, OUTPUT);
 #endif
    pinMode(GPIO_NUM_0, INPUT_PULLUP);
 #ifdef FACTORY_RESET_PIN // use digital input pin for factory reset
@@ -235,7 +235,9 @@ void IOT::Init(IOTCallbackInterface *iotCB, AsyncWebServer *pwebServer) {
                });
             })
        .addMiddleware(&basicAuth);
-   _pwebServer->on("/submit", HTTP_POST, [this](AsyncWebServerRequest *request) { logd("/ **************************** submit called with %d args", request->args()); });
+   _pwebServer->on("/submit", HTTP_POST, [this](AsyncWebServerRequest *request) {
+      logd("/ **************************** submit called with %d args", request->args());
+   });
 
    _pwebServer->on("/iot_fields", HTTP_GET, [this](AsyncWebServerRequest *request) {
       JsonDocument doc;
@@ -471,33 +473,6 @@ void IOT::Run() {
    } else if (_networkState == OnLine) {
       _webLog.process();
    }
-#ifdef WIFI_STATUS_PIN
-   // use LED if the log level is none (edgeBox shares the LED pin with the serial TX gpio)
-   // handle blink led, fast : NotConnected slow: AP connected On: Station connected
-   if (_networkState != OnLine) {
-      unsigned long binkRate = _networkState == ApState ? AP_BLINK_RATE : NC_BLINK_RATE;
-      unsigned long now = millis();
-      if (binkRate < now - _lastBlinkTime) {
-         _blinkStateOn = !_blinkStateOn;
-         _lastBlinkTime = now;
-         digitalWrite(WIFI_STATUS_PIN, _blinkStateOn ? HIGH : LOW);
-      }
-   } else {
-      digitalWrite(WIFI_STATUS_PIN, HIGH);
-   }
-#elif RGB_LED_PIN
-   if (_networkState != OnLine) {
-      unsigned long binkRate = _networkState == ApState ? AP_BLINK_RATE : NC_BLINK_RATE;
-      unsigned long now = millis();
-      if (binkRate < now - _lastBlinkTime) {
-         _blinkStateOn = !_blinkStateOn;
-         _lastBlinkTime = now;
-         RGB_Light(_blinkStateOn ? 60 : 0, _blinkStateOn ? 0 : 60, 0);
-      }
-   } else {
-      RGB_Light(0, 0, 60);
-   }
-#endif
    if (digitalRead(GPIO_NUM_0) != LOW) { // GPIO0 pressed for GPIO0_FactoryResetCountdown? initiate a factory reset
       _GPIO0_PressedCountdown = millis();
    }
@@ -726,7 +701,8 @@ esp_err_t IOT::ConnectEthernet() {
    if ((ret = esp_efuse_mac_get_default(base_mac_addr)) == ESP_OK) {
       uint8_t local_mac_1[6];
       esp_derive_local_mac(local_mac_1, base_mac_addr);
-      logi("ETH MAC: %02X:%02X:%02X:%02X:%02X:%02X", local_mac_1[0], local_mac_1[1], local_mac_1[2], local_mac_1[3], local_mac_1[4], local_mac_1[5]);
+      logi("ETH MAC: %02X:%02X:%02X:%02X:%02X:%02X", local_mac_1[0], local_mac_1[1], local_mac_1[2], local_mac_1[3], local_mac_1[4],
+           local_mac_1[5]);
       eth_mac_config_t mac_config = ETH_MAC_DEFAULT_CONFIG(); // Init common MAC and PHY configs to default
       eth_phy_config_t phy_config = ETH_PHY_DEFAULT_CONFIG();
       phy_config.phy_addr = 1;
