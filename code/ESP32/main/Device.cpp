@@ -31,6 +31,9 @@ void Device::Init() {
    for (int i = 0; i < DO_PINS; i++) {
       pinMode(_Coils[i], OUTPUT);
    }
+   for (int i = 0; i < DI_PINS; i++) {
+      pinMode(_DigitalSensors[i], INPUT);
+   }
    pinMode(FACTORY_RESET_PIN, INPUT_PULLUP);
    pinMode(WIFI_STATUS_PIN, OUTPUT);
 }
@@ -63,6 +66,9 @@ void Device::Init() {
    InitCommon();
    for (int i = 0; i < DO_PINS; i++) {
       pinMode(_Coils[i], OUTPUT);
+   }
+   for (int i = 0; i < DI_PINS; i++) {
+      pinMode(_DigitalSensors[i], INPUT);
    }
    pinMode(FACTORY_RESET_PIN, INPUT_PULLUP);
 #ifndef LOG_TO_SERIAL_PORT // disable logs to use LED wifi status
@@ -114,6 +120,9 @@ void Device::Init() {
    for (int i = 0; i < DO_PINS; i++) {
       pinMode(_Coils[i], OUTPUT);
    }
+   for (int i = 0; i < DI_PINS; i++) {
+      pinMode(_DigitalSensors[i], INPUT);
+   }
 }
 
 void Device::Run() {}
@@ -131,6 +140,9 @@ void Device::Init() {
    Wire.begin(I2C_SDA, I2C_SCL);
    for (int i = 0; i < DO_PINS; i++) {
       pinMode(_Coils[i], OUTPUT);
+   }
+   for (int i = 0; i < DI_PINS; i++) {
+      pinMode(_DigitalSensors[i], INPUT);
    }
    pinMode(FACTORY_RESET_PIN, INPUT_PULLUP);
    pinMode(WIFI_STATUS_PIN, OUTPUT);
@@ -177,6 +189,9 @@ void Device::Init() {
 #endif
    for (int i = 0; i < DO_PINS; i++) {
       pinMode(_Coils[i], OUTPUT);
+   }
+   for (int i = 0; i < DI_PINS; i++) {
+      pinMode(_DigitalSensors[i], INPUT);
    }
    pinMode(RGB_LED_PIN, OUTPUT);     // Initialize the control GPIO of RGB
    pinMode(GPIO_PIN_Buzzer, OUTPUT); // Initialize the control GPIO of Buzzer
@@ -250,6 +265,9 @@ void Device::Init() {
    InitCommon();
    for (int i = 0; i < DO_PINS; i++) {
       pinMode(_Coils[i], OUTPUT);
+   }
+   for (int i = 0; i < DI_PINS; i++) {
+      pinMode(_DigitalSensors[i], INPUT);
    }
    pinMode(FACTORY_RESET_PIN, INPUT_PULLUP);
    pinMode(WIFI_STATUS_PIN, OUTPUT);

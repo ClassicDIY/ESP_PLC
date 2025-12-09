@@ -773,11 +773,6 @@ void PLC::onNetworkState(NetworkState state) {
    }
 }
 
-#ifdef Has_OLED
-void PLC::update(const char *mode, const char *detail) { _oled.update(_iot.getThingName().c_str(), mode, detail); }
-void PLC::update(const char *mode, int count) { _oled.update(_iot.getThingName().c_str(), mode, count); }
-#endif
-
 #ifdef HasModbus
 bool PLC::onModbusMessage(ModbusMessage &msg) {
    bool rval = false;

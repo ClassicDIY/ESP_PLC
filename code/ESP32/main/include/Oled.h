@@ -4,7 +4,7 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
-
+#include "IOledServiceInterface.h"
 #include "Enumerations.h"
 
 namespace CLASSICDIY {
@@ -19,12 +19,12 @@ namespace CLASSICDIY {
 #define STATUS_Y 0
 #define BUF_SIZE 32
 
-class Oled {
+class Oled : public IOledServiceInterface {
  public:
    void Init();
-   void update(uint16_t level, const char *state);
-   void update(const char* hdr, const char* mode, const char* detail);
-   void update(const char* hdr, const char* mode, int count);
+   void Display(const char *state, uint16_t level);
+   void Display(const char* hdr1, const char* detail1, const char* hdr2, const char* detail2);
+   void Display(const char* hdr1, const char* detail1, const char* hdr2, int count);
 
  private:
    uint8_t xOffset(uint8_t textSize, uint8_t numberOfCharaters);

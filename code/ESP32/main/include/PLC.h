@@ -7,6 +7,7 @@
 #include "Device.h"
 
 #include "IOTCallbackInterface.h"
+#include "IOledServiceInterface.h"
 #include "Enumerations.h"
 
 namespace CLASSICDIY {
@@ -29,8 +30,7 @@ class PLC : public Device, public IOTCallbackInterface {
    void onLoadSetting(JsonDocument &doc);
    String appTemplateProcessor(const String &var);
 #ifdef Has_OLED
-   void update(const char *mode, const char *detail);
-   void update(const char *mode, int count);
+   IOledServiceInterface& getOledInterface() override {  return _oled; };
 #endif
  protected:
 #ifdef HasMQTT

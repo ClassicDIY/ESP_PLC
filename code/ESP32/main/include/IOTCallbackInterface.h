@@ -5,14 +5,15 @@
 #include <ModbusServerTCPasync.h>
 #endif
 #include "Enumerations.h"
+#include "IOledServiceInterface.h"
 
 namespace CLASSICDIY {
 class IOTCallbackInterface {
  public:
    virtual void onNetworkState(NetworkState state) = 0;
    virtual String appTemplateProcessor(const String &var);
-   virtual void onSaveSetting(JsonDocument &doc);
-   virtual void onLoadSetting(JsonDocument &doc);
+   virtual void onSaveSetting(JsonDocument &doc) = 0;
+   virtual void onLoadSetting(JsonDocument &doc) = 0;
 #ifdef HasMQTT
    virtual void onMqttConnect() = 0;
    virtual void onMqttMessage(char *topic, char *payload) = 0;
@@ -21,8 +22,7 @@ class IOTCallbackInterface {
    virtual bool onModbusMessage(ModbusMessage &msg);
 #endif
 #ifdef Has_OLED
-   virtual void update(const char *mode, const char *detail);
-   virtual void update(const char *mode, int count);
+   virtual IOledServiceInterface& getOledInterface() = 0;
 #endif
 };
 } // namespace CLASSICDIY
