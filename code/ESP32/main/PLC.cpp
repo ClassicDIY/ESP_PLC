@@ -5,6 +5,7 @@
 #include "app_script.js"
 #include "app_style.css"
 #endif
+#include "HelperFunctions.h"
 #include "Log.h"
 #include "IOT.h"
 #include "PLC.h"
@@ -750,6 +751,16 @@ void PLC::onNetworkState(NetworkState state) {
 
 #if defined(HasRS485) & defined(RTUBridge) & defined(HasModbus)
       if (_useModbusBridge) {
+         RTUutils::prepareHardwareSerial(Serial2);
+         SerialConfig conf = getSerialConfig(_clientRTUParity, _clientRTUStopBits);
+         logd("Serial baud: %d conf: 0x%x", _clientRTUBaud, conf);
+         Serial2.begin(_clientRTUBaud, conf, RS485_RXD, RS485_TXD);
+         unsigned long start = millis();
+         while (!Serial2) {
+            if (5000 < millis() - start) {
+               break;
+            }
+         }
          _MBclientRTU.setTimeout(MODBUS_RTU_TIMEOUT);
          _MBclientRTU.begin(Serial2);
          _MBclientRTU.useModbusRTU();
