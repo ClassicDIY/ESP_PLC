@@ -406,7 +406,9 @@ void IOT::saveSettings() {
       logd("******* Need to reboot! ***");
 }
 
-String IOT::getThingName() { return _AP_SSID; }
+String IOT::getThingName() { 
+   return _AP_SSID; 
+}
 
 void IOT::Run() {
    uint32_t now = millis();

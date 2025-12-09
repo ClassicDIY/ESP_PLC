@@ -46,7 +46,7 @@ void Device::Run() {
          digitalWrite(WIFI_STATUS_PIN, _blinkStateOn ? HIGH : LOW);
       }
    } else {
-      digitalWrite(WIFI_STATUS_PIN, HIGH);
+      digitalWrite(WIFI_STATUS_PIN, LOW);
    }
 }
 
@@ -147,7 +147,7 @@ void Device::Run() {
          digitalWrite(WIFI_STATUS_PIN, _blinkStateOn ? HIGH : LOW);
       }
    } else {
-      digitalWrite(WIFI_STATUS_PIN, HIGH);
+      digitalWrite(WIFI_STATUS_PIN, LOW);
    }
 }
 
@@ -266,7 +266,7 @@ void Device::Run() {
          digitalWrite(WIFI_STATUS_PIN, _blinkStateOn ? HIGH : LOW);
       }
    } else {
-      digitalWrite(WIFI_STATUS_PIN, HIGH);
+      digitalWrite(WIFI_STATUS_PIN, LOW);
    }
 }
 

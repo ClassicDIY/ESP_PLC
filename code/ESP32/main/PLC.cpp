@@ -280,9 +280,7 @@ String PLC::appTemplateProcessor(const String &var) {
       return String(config_modbusBridge);
    }
 #endif
-   // if (var == "validateInputs") {
-   //    return String(app_validateInputs);
-   // }
+
 #if AI_PINS > 0
    if (var == "acf") {
       String appConvs;
@@ -292,6 +290,15 @@ String PLC::appTemplateProcessor(const String &var) {
          appConvs += conv_flds;
       }
       return appConvs;
+   }
+   if (var == "validateInputs") {
+      String appVal;
+      for (int i = 0; i < _analogInputRegisters.size(); i++) {
+         String s = app_validateInputs;
+         s.replace("{An}", String(i));
+         appVal += s;
+      }
+      return String(appVal);
    }
 #endif
    if (var == "app_script_js") {

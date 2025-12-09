@@ -91,19 +91,21 @@ window.onload = function () {
             e.preventDefault();
             const status = document.getElementById('status');
             status.textContent = '';
-            %app_script_js%
-            try {
-                const iot = getFormValues("#iot_fields input, #iot_fields select");
-                const res = await fetch('/iot_fields', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(iot)
-                });
-                console.log(await res.text());
-                if (!res.ok) throw new Error('Save failed');
-                status.innerHTML = '<span class="ok">IOT Settings saved.</span>';
-            } catch (e) {
-                status.innerHTML = '<span class="err">' + e.message + '</span>';
+            if (validateInputs() == true) {
+                %app_script_js%
+                try {
+                    const iot = getFormValues("#iot_fields input, #iot_fields select");
+                    const res = await fetch('/iot_fields', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(iot)
+                    });
+                    console.log(await res.text());
+                    if (!res.ok) throw new Error('Save failed');
+                    status.innerHTML = '<span class="ok">IOT Settings saved.</span>';
+                } catch (e) {
+                    status.innerHTML = '<span class="err">' + e.message + '</span>';
+                }
             }
         });
 
