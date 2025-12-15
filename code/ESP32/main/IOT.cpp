@@ -811,8 +811,8 @@ esp_err_t IOT::ConnectModem() {
    esp_netif_config_t ppp_netif_config = ESP_NETIF_DEFAULT_PPP(); // Initialize lwip network interface in PPP mode
    _netif = esp_netif_new(&ppp_netif_config);
    assert(_netif);
-   ESP_ERROR_CHECK(modem_init_network(_netif, _APN.c_str(),
-                                      _SIM_PIN.c_str())); // Initialize the PPP network and register for IP event
+   logd("modem_init_network APN %s PIN %s User %s PW %s", _APN.c_str(), _SIM_PIN.c_str(),  _SIM_Username.c_str(), _SIM_Password.c_str());
+   ESP_ERROR_CHECK(modem_init_network(_netif, _APN.c_str(), _SIM_PIN.c_str())); // Initialize the PPP network and register for IP event
    if (_SIM_Username.length() > 0) {
       esp_netif_ppp_set_auth(_netif, NETIF_PPP_AUTHTYPE_PAP, _SIM_Username.c_str(), _SIM_Password.c_str());
    }
