@@ -12,8 +12,7 @@
  <a href="https://lilygo.cc/products/t-relay-s3" target="_blank" rel="noopener noreferrer">Lilygo T-Relay-S3 6-Channel ESP32-S3 WiFi Relay Module</a>.</p>
  <a href="https://lilygo.cc/products/t-relay" target="_blank" rel="noopener noreferrer">Lilygo T-Relay 4-Channel ESP32 WiFi Relay Module</a>.</p>
 
-<p>Network: Wifi, Ethernet, 4G modem.</p>
-<p>You must have a SIM with a static IP to be able to access the modbus server over the 4g network.</p>
+
 <p align="left">
  <img src="./pictures/EdgeBox-esp-100.png" width="400"/>
  <img src="./pictures/WaveShare.png" width="400"/>
@@ -21,6 +20,10 @@
  <img src="./pictures/Lilygo-T-Relay-S3.png" width="400"/>
  <img src="./pictures/Lilygo-T-Relay-4ch.png" width="400"/>
 </p>
+
+<p><li>Use Wifi Access Point, default AP: ESP_PLC, default PW: 12345678. Browse 192.168.4.1 and go to Settings Page to configure.</li><p>
+<p><li>Supported Network configurations: Wifi, Ethernet, 4G modem.</li></p>
+<p><li>You must have a SIM with a static IP to be able to access the modbus server over the 4g network.</li></p>
 
 ## Home Page
 <p align="center">
