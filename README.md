@@ -6,9 +6,9 @@
 
  Implementations available for;
  
- <a href="https://www.seeedstudio.com/EdgeBox-ESP-100-p-5490.html" target="_blank">SeedStudio EdgeBox-ESP-100</a>.</p>
- <a href="https://norvi.io/norvi-iiot-esp32-industrial-controller" target="_blank">Norvi ESP32 Industrial Controllers</a>.</p>
- <a href="https://www.waveshare.com/esp32-s3-relay-6ch.htm" target="_blank">Waveshare Industrial 6-Channel ESP32-S3 WiFi Relay Module</a>.</p>
+ <a href="https://www.seeedstudio.com/EdgeBox-ESP-100-p-5490.html" target="_blank" rel="noopener noreferrer">SeedStudio EdgeBox-ESP-100</a>.</p>
+ <a href="https://norvi.io/norvi-iiot-esp32-industrial-controller" target="_blank" rel="noopener noreferrer">Norvi ESP32 Industrial Controllers</a>.</p>
+ <a href="https://www.waveshare.com/esp32-s3-relay-6ch.htm" target="_blank" rel="noopener noreferrer">Waveshare Industrial 6-Channel ESP32-S3 WiFi Relay Module</a>.</p>
 
 <p>Network: Wifi, Ethernet, 4G modem.</p>
 <p>You must have a SIM with a static IP to be able to access the modbus server over the 4g network.</p>
@@ -22,12 +22,12 @@
 
 ## Home Page
 <p align="center">
-  <img src="./pictures/Home_Page.png" width="800">
+  <img src="./pictures/Home_Page.png" width="600">
 </p>
 
 ## Settings Page
 <p align="center">
-  <img src="./pictures/Settings_Page.png" width="800">
+  <img src="./pictures/Settings_Page.png" width="600">
 </p>
 
 ## License
