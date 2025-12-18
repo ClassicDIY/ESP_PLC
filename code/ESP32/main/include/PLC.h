@@ -7,7 +7,7 @@
 #include "Device.h"
 
 #include "IOTCallbackInterface.h"
-#include "IOledServiceInterface.h"
+#include "IDisplayServiceInterface.h"
 #include "Enumerations.h"
 
 namespace CLASSICDIY {
@@ -19,7 +19,7 @@ class PLC : public Device, public IOTCallbackInterface {
    void CleanUp();
    void Process();
 #ifdef HasMQTT
-   void onMqttConnect();
+   void onMqttConnect(esp_mqtt_client_handle_t &client);
    void onMqttMessage(char *topic, char *payload);
 #endif
 #ifdef HasModbus
@@ -30,7 +30,7 @@ class PLC : public Device, public IOTCallbackInterface {
    void onLoadSetting(JsonDocument &doc);
    String appTemplateProcessor(const String &var);
 #ifdef Has_OLED
-   IOledServiceInterface& getOledInterface() override {  return _oled; };
+   IDisplayServiceInterface& getDisplayInterface() override {  return _oled; };
 #endif
  protected:
 #ifdef HasMQTT

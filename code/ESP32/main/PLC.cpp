@@ -869,7 +869,7 @@ Modbus::Error PLC::SendToModbusBridgeAsync(ModbusMessage &request) {
 }
 #ifdef HasMQTT
 
-void PLC::onMqttConnect() {
+void PLC::onMqttConnect(esp_mqtt_client_handle_t &client) {
    if (!_discoveryPublished) {
       for (int i = 0; i < _digitalInputDiscretes.coils(); i++) {
          std::stringstream ss;
