@@ -22,7 +22,6 @@ namespace CLASSICDIY {
 class Oled : public IDisplayServiceInterface {
  public:
    void Init();
-   void Display(const char *state, uint16_t level);
    void Display(const char* hdr1, const char* detail1, const char* hdr2, const char* detail2);
    void Display(const char* hdr1, const char* detail1, const char* hdr2, int count);
 

@@ -453,10 +453,15 @@ void IOT::Run() {
             } else {
 #if  defined(Has_OLED) || defined(Has_TFT)
                int countdown = (AP_TIMEOUT - (millis() - _waitInAPTimeStamp)) / 1000;
-               _iotCB->getDisplayInterface().Display(getThingName().c_str(), APP_VERSION, "AP Mode", countdown);
+               if (countdown != _lastCountdown) {
+                  _lastCountdown = countdown;
+                  _iotCB->getDisplayInterface().Display(getThingName().c_str(), APP_VERSION, "AP Mode", countdown);
+               }
 #endif
             }
          }
+      } else {
+         setState(NoNetwork);
       }
       if (_AP_Connected) {
          _dnsServer.processNextRequest();
@@ -469,7 +474,7 @@ void IOT::Run() {
          WiFi.disconnect();
          setState(ApState);
       }
-   } else if (_networkState == OffLine) { // went offline, try again...
+   } else if (_networkState == OffLine && _NetworkSelection > APMode) { // went offline, try again...
       logw("went offline, try again...");
       setState(Connecting);
    } else if (_networkState == OnLine) {
@@ -561,6 +566,7 @@ void IOT::setState(NetworkState newState) {
    logd("_networkState: %s", _networkState == Boot         ? "Boot"
                              : _networkState == ApState    ? "ApState"
                              : _networkState == Connecting ? "Connecting"
+                             : _networkState == NoNetwork  ? "NoNetwork"
                              : _networkState == OnLine     ? "OnLine"
                                                            : "OffLine");
 
