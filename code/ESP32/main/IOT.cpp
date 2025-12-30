@@ -913,7 +913,7 @@ void IOT::HandleMQTT(int32_t event_id, void *event_data) {
       sprintf(buf, "%s/set/#", _rootTopicPrefix);
       esp_mqtt_client_subscribe(client, buf, 0);
       _iotCB->onMqttConnect(client);
-      esp_mqtt_client_publish(client, _willTopic, "Online", 0, 1, 0);
+      esp_mqtt_client_publish(client, _willTopic, "Online", 0, 1, 1);
       break;
    case MQTT_EVENT_DISCONNECTED:
       logw("Disconnected from MQTT");
@@ -1052,7 +1052,7 @@ boolean IOT::PublishMessage(const char *topic, const char *payload, boolean reta
 
 void IOT::StopMQTT() {
    if (_mqtt_client_handle != 0) {
-      esp_mqtt_client_publish(_mqtt_client_handle, _willTopic, "Offline", 0, 1, 0);
+      esp_mqtt_client_publish(_mqtt_client_handle, _willTopic, "Offline", 0, 1, 1);
       esp_mqtt_client_stop(_mqtt_client_handle);
    }
    return;
