@@ -321,8 +321,7 @@ void PLC::CleanUp() {
          if (err == SUCCESS) {
             Modbus::Error error = SendToModbusBridgeAsync(forward);
             if (error != SUCCESS) {
-               logd("Error forwarding READ_COIL to modbus bridge device Id:%d Error: %02X - %s", _coilID, error,
-                    (const char *)ModbusError(error));
+               logd("Error forwarding READ_COIL to modbus bridge device Id:%d Error: %02X - %s", _coilID, error, (const char *)ModbusError(error));
             }
          }
       }
@@ -333,8 +332,7 @@ void PLC::CleanUp() {
          if (err == SUCCESS) {
             Modbus::Error error = SendToModbusBridgeAsync(forward);
             if (error != SUCCESS) {
-               logd("Error forwarding WRITE_MULT_REGISTERS to modbus bridge device Id:%d Error: %02X - %s", _holdingID, error,
-                    (const char *)ModbusError(error));
+               logd("Error forwarding WRITE_MULT_REGISTERS to modbus bridge device Id:%d Error: %02X - %s", _holdingID, error, (const char *)ModbusError(error));
             }
          }
       }
@@ -397,8 +395,7 @@ void PLC::Process() {
                if (err == SUCCESS) {
                   Modbus::Error error = SendToModbusBridgeAsync(forward);
                   if (error != SUCCESS) {
-                     logd("Error forwarding FC02 to modbus bridge device Id:%d Error: %02X - %s", _discreteID, error,
-                          (const char *)ModbusError(error));
+                     logd("Error forwarding FC02 to modbus bridge device Id:%d Error: %02X - %s", _discreteID, error, (const char *)ModbusError(error));
                   }
                } else {
                   loge("poll discrete error: 0X%x", err);
@@ -410,8 +407,7 @@ void PLC::Process() {
                if (err == SUCCESS) {
                   Modbus::Error error = SendToModbusBridgeAsync(forward);
                   if (error != SUCCESS) {
-                     logd("Error forwarding FC03 to modbus bridge device Id:%d Error: %02X - %s", _inputID, error,
-                          (const char *)ModbusError(error));
+                     logd("Error forwarding FC03 to modbus bridge device Id:%d Error: %02X - %s", _inputID, error, (const char *)ModbusError(error));
                   }
                } else {
                   loge("poll holding error: 0X%x", err);
@@ -520,8 +516,8 @@ void PLC::onNetworkState(NetworkState state) {
                            response = ECHO_RESPONSE;
                         } else {
                            ModbusError e(err);
-                           logd("Error forwarding FC%d to modbus bridge device Id:%d Error:  %02X - %s", request.getFunctionCode(), _coilID,
-                                (int)e, (const char *)e);
+                           logd("Error forwarding FC%d to modbus bridge device Id:%d Error:  %02X - %s", request.getFunctionCode(), _coilID, (int)e,
+                                (const char *)e);
                            response.setError(request.getServerID(), request.getFunctionCode(), (Error)e);
                         }
                      } else {
@@ -575,16 +571,14 @@ void PLC::onNetworkState(NetworkState state) {
                   numCoils -= DO_PINS;
                   CoilSet bridgeCoilset = _digitalOutputCoils.slice(DO_PINS, numCoils); // bridge coils are forwarded to the modbus bridge
                   ModbusMessage forward;
-                  Error err = forward.setMessage(_coilID, request.getFunctionCode(), 0, bridgeCoilset.coils(), bridgeCoilset.size(),
-                                                 bridgeCoilset.data());
+                  Error err = forward.setMessage(_coilID, request.getFunctionCode(), 0, bridgeCoilset.coils(), bridgeCoilset.size(), bridgeCoilset.data());
                   if (err == SUCCESS) {
                      err = SendToModbusBridgeAsync(forward);
                      if (err == SUCCESS) {
                         response = ECHO_RESPONSE; // All fine, return shortened echo response, like the standard says
                      } else {
                         ModbusError e(err);
-                        logd("Error forwarding FC%d to modbus bridge device Id:%d Error:  %02X - %s", request.getFunctionCode(), _coilID, (int)e,
-                             (const char *)e);
+                        logd("Error forwarding FC%d to modbus bridge device Id:%d Error:  %02X - %s", request.getFunctionCode(), _coilID, (int)e, (const char *)e);
                         response.setError(request.getServerID(), request.getFunctionCode(), (Error)e);
                      }
                   } else {
@@ -657,8 +651,8 @@ void PLC::onNetworkState(NetworkState state) {
                         response = ECHO_RESPONSE;
                      } else {
                         ModbusError e(err);
-                        logd("Error forwarding FC%d to modbus bridge device Id:%d Error:  %02X - %s", request.getFunctionCode(), _holdingID,
-                             (int)e, (const char *)e);
+                        logd("Error forwarding FC%d to modbus bridge device Id:%d Error:  %02X - %s", request.getFunctionCode(), _holdingID, (int)e,
+                             (const char *)e);
                         response.setError(request.getServerID(), request.getFunctionCode(), (Error)e);
                      }
                   } else {
@@ -703,26 +697,27 @@ void PLC::onNetworkState(NetworkState state) {
                   response = ECHO_RESPONSE;
 #endif
 #if defined(HasRS485) & defined(RTUBridge) & defined(HasModbus)
-                  numRegs -= AO_PINS; // start of bridge registers
-                  RegisterSet bridgeRegset = _analogOutputRegisters.slice(AO_PINS, numRegs);
-                  // bridge registers are forwarded to the modbus bridge
-                  ModbusMessage forward;
-                  Error err = forward.setMessage(_holdingID, request.getFunctionCode(), 0, bridgeRegset.size(), bridgeRegset.size() * 2,
-                                                 bridgeRegset.data());
-                  if (err == SUCCESS) {
-                     err = SendToModbusBridgeAsync(forward);
+                  if (_useModbusBridge) {
+                     numRegs -= AO_PINS; // start of bridge registers
+                     RegisterSet bridgeRegset = _analogOutputRegisters.slice(AO_PINS, numRegs);
+                     // bridge registers are forwarded to the modbus bridge
+                     ModbusMessage forward;
+                     Error err = forward.setMessage(_holdingID, request.getFunctionCode(), 0, bridgeRegset.size(), bridgeRegset.size() * 2, bridgeRegset.data());
                      if (err == SUCCESS) {
-                        response = ECHO_RESPONSE; // All fine, return shortened echo response, like the standard says
+                        err = SendToModbusBridgeAsync(forward);
+                        if (err == SUCCESS) {
+                           response = ECHO_RESPONSE; // All fine, return shortened echo response, like the standard says
+                        } else {
+                           ModbusError e(err);
+                           logd("Error forwarding FC%d to modbus bridge device Id:%d Error:  %02X - %s", request.getFunctionCode(), _holdingID, (int)e,
+                                (const char *)e);
+                           response.setError(request.getServerID(), request.getFunctionCode(), (Error)e);
+                        }
                      } else {
                         ModbusError e(err);
-                        logd("Error forwarding FC%d to modbus bridge device Id:%d Error:  %02X - %s", request.getFunctionCode(), _holdingID,
-                             (int)e, (const char *)e);
-                        response.setError(request.getServerID(), request.getFunctionCode(), (Error)e);
+                        loge("ModbusMessage Write multiple registers error: %02X - %s", (int)e, (const char *)e);
+                        response.setError(request.getServerID(), request.getFunctionCode(), err);
                      }
-                  } else {
-                     ModbusError e(err);
-                     loge("ModbusMessage Write multiple registers error: %02X - %s", (int)e, (const char *)e);
-                     response.setError(request.getServerID(), request.getFunctionCode(), err);
                   }
 #endif
                } else {
@@ -765,8 +760,7 @@ void PLC::onNetworkState(NetworkState state) {
          _MBclientRTU.begin(Serial2);
          _MBclientRTU.useModbusRTU();
          _MBclientRTU.onDataHandler([this](ModbusMessage response, uint32_t token) {
-            logv("RTU Response: serverID=%d, FC=%d, Token=%08X, length=%d", response.getServerID(), response.getFunctionCode(), token,
-                 response.size());
+            logv("RTU Response: serverID=%d, FC=%d, Token=%08X, length=%d", response.getServerID(), response.getFunctionCode(), token, response.size());
             return onModbusMessage(response);
          });
          _MBclientRTU.onErrorHandler([this](Modbus::Error mbError, uint32_t token) {
@@ -800,8 +794,7 @@ bool PLC::onModbusMessage(ModbusMessage &msg) {
       if (receivedRegisters != slicedRegisters) {
          logd("Make sure holding registers have the same value as _analogOutputRegisters");
          ModbusMessage forward;
-         Error err =
-             forward.setMessage(_holdingID, WRITE_MULT_REGISTERS, 0, slicedRegisters.size(), slicedRegisters.size() * 2, slicedRegisters.data());
+         Error err = forward.setMessage(_holdingID, WRITE_MULT_REGISTERS, 0, slicedRegisters.size(), slicedRegisters.size() * 2, slicedRegisters.data());
          if (err == SUCCESS) {
             err = SendToModbusBridgeAsync(forward);
             if (err != SUCCESS) {
@@ -998,6 +991,20 @@ void PLC::onMqttMessage(char *topic, char *payload) {
                   } else {
                      logw("Write Coil %d invalid state: %s", i, input.c_str());
                   }
+#if defined(HasRS485) & defined(RTUBridge) & defined(HasModbus)
+                  if (_useModbusBridge && i >= DO_PINS) {
+                     CoilSet bridgeCoilset = _digitalOutputCoils.slice(DO_PINS, _coilCount); // bridge coils are forwarded to the modbus bridge
+                     ModbusMessage forward;
+                     Error err = forward.setMessage(_coilID, WRITE_MULT_COILS, 0, bridgeCoilset.coils(), bridgeCoilset.size(), bridgeCoilset.data());
+                     if (err == SUCCESS) {
+                        err = SendToModbusBridgeAsync(forward);
+                        if (err != SUCCESS) {
+                           ModbusError e(err);
+                           logd("Error forwarding FC%d to modbus bridge device Id:%d Error:  %02X - %s", WRITE_MULT_COILS, _coilID, (int)e, (const char *)e);
+                        }
+                     }
+                  }
+#endif
                   break;
                }
             }
@@ -1018,6 +1025,20 @@ void PLC::onMqttMessage(char *topic, char *payload) {
                   input.toLowerCase();
                   logd("Analog output value: %s", input.c_str());
                   _analogOutputRegisters.set(i, atoi(input.c_str()));
+#if defined(HasRS485) & defined(RTUBridge) & defined(HasModbus)
+                  if (_useModbusBridge && i >= AO_PINS) {
+                     RegisterSet bridgeRegset = _analogOutputRegisters.slice(AO_PINS, _holdingCount);
+                     ModbusMessage forward;
+                     Error err = forward.setMessage(_holdingID, WRITE_MULT_REGISTERS, 0, bridgeRegset.size(), bridgeRegset.size() * 2, bridgeRegset.data());
+                     if (err == SUCCESS) {
+                        err = SendToModbusBridgeAsync(forward);
+                        if (err != SUCCESS) {
+                           ModbusError e(err);
+                           logd("Error forwarding FC%d to modbus bridge device Id:%d Error:  %02X - %s", WRITE_MULT_REGISTERS, _holdingID, (int)e, (const char *)e);
+                        }
+                     }
+                  }
+#endif
                   break;
                }
             }
