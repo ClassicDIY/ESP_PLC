@@ -11,7 +11,6 @@
 #include "PLC.h"
 #include "PLC.htm"
 
-namespace CLASSICDIY {
 static AsyncWebServer _asyncServer(ASYNC_WEBSERVER_PORT);
 static AsyncWebSocket _webSocket("/ws_home");
 IOT _iot = IOT();
@@ -26,7 +25,7 @@ PLC::~PLC() { logd("PLC destructor"); }
 
 void PLC::Setup() {
    Init();
-   _iot.Init(this, &_asyncServer);
+   _iot.Init(this);
    uint16_t coilCount = _useModbusBridge ? _coilCount + DO_PINS : DO_PINS;
    _digitalOutputCoils.Init(coilCount);
    uint16_t discreteCount = _useModbusBridge ? _discreteCount + DI_PINS : DI_PINS;
@@ -35,71 +34,6 @@ void PLC::Setup() {
    _analogOutputRegisters.Init(analogOutputCount);
    uint16_t analogInputCount = _useModbusBridge ? _inputCount + AI_PINS : AI_PINS;
    _analogInputRegisters.Init(analogInputCount);
-   _asyncServer.on("/", HTTP_GET, [this](AsyncWebServerRequest *request) {
-      request->send(200, "text/html", home_html, [this](const String &var) { return appTemplateProcessor(var); });
-   });
-   _asyncServer.on("/appsettings", HTTP_GET, [this](AsyncWebServerRequest *request) {
-      JsonDocument app;
-      onSaveSetting(app);
-      logd("HTTP_GET app_fields: %s", formattedJson(app).c_str());
-      String s;
-      serializeJson(app, s);
-      request->send(200, "text/html", s);
-   });
-   _asyncServer.on(
-       "/app_fields", HTTP_POST,
-       [this](AsyncWebServerRequest *request) {
-          // Called after all chunks are received
-          logv("Full body received: %s", _bodyBuffer.c_str());
-          // Parse JSON safely
-          JsonDocument doc; // adjust size to expected payload
-          DeserializationError err = deserializeJson(doc, _bodyBuffer);
-          if (err) {
-             logd("JSON parse failed: %s", err.c_str());
-          } else {
-             logd("HTTP_POST app_fields: %s", formattedJson(doc).c_str());
-             onLoadSetting(doc);
-          }
-          request->send(200, "application/json", "{\"status\":\"ok\"}");
-          _bodyBuffer = ""; // clear for next request
-       },
-       NULL, // file upload handler (not used here)
-       [this](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
-          logv("Chunk received: len=%d, index=%d, total=%d", len, index, total);
-          // Append chunk to buffer
-          _bodyBuffer.reserve(total); // reserve once for efficiency
-          for (size_t i = 0; i < len; i++) {
-             _bodyBuffer += (char)data[i];
-          }
-          if (index + len == total) {
-             logd("Upload complete!");
-          }
-       });
-   _asyncServer.addHandler(&_webSocket).addMiddleware([this](AsyncWebServerRequest *request, ArMiddlewareNext next) {
-      // ws.count() is the current count of WS clients: this one is trying to upgrade its HTTP connection
-      if (_webSocket.count() > 1) {
-         // if we have 2 clients or more, prevent the next one to connect
-         request->send(503, "text/plain", "Server is busy");
-      } else {
-         // process next middleware and at the end the handler
-         next();
-      }
-   });
-   _webSocket.onEvent([this](AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
-      (void)len;
-      if (type == WS_EVT_CONNECT) {
-         _lastMessagePublished.clear(); // force a broadcast
-         client->setCloseClientOnQueueFull(false);
-         client->ping();
-      } else if (type == WS_EVT_DISCONNECT) {
-         // logi("Home Page Disconnected!");
-      } else if (type == WS_EVT_ERROR) {
-         loge("ws error");
-      } else if (type == WS_EVT_PONG) {
-         logd("ws pong");
-         _lastMessagePublished.clear(); // force a broadcast
-      }
-   });
 }
 
 void PLC::onSaveSetting(JsonDocument &plc) {
@@ -171,6 +105,9 @@ String PLC::appTemplateProcessor(const String &var) {
    }
    if (var == "version") {
       return String(APP_VERSION);
+   }
+   if (var == "home_html") {
+      return String(home_html);;
    }
    if (var == "style") {
       return String(app_style);
@@ -381,7 +318,7 @@ void PLC::Process() {
       _iot.Publish("readings", s.c_str(), false);
 #endif
       _lastMessagePublished = s;
-      _webSocket.textAll(s);
+      _iot.PostWeb(s);
       logv("Published readings: %s", s.c_str());
 #if defined(HasRS485) & defined(RTUBridge) & defined(HasModbus)
       unsigned long now = millis();
@@ -417,6 +354,10 @@ void PLC::Process() {
       }
 #endif
    }
+}
+
+void PLC::onSocketPong() {
+   _lastMessagePublished.clear(); // force a broadcast
 }
 
 void PLC::onNetworkState(NetworkState state) {
@@ -951,7 +892,7 @@ boolean PLC::PublishDiscoverySub(IOTypes type, const char *entityName, const cha
    device["name"] = _iot.getThingName().c_str();
    device["sw_version"] = APP_VERSION;
    device["manufacturer"] = "ClassicDIY";
-   sprintf(buffer, "%s (%X)", TAG, _iot.getUniqueId());
+   sprintf(buffer, "%s (%X)", APP_LOG_TAG, _iot.getUniqueId());
    device["model"] = buffer;
    JsonArray identifiers = device["identifiers"].to<JsonArray>();
    sprintf(buffer, "%X", _iot.getUniqueId());
@@ -1053,4 +994,3 @@ void PLC::onMqttMessage(char *topic, char *payload) {
    }
 }
 #endif
-} // namespace CLASSICDIY

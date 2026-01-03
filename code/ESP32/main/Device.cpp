@@ -10,7 +10,6 @@
 
 #include <Adafruit_ADS1X15.h>
 Adafruit_ADS1115 ads; /* Use this for the 16-bit version */
-namespace CLASSICDIY {
 
 void Device::InitCommon() {
    Wire.begin(I2C_SDA, I2C_SCL);
@@ -34,23 +33,9 @@ void Device::Init() {
    for (int i = 0; i < DI_PINS; i++) {
       pinMode(_DigitalSensors[i], INPUT);
    }
-   pinMode(FACTORY_RESET_PIN, INPUT_PULLUP);
-   pinMode(WIFI_STATUS_PIN, OUTPUT);
 }
 
 void Device::Run() {
-   // handle blink led, fast : NotConnected slow: AP connected On: Station connected
-   if (_networkState != OnLine) {
-      unsigned long binkRate = _networkState == ApState ? AP_BLINK_RATE : NC_BLINK_RATE;
-      unsigned long now = millis();
-      if (binkRate < now - _lastBlinkTime) {
-         _blinkStateOn = !_blinkStateOn;
-         _lastBlinkTime = now;
-         digitalWrite(WIFI_STATUS_PIN, _blinkStateOn ? HIGH : LOW);
-      }
-   } else {
-      digitalWrite(WIFI_STATUS_PIN, LOW);
-   }
 }
 
 void Device::SetRelay(const uint8_t index, const uint8_t value) { digitalWrite(_Coils[index], value); }
@@ -70,31 +55,12 @@ void Device::Init() {
    for (int i = 0; i < DI_PINS; i++) {
       pinMode(_DigitalSensors[i], INPUT);
    }
-   pinMode(FACTORY_RESET_PIN, INPUT_PULLUP);
-#ifndef LOG_TO_SERIAL_PORT // disable logs to use LED wifi status
-                           // use LED if the log level is none (edgeBox shares the LED pin with the serial TX gpio)
-   pinMode(WIFI_STATUS_PIN, OUTPUT);
-#endif
    if (!ads.begin(0x48, &Wire)) {
       loge("Failed to initialize ADS.");
    }
 }
 
 void Device::Run() {
-#ifndef LOG_TO_SERIAL_PORT // disable logs to use LED wifi status
-   // handle blink led, fast : NotConnected slow: AP connected On: Station connected
-   if (_networkState != OnLine) {
-      unsigned long binkRate = _networkState == ApState ? AP_BLINK_RATE : NC_BLINK_RATE;
-      unsigned long now = millis();
-      if (binkRate < now - _lastBlinkTime) {
-         _blinkStateOn = !_blinkStateOn;
-         _lastBlinkTime = now;
-         digitalWrite(WIFI_STATUS_PIN, _blinkStateOn ? HIGH : LOW);
-      }
-   } else {
-      digitalWrite(WIFI_STATUS_PIN, LOW);
-   }
-#endif
    // transfer analog data from sensors to RegisterSet
    for (int i = 0; i < AI_PINS; i++) {
       _AnalogSensors[i].Run();
@@ -144,23 +110,9 @@ void Device::Init() {
    for (int i = 0; i < DI_PINS; i++) {
       pinMode(_DigitalSensors[i], INPUT);
    }
-   pinMode(FACTORY_RESET_PIN, INPUT_PULLUP);
-   pinMode(WIFI_STATUS_PIN, OUTPUT);
 }
 
 void Device::Run() {
-   // handle blink led, fast : NotConnected slow: AP connected On: Station connected
-   if (_networkState != OnLine) {
-      unsigned long binkRate = _networkState == ApState ? AP_BLINK_RATE : NC_BLINK_RATE;
-      unsigned long now = millis();
-      if (binkRate < now - _lastBlinkTime) {
-         _blinkStateOn = !_blinkStateOn;
-         _lastBlinkTime = now;
-         digitalWrite(WIFI_STATUS_PIN, _blinkStateOn ? HIGH : LOW);
-      }
-   } else {
-      digitalWrite(WIFI_STATUS_PIN, LOW);
-   }
 }
 
 void Device::SetRelay(const uint8_t index, const uint8_t value) { digitalWrite(_Coils[index], value); }
@@ -269,23 +221,9 @@ void Device::Init() {
    for (int i = 0; i < DI_PINS; i++) {
       pinMode(_DigitalSensors[i], INPUT);
    }
-   pinMode(FACTORY_RESET_PIN, INPUT_PULLUP);
-   pinMode(WIFI_STATUS_PIN, OUTPUT);
 }
 
 void Device::Run() {
-   // handle blink led, fast : NotConnected slow: AP connected On: Station connected
-   if (_networkState != OnLine) {
-      unsigned long binkRate = _networkState == ApState ? AP_BLINK_RATE : NC_BLINK_RATE;
-      unsigned long now = millis();
-      if (binkRate < now - _lastBlinkTime) {
-         _blinkStateOn = !_blinkStateOn;
-         _lastBlinkTime = now;
-         digitalWrite(WIFI_STATUS_PIN, _blinkStateOn ? HIGH : LOW);
-      }
-   } else {
-      digitalWrite(WIFI_STATUS_PIN, LOW);
-   }
 }
 
 void Device::SetRelay(const uint8_t index, const uint8_t value) { digitalWrite(_Coils[index], value); }
@@ -296,4 +234,3 @@ bool Device::GetDigitalLevel(const uint8_t index) { return (bool)digitalRead(_Di
 
 #endif
 
-} // namespace CLASSICDIY

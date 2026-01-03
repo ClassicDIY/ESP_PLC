@@ -2,21 +2,11 @@
 #include <Arduino.h>
 
 #ifdef EDGEBOX
-// Modbus setup
-#define CoilsDiv ""
-#define InputRegistersDiv ""
-#define DiscretesDiv ""
-#define HoldingRegistersDiv ""
 
 #define DI_PINS 4          // Number of digital input pins
 #define DO_PINS 6          // Number of digital output pins
 #define AI_PINS 4          // Number of analog input pins
 #define AO_PINS 2          // Number of analog output pins
-#ifndef LOG_TO_SERIAL_PORT // disable logs to use LED wifi status
-// use LED if the log level is none (edgeBox shares the LED pin with the serial TX gpio)
-#define WIFI_STATUS_PIN 43 // LED Pin
-#endif
-#define FACTORY_RESET_PIN 2 // Clear NVRAM, shared with CAN_RXD
 
 void inline GPIO_Init() {}
 
@@ -30,25 +20,6 @@ void inline GPIO_Init() {}
 
 // I2C INT fro RTC PCF8563
 #define I2C_INT GPIO_NUM_9
-
-// SPI BUS for W5500 Ethernet Port Driver
-#define ETH_SS GPIO_NUM_10
-#define ETH_MOSI GPIO_NUM_12
-#define ETH_MISO GPIO_NUM_11
-#define ETH_SCK GPIO_NUM_13
-#define ETH_INT GPIO_NUM_14
-#define ETH_RST GPIO_NUM_15
-
-// A7670G
-#define LTE_AIRPLANE_MODE GPIO_NUM_16
-#define LTE_PWR_EN GPIO_NUM_21
-#define LTE_TXD GPIO_NUM_48
-#define LTE_RXD GPIO_NUM_47
-
-// RS485
-#define RS485_TXD GPIO_NUM_17
-#define RS485_RXD GPIO_NUM_18
-#define RS485_RTS GPIO_NUM_8
 
 // CAN BUS
 #define CAN_TXD GPIO_NUM_1
@@ -82,12 +53,6 @@ void inline GPIO_Init() {}
 #endif
 #ifdef NORVI_GSM_AE02
 
-// Modbus setup
-#define CoilsDiv ""
-#define InputRegistersDiv ""
-#define DiscretesDiv ""
-#define HoldingRegistersDiv "class=\"hidden\""
-
 #define DI_PINS 8        // Number of digital input pins
 #define DO_PINS 2        // Number of digital output pins
 #define AI_PINS 4        // Number of analog input pins
@@ -104,16 +69,6 @@ void inline GPIO_Init() { pinMode(GPIO_NUM_36, INPUT); }
 // I2C
 #define I2C_SDA GPIO_NUM_16
 #define I2C_SCL GPIO_NUM_17
-
-// GSM Modem
-#define LTE_PWR_EN GPIO_NUM_21
-#define LTE_TXD GPIO_NUM_32
-#define LTE_RXD GPIO_NUM_33
-
-// RS485
-#define RS485_TXD GPIO_NUM_26
-#define RS485_RXD GPIO_NUM_25
-#define RS485_RTS GPIO_NUM_22
 
 #define DO0 GPIO_NUM_12
 #define DO1 GPIO_NUM_2
@@ -144,19 +99,10 @@ void inline GPIO_Init() { pinMode(GPIO_NUM_36, INPUT); }
 #endif
 #ifdef LILYGO_T_SIM7600G
 
-// Modbus setup
-#define CoilsDiv ""
-#define InputRegistersDiv "class=\"hidden\""
-#define DiscretesDiv ""
-#define HoldingRegistersDiv "class=\"hidden\""
-
 #define DI_PINS 2 // Number of digital input pins
 #define DO_PINS 2 // Number of digital output pins
 #define AI_PINS 0 // Number of analog input pins
 #define AO_PINS 0 // Number of analog output pins
-
-#define WIFI_STATUS_PIN 12  // LED Pin
-#define FACTORY_RESET_PIN 2 // Clear NVRAM
 
 void inline GPIO_Init() {}
 
@@ -167,12 +113,6 @@ void inline GPIO_Init() {}
 // I2C
 #define I2C_SDA GPIO_NUM_21
 #define I2C_SCL GPIO_NUM_22
-
-// GSM Modem
-#define LTE_AIRPLANE_MODE  25 // SIM7600G airplane mode pin, High to exit.
-#define LTE_PWR_EN GPIO_NUM_4         // send power to the modem
-#define LTE_TXD GPIO_NUM_27
-#define LTE_RXD GPIO_NUM_26
 
 // digital outputs
 #define DO0 GPIO_NUM_14
@@ -187,12 +127,6 @@ void inline GPIO_Init() {}
 #endif
 #ifdef Waveshare_Relay_6CH
 
-// Modbus setup
-#define CoilsDiv ""
-#define InputRegistersDiv "class=\"hidden\""
-#define DiscretesDiv "class=\"hidden\""
-#define HoldingRegistersDiv "class=\"hidden\""
-
 #define DI_PINS 0 // Number of digital input pins
 #define DO_PINS 6 // Number of digital output pins
 #define AI_PINS 0 // Number of analog input pins
@@ -200,7 +134,6 @@ void inline GPIO_Init() {}
 
 #define RGB_LED_PIN 38
 #define GPIO_PIN_Buzzer 21   // Buzzer Control GPIO
-#define FACTORY_RESET_PIN 12 // Clear NVRAM
 #define PWM_Channel 1        // PWM Channel
 #define Frequency 1000       // PWM frequencyconst
 #define Resolution 8
@@ -220,18 +153,13 @@ void inline Buzzer_PWM(uint16_t Time) // ledChannel：PWM Channe    dutyfactor:d
 void inline GPIO_Init() {
    pinMode(RGB_LED_PIN, OUTPUT);     // Initialize the control GPIO of RGB
    pinMode(GPIO_PIN_Buzzer, OUTPUT); // Initialize the control GPIO of Buzzer
-
    ledcSetup(PWM_Channel, Frequency, Resolution); // Set PWM channel
    ledcAttachPin(GPIO_PIN_Buzzer, PWM_Channel);   // Connect the channel to the corresponding pin
 }
+
 // UARTS
 #define U0_TXD GPIO_NUM_43
 #define U0_RXD GPIO_NUM_44
-
-// RS485
-#define RS485_TXD GPIO_NUM_17
-#define RS485_RXD GPIO_NUM_18
-#define RS485_RTS -1
 
 // I2C
 #define I2C_SDA GPIO_NUM_47
@@ -254,19 +182,10 @@ void inline GPIO_Init() {
 #endif
 #ifdef Lilygo_Relay_4CH
 
-// Modbus setup
-#define CoilsDiv ""
-#define InputRegistersDiv "class=\"hidden\""
-#define DiscretesDiv "class=\"hidden\""
-#define HoldingRegistersDiv "class=\"hidden\""
-
 #define DI_PINS 0 // Number of digital input pins
 #define DO_PINS 4 // Number of digital output pins
 #define AI_PINS 0 // Number of analog input pins
 #define AO_PINS 0 // Number of analog output pins
-
-#define FACTORY_RESET_PIN 4 // Clear NVRAM
-#define WIFI_STATUS_PIN 25  // LED Pin
 
 // I2C
 #define I2C_SDA GPIO_NUM_15
@@ -287,19 +206,10 @@ void inline GPIO_Init() {
 #endif
 #ifdef ESP_32Dev
 
-// Modbus setup
-#define CoilsDiv ""
-#define InputRegistersDiv "class=\"hidden\""
-#define DiscretesDiv ""
-#define HoldingRegistersDiv "class=\"hidden\""
-
 #define DI_PINS 2 // Number of digital input pins
 #define DO_PINS 2 // Number of digital output pins
 #define AI_PINS 0 // Number of analog input pins
 #define AO_PINS 0 // Number of analog output pins
-
-#define WIFI_STATUS_PIN 2  // LED Pin
-#define FACTORY_RESET_PIN 4 // Clear NVRAM
 
 // I2C
 #define I2C_SDA GPIO_NUM_21

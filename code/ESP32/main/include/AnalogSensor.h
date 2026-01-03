@@ -2,9 +2,8 @@
 #include <Arduino.h>
 #include <sstream>
 #include <string>
-#include "defines.h"
+#include "IOT_Defines.h"
 
-namespace CLASSICDIY {
 class AnalogSensor {
  public:
    AnalogSensor(int channel);
@@ -43,4 +42,4 @@ class AnalogSensor {
    uint32_t adcReadingMin = 2635;
    uint32_t adcReadingMax = 13175;
 };
-} // namespace CLASSICDIY
+

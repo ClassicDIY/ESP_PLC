@@ -1,12 +1,11 @@
 #include <Arduino.h>
 #include <Adafruit_ADS1X15.h>
 #include "Log.h"
-#include "Defines.h"
+#include "IOT_Defines.h"
 #include "AnalogSensor.h"
 
 extern Adafruit_ADS1115 ads;
 
-namespace CLASSICDIY {
 AnalogSensor::AnalogSensor(int channel) {
    _channel = channel;
    _count = 0;
@@ -43,4 +42,4 @@ float AnalogSensor::Level() {
                  10.0) /
           10.0;
 }
-} // namespace CLASSICDIY
+

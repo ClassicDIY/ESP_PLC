@@ -3,14 +3,17 @@
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <ModbusServerTCPasync.h>
-#include "Defines.h"
+#include <ModbusServerRTU.h>
+#include <ModbusClientRTU.h>
+#include "IOT_Defines.h"
 #include "Device.h"
 
 #include "IOTCallbackInterface.h"
 #include "IDisplayServiceInterface.h"
-#include "Enumerations.h"
+#include "IOTEnumerations.h"
 
-namespace CLASSICDIY {
+using namespace CLASSICDIY;
+
 class PLC : public Device, public IOTCallbackInterface {
  public:
    PLC();
@@ -26,6 +29,7 @@ class PLC : public Device, public IOTCallbackInterface {
    bool onModbusMessage(ModbusMessage &msg);
 #endif
    void onNetworkState(NetworkState state);
+   void onSocketPong();
    void onSaveSetting(JsonDocument &doc);
    void onLoadSetting(JsonDocument &doc);
    String appTemplateProcessor(const String &var);
@@ -70,4 +74,3 @@ class PLC : public Device, public IOTCallbackInterface {
    uint16_t _holdingAddress = 0;
    uint8_t _holdingCount = 0;
 };
-} // namespace CLASSICDIY

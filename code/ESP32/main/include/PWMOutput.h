@@ -2,9 +2,8 @@
 #include <Arduino.h>
 #include <sstream>
 #include <string>
-#include "defines.h"
+#include "IOT_Defines.h"
 
-namespace CLASSICDIY {
 class PWMOutput {
  public:
    PWMOutput(int pin);
@@ -17,4 +16,4 @@ class PWMOutput {
    int _pin;
    uint8_t _dutyCycle;
 };
-} // namespace CLASSICDIY
+

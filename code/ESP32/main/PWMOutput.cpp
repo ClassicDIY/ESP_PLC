@@ -1,9 +1,8 @@
 #include <Arduino.h>
 #include "Log.h"
-#include "Defines.h"
+#include "IOT_Defines.h"
 #include "PWMOutput.h"
 
-namespace CLASSICDIY {
 PWMOutput::PWMOutput(int pin) {
    _pin = pin;
    pinMode(_pin, OUTPUT);
@@ -19,4 +18,3 @@ void PWMOutput::SetDutyCycle(uint8_t dutyCycle) {
    return;
 }
 
-} // namespace CLASSICDIY
