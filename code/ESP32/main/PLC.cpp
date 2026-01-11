@@ -205,7 +205,7 @@ String PLC::appTemplateProcessor(const String &var) {
    if (var == "getClientRTUValues") {
       return String(getClientRTUValues);
    }
-   if (var == "setClientRTUValues") {
+   if (var == "appSelectValues") {
       return String(setClientRTUValues);
    }
    if (var == "setModbusBridgeFieldset") {
